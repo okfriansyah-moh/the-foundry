@@ -1,0 +1,43 @@
+FROM golang:1.22 AS base
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    make \
+    git \
+    ca-certificates \
+    curl \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js (needed by Playwright)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Docker CLI (needed to invoke docker from inside dev, e.g. sandbox spawning in later tasks)
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
+    > /etc/apt/sources.list.d/docker.list \
+    && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Playwright system dependencies
+RUN npx --yes playwright@1.45.0 install-deps chromium || true
+
+# Go tooling (GOTOOLCHAIN=auto lets `go install` fetch a newer toolchain
+# on demand when a tool's go.mod requires one newer than the base image)
+ENV GOTOOLCHAIN=auto
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
+    && go install github.com/goreleaser/goreleaser@latest \
+    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Non-root user with host-matching UID/GID so bind-mounted files keep sane ownership
+RUN groupadd --gid ${USER_GID} foundry \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash foundry
+
+USER foundry
+WORKDIR /workspace

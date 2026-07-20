@@ -1,0 +1,6 @@
+.git
+evidence/
+*.tar
+*.tar.gz
+dist/
+bin/

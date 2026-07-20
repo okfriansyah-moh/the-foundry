@@ -2,6 +2,16 @@
 
 Delivery Foundry is a governed control plane for loop-engineered software delivery. It defines a durable, resumable, evidence-verified execution model for AI agents operating under explicit policy envelopes rather than implicit trust.
 
+## Requirements
+
+Docker + GNU make. Nothing else — no local Go, Node, or Playwright install is required. Every `make` target runs inside the `dev` toolchain image (see `deploy/Dockerfile.dev`, `deploy/docker-compose.yaml`).
+
+```
+make bootstrap test lint fitness
+```
+
+Execution protocol for implementing plan tasks: see [PLAN_7.md](PLAN_7.md) §A. (`docs/PLAN.md` is the canonical path once Task 2 vendors this file there.)
+
 ## What this repository contains
 
 This repository is organized around a V12 architecture and implementation blueprint for two product tracks:

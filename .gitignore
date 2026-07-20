@@ -1,0 +1,53 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Go build/test artifacts
+/bin/
+/out/
+/build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+coverage.out
+coverage.html
+
+# Go module cache (local only)
+/go/pkg/mod/
+/.cache/
+
+# Docker / local runtime data
+.data/
+*.pid
+*.log
+
+# Evidence / generated outputs
+/evidence/
+*.tmp
+*.bak
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node / frontend caches (in case tooling is used)
+node_modules/
+.npm/
+.pnpm-store/
+
+# Test fixtures / local artifacts
+/tmp/
+/tmp/
+
+# GitHub Copilot / workspace noise
+*.orig

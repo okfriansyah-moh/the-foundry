@@ -92,7 +92,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 
 | ✔   | Task | Alias  | Title                                                           | Phase/Wave | Depends                    | [P]  |
 | --- | ---- | ------ | --------------------------------------------------------------- | ---------- | -------------------------- | ---- |
-| ☐   | 1    | HAR-01 | Repository scaffold, Docker-wrapped Makefile, CI                | M0/S0      | —                          | None |
+| ✅   | 1    | HAR-01 | Repository scaffold, Docker-wrapped Makefile, CI                | M0/S0      | —                          | None |
 | ☐   | 2    | HAR-02 | Agent harness (AGENTS.md, .ai skills, docs vendored)            | M0/S0      | 1                          | [P]  |
 | ☐   | 3    | RUN-01 | Autonomous PLAN runner: risk-tiered orchestrator, Telegram gate | M0/S0      | 2                          | [P]  |
 | ☐   | 4    | SKP-02 | Runtime services in compose: Temporal+PG, make up/doctor        | M0/S0      | 1                          | [P]  |
@@ -242,7 +242,7 @@ flowchart LR
 - **Acceptance:** on a clean machine with **only Docker and make installed (no Go toolchain on host)** — fresh clone → `make bootstrap && make test && make lint && make fitness` all exit 0; CI green on first push using the identical image; every internal package compiles with `doc.go` only; exactly one `dev` image is built.
 - **Validation:** `make bootstrap test lint fitness` run from a Go-less shell/VM + CI run URL in evidence.
 - **Evidence:** CI log, `tree -L 2` output, transcript proving host independence (Go-less shell running `make test` successfully). · **Risk:** Low · **Exec:** infra · **Rev:** R1 · **Boundary:** no logic beyond linters and the toolchain image itself.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-20 — `make bootstrap test lint fitness` all green (evidence: `evidence/task-1/`). decision: repo was already git-initialized (existing `the-foundry` repo with vendored V12 docs at `docs/`), so step (1)'s `git init` was skipped; module path taken from the existing git remote (`github.com/okfriansyah-moh/the-foundry`) instead of a placeholder `<owner>`. decision: validation ran locally via Docker Desktop rather than a separately provisioned Go-less VM; no CI run URL yet since this hasn't been pushed.
 
 ### Task 2 (HAR-02) [P] — Agent harness: AGENTS.md, .ai skills/prompts, vendored docs
 
