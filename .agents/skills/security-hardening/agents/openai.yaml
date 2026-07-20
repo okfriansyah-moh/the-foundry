@@ -1,0 +1,5 @@
+interface:
+  display_name: "security-hardening"
+  short_description: "Apply application-security baseline (OWASP Top 10) to every task that touches `internal/*`, migrations, adapters,"
+policy:
+  allow_implicit_invocation: true

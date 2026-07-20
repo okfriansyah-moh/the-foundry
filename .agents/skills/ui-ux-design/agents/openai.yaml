@@ -1,0 +1,5 @@
+interface:
+  display_name: "ui-ux-design"
+  short_description: "Visual and interaction design discipline for the venture product template — companion to `frontend-development`"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,5 @@
+interface:
+  display_name: "code-review"
+  short_description: "A general, multi-pillar review pass usable on any diff in this repo — broader than `task-review` (which is"
+policy:
+  allow_implicit_invocation: true

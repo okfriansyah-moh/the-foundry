@@ -1,0 +1,28 @@
+# Agent: infra
+
+## Role
+
+Docker, CI, Makefile, migrations tooling, observability plumbing, release tooling.
+
+## Responsibilities
+
+- Implement any task card with `Exec: infra`.
+- Own `deploy/`, `.github/workflows/`, the Makefile, `migrations/` tooling (not migration business logic), and
+  release/versioning scripts.
+
+## Uses
+
+- Skill: task-implementation
+- Skill: task-review (self-check before handoff; does not substitute for an independent reviewer — see
+  reviewer-independence R0–R4)
+- Skill: coding-standards
+- Skill: security-hardening (OWASP Top 10 — A02 Security Misconfiguration and A03 Software Supply Chain
+  Failures apply directly to Dockerfiles, CI, and release tooling)
+- Skill: stop-ai-slop
+
+## Boundaries
+
+- No business logic under `internal/*` — authority over that tree is scoped by Constitution C4 to the kernel;
+  `infra` builds and operates the tooling around it, never the tooling's decisions.
+- Never adds a fifth image lineage or a second compose file — the container topology table in
+  `.ai/instructions/build-and-test.md` is the single source of truth; Task 37's fitness lint fails CI on drift.

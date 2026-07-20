@@ -1,0 +1,5 @@
+interface:
+  display_name: "task-implementation"
+  short_description: "Implement one task card at a time from `docs/PLAN.md` while preserving scope, architecture, and validation"
+policy:
+  allow_implicit_invocation: true

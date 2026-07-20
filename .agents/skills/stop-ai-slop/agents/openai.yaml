@@ -1,0 +1,5 @@
+interface:
+  display_name: "stop-ai-slop"
+  short_description: "Name and block the specific failure modes of AI-generated code and AI-generated reports that pass a shallow check"
+policy:
+  allow_implicit_invocation: true

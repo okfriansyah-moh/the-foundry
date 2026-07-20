@@ -1,0 +1,12 @@
+version: "2.0"
+project:
+  name: delivery-foundry
+  description: >-
+    Give it a PLAN.md, a mockup, or an idea. Delivery Foundry loops itself —
+    build, verify, deploy, improve — until it's shipped.
+  repository: https://github.com/okfriansyah-moh/the-foundry
+defaults:
+  agent: go-kernel
+providers:
+  - claude
+  - codex

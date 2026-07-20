@@ -1,0 +1,5 @@
+interface:
+  display_name: "task-review"
+  short_description: "Review a completed task implementation for compliance with the plan, the constitution, architecture, tests,"
+policy:
+  allow_implicit_invocation: true

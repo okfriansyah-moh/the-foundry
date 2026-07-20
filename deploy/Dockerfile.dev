@@ -33,7 +33,8 @@ RUN npx --yes playwright@1.45.0 install-deps chromium || true
 ENV GOTOOLCHAIN=auto
 RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
     && go install github.com/goreleaser/goreleaser@latest \
-    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+    && go install github.com/okfriansyah-moh/ares/cmd/ars@latest
 
 # Non-root user with host-matching UID/GID so bind-mounted files keep sane ownership
 RUN groupadd --gid ${USER_GID} foundry \
