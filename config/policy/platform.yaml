@@ -1,0 +1,55 @@
+# Platform policy defaults (docs/PLAN.md Task 22 / FND-03). This is layer 1
+# ("immutable security kernel") of the precedence chain in
+# docs/foundry/docs/architecture/configuration-and-policy.md N6.1: the
+# ceiling every lower layer (org, profile, workflow) may only tighten or
+# leave untouched — never weaken. internal/policy/compiler embeds a
+# build-time copy of this file at internal/policy/compiler/embedded/
+# platform.yaml; platform_drift_test.go asserts byte-identity between the
+# two so they can never silently diverge.
+#
+# Every field here is required: the platform layer is the only layer the
+# compiler requires to set every field completely (Compile returns an error
+# naming the missing field otherwise).
+permissions_allowlist:
+  - repo-read
+  - repo-write
+  - ci-trigger
+
+deployment_modes:
+  preview: auto
+  staging: command
+  production: command
+
+budget_ceilings_usd:
+  workflow_usd: 100
+  task_usd: 5
+
+executor_allowlist:
+  - fake
+  - claude-code
+
+# Points at Task 13's config/validation-allowlist.yaml (SKP-11) rather than
+# duplicating its command list here — this field is a reference, not a copy.
+validation_allowlist_ref: config/validation-allowlist.yaml
+
+notification_classes:
+  - telegram-low-risk
+  - telegram-veto-digest
+  - email
+
+# Keys are admission tier labels from internal/admission.Tier.String()
+# (docs/foundry/docs/autonomy/admission-tiers.md §2): A0 (least
+# restrictive) .. H (human authorization required).
+risk_tier_controls:
+  A0:
+    auto_allowed: true
+    require_review: false
+  A1:
+    auto_allowed: true
+    require_review: true
+  A2:
+    auto_allowed: true
+    require_review: true
+  H:
+    auto_allowed: false
+    require_review: true

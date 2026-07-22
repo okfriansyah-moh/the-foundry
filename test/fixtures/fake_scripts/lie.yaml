@@ -1,0 +1,8 @@
+# Deliberate lie: exit_code is nonzero (the task actually failed) but
+# Claimed reports success. Exists so Task 13's honest-completion tests can
+# prove the kernel never trusts an executor's self-report.
+patches: []
+sleep_ms: 10
+exit_code: 1
+claimed: "all tests pass"
+exit_notes: "everything green"

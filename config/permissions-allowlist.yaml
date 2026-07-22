@@ -1,0 +1,13 @@
+# Policy stub for internal/provenance's Granted computation (docs/PLAN.md
+# Task 8 / SKP-06). Granted permissions are always Requested ∩ this list —
+# never the plan's own request in full (Constitution C7 rule 2). Real
+# policy-store integration is out of scope for this task.
+#
+# target: "*" matches any requested target for that permission kind.
+permissions:
+  - kind: repo-read
+    target: "*"
+  - kind: repo-write
+    target: "*"
+  - kind: ci-trigger
+    target: "*"

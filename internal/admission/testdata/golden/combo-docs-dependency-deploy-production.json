@@ -1,0 +1,29 @@
+{
+  "classifier_version": "admission/v1.0",
+  "policy_digest": "",
+  "rules_evaluated": [
+    "dependency-migration-network-secret-deploy",
+    "docs-copy-tests",
+    "production-deploy"
+  ],
+  "declared_effects": [
+    {
+      "Kind": "docs",
+      "Target": "README.md"
+    },
+    {
+      "Kind": "dependency",
+      "Target": "go.mod"
+    },
+    {
+      "Kind": "deploy",
+      "Target": "production"
+    }
+  ],
+  "detected_effects": [],
+  "discrepancies": [],
+  "risk_score": 0.6,
+  "admission_tier": "A2",
+  "required_controls": [],
+  "explanation": "tier A2: highest floor among fired rules [dependency-migration-network-secret-deploy, docs-copy-tests, production-deploy]"
+}

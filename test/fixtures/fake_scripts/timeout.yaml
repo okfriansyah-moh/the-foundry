@@ -1,0 +1,7 @@
+# Never finishes on its own within a short test timeout: sleep_ms is far
+# longer than any reasonable ctx deadline used against it.
+patches: []
+sleep_ms: 60000
+exit_code: 0
+claimed: "all tests pass"
+exit_notes: "ran to completion"

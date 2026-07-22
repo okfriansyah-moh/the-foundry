@@ -1,0 +1,40 @@
+{
+  "$id": "https://foundry.dev/schemas/profile-config/v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Foundry profile config v1",
+  "description": "docs/PLAN.md Task 21 (FND-02): versioned shape of profiles.config. schema_version pins this document to a specific version of this schema so future revisions can be introduced without silently breaking profiles saved under an earlier version.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "budget"],
+  "properties": {
+    "schema_version": {
+      "description": "Config schema version. Must equal 1 for this schema; profile.Validate rejects any other value with a clear error rather than accepting an unknown shape.",
+      "const": 1
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_usd"],
+      "properties": {
+        "max_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum USD spend this profile authorizes."
+        }
+      }
+    },
+    "notify": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,3 +1,7 @@
-// Package plan is a placeholder scaffolded by Task 1 (HAR-01).
-// Authority: not yet implemented; no runtime logic exists in this package.
+// Package plan parses executable PLAN.md documents (YAML front matter +
+// sectioned Markdown body) into typed structures and exposes a stable
+// canonical content digest for provenance binding.
+//
+// This package performs no admission logic (Task 7) and no plan generation
+// (Task 44) — it only parses and hashes.
 package plan

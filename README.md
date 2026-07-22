@@ -10,6 +10,20 @@ Docker + GNU make. Nothing else — no local Go, Node, or Playwright install is 
 make bootstrap test lint fitness
 ```
 
+## Runtime services
+
+`make up` brings up `postgres` and `temporal` (Task 4 / SKP-02) alongside `dev` on the shared
+compose network. `dev` reaches them by service name (`postgres:5432`, `temporal:7233`) —
+internal-network only, no host ports published, per the container topology table (which
+also caps this compose file at exactly `dev`/`postgres`/`temporal` — no 4th service). Note:
+`temporalio/auto-setup` has no built-in Web UI; a UI container is deferred to a future task.
+
+```
+make up      # start postgres + temporal
+make doctor  # verify Docker/Compose are installed, then PG SELECT 1 + Temporal GetSystemInfo
+make down    # stop and remove services (add KEEP_DATA=1 to keep the postgres volume)
+```
+
 Execution protocol for implementing plan tasks: see [docs/PLAN.md](docs/PLAN.md) §A. Agent harness (roles, skills, boundaries) is canonically defined under [`.ai/`](.ai/) and composed into [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md) — never hand-edit those two files; change `.ai/` and run `ars compose`.
 
 ## What this repository contains
@@ -53,6 +67,43 @@ The V12 documentation set has been delivered as a modular architecture package. 
 2. Review the implementation roadmap in [docs/PLAN.md](docs/PLAN.md)
 3. Read [docs/foundry/CHANGELOG.md](docs/foundry/CHANGELOG.md) and [docs/foundry/V12_REVIEW_REPORT.md](docs/foundry/V12_REVIEW_REPORT.md) for context and validation history
 4. Drill into [docs/foundry/docs/](docs/foundry/docs/) for the detailed contracts and workflows
+
+## Running the plan autonomously
+
+`tools/planrunner` (Task 3 / RUN-01) is a standalone bootstrap tool — outside `internal/`,
+never part of the shipped `foundry`/`foundryd` binaries — that drives `docs/PLAN.md`
+end to end so a human doesn't have to trigger every task by hand. It never touches
+`internal/*` directly; it only invokes the same implementation protocol a human would
+run manually (headless `claude -p`, the task's own Validation commands, then repo-wide
+`make test fitness`).
+
+```
+make plan-run
+```
+
+Each eligible task's `Risk`/`Rev` fields (already on every card, not a new classifier —
+Constitution C6) decide the path:
+
+- **AUTO** (`Risk: Low`/`Med` and `Rev: R1`/`R2`) — implemented, validated, committed, and
+  merged with zero human steps. Completions are reported via a non-blocking batched
+  Telegram digest (every 5 completions or 2 hours, whichever is first).
+- **GATED** (`Risk: High` or `Rev: R3`/`R4`) — implemented and validated, then the runner
+  stops before committing and sends a blocking Telegram message naming the task, changed
+  files, validation results, and the exact gating reason. It waits for `/approve <task>`
+  or `/reject <task>`; no reply within the configured window means it stays paused — it
+  never auto-approves.
+- Two consecutive validation failures on the same task halt the entire runner with a
+  Telegram alert rather than retrying silently. A `/freeze` command halts immediately.
+
+Configure the disposable bootstrap Telegram bot via `.env` (`TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID` — see `.env.example`); this bot is explicitly throwaway and distinct
+from Foundry's eventual production Telegram engine (Task 30).
+
+**Exit condition — retire this tool.** Once Foundry's own kernel (Task 12), deterministic
+classifier (Task 7), and Telegram engine (Task 30) exist, stop using this runner for new
+tasks. Admit the remaining `docs/PLAN.md` backlog as real `ApprovedPlan` documents
+executed by Foundry itself instead — the dogfooding the plan's own thesis points at. This
+tool's job ends at that point; it does not keep running alongside the real kernel.
 
 ## Next step
 

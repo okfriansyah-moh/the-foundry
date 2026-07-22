@@ -1,0 +1,8 @@
+# Honest success: exit_code is 0 and the Claimed summary matches reality.
+patches:
+  - path: output.txt
+    content: "hello from fake executor\n"
+sleep_ms: 10
+exit_code: 0
+claimed: "all tests pass"
+exit_notes: "ran 3 commands, all succeeded"
