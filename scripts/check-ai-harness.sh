@@ -53,7 +53,7 @@ for f in .ai/agents/*/AGENT.md; do
 done
 
 echo "== check-ai-harness: docs/foundry internal links resolve =="
-python3 - <<'PYEOF'
+if ! python3 - <<'PYEOF'; then
 import re, os, sys
 
 root = "docs/foundry"
@@ -81,7 +81,6 @@ for dirpath, _, files in os.walk(root):
 
 sys.exit(1 if broken else 0)
 PYEOF
-if [ $? -ne 0 ]; then
   fail=1
 fi
 
