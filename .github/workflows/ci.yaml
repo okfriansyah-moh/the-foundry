@@ -10,6 +10,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Warm Docker Hub base image
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull golang:1.25.7; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+
       - name: Build dev image
         run: docker compose -f deploy/docker-compose.yaml build dev
 
@@ -23,6 +35,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Warm Docker Hub base image
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull golang:1.25.7; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Build dev image
         run: docker compose -f deploy/docker-compose.yaml build dev
