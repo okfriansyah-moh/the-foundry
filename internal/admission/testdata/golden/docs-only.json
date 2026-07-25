@@ -1,0 +1,19 @@
+{
+  "classifier_version": "admission/v1.0",
+  "policy_digest": "",
+  "rules_evaluated": [
+    "docs-copy-tests"
+  ],
+  "declared_effects": [
+    {
+      "Kind": "docs",
+      "Target": "README.md"
+    }
+  ],
+  "detected_effects": [],
+  "discrepancies": [],
+  "risk_score": 0,
+  "admission_tier": "A0",
+  "required_controls": [],
+  "explanation": "tier A0: highest floor among fired rules [docs-copy-tests]"
+}

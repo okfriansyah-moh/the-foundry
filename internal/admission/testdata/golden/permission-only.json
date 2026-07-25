@@ -1,0 +1,19 @@
+{
+  "classifier_version": "admission/v1.0",
+  "policy_digest": "",
+  "rules_evaluated": [
+    "billing-permission-destructive"
+  ],
+  "declared_effects": [
+    {
+      "Kind": "permission",
+      "Target": "repo-admin"
+    }
+  ],
+  "detected_effects": [],
+  "discrepancies": [],
+  "risk_score": 1,
+  "admission_tier": "H",
+  "required_controls": [],
+  "explanation": "tier H: highest floor among fired rules [billing-permission-destructive]"
+}

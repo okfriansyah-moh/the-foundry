@@ -1,0 +1,12 @@
+{
+  "classifier_version": "",
+  "policy_digest": "",
+  "rules_evaluated": null,
+  "declared_effects": null,
+  "detected_effects": null,
+  "discrepancies": null,
+  "risk_score": 0,
+  "admission_tier": "H",
+  "required_controls": null,
+  "explanation": "plan-authored tier ignored"
+}

@@ -10,8 +10,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Warm Docker Hub base image
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull golang:1.25.7; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+
       - name: Build dev image
         run: docker compose -f deploy/docker-compose.yaml build dev
 
       - name: bootstrap test lint fitness
         run: make bootstrap test lint fitness
+
+  # docs/PLAN.md Task 20 (FND-01): up->down->up on a scratch Postgres proves
+  # goose migrations (internal/db/migrations) are reversible end-to-end,
+  # per the task's Steps ("CI job runs up->down->up on scratch DB").
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Warm Docker Hub base image
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull golang:1.25.7; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Build dev image
+        run: docker compose -f deploy/docker-compose.yaml build dev
+
+      - name: Start scratch postgres
+        run: docker compose -f deploy/docker-compose.yaml up -d postgres
+
+      - name: migrate up -> down -> up
+        run: make migrate-up migrate-down migrate-up

@@ -1,0 +1,24 @@
+{
+  "classifier_version": "admission/v1.0",
+  "policy_digest": "",
+  "rules_evaluated": [
+    "billing-permission-destructive",
+    "docs-copy-tests"
+  ],
+  "declared_effects": [
+    {
+      "Kind": "code",
+      "Target": "billing.go"
+    },
+    {
+      "Kind": "billing",
+      "Target": "invoices"
+    }
+  ],
+  "detected_effects": [],
+  "discrepancies": [],
+  "risk_score": 1,
+  "admission_tier": "H",
+  "required_controls": [],
+  "explanation": "tier H: highest floor among fired rules [billing-permission-destructive, docs-copy-tests]"
+}

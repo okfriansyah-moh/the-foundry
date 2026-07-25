@@ -1,0 +1,6 @@
+# Honest failure: exit_code is nonzero and the Claimed summary agrees.
+patches: []
+sleep_ms: 10
+exit_code: 1
+claimed: "tests failed"
+exit_notes: "2 of 5 validation commands failed"

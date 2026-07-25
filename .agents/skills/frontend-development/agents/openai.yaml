@@ -1,0 +1,5 @@
+interface:
+  display_name: "frontend-development"
+  short_description: "Frontend implementation discipline for the venture product template (Task 46+) — SvelteKit front, Go API back,"
+policy:
+  allow_implicit_invocation: true

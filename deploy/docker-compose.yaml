@@ -11,7 +11,51 @@ services:
       - gomod-cache:/go/pkg/mod
       - gobuild-cache:/root/.cache/go-build
     working_dir: /workspace
+    environment:
+      PG_DSN: "${PG_DSN:-postgres://foundry:foundry@postgres:5432/foundry?sslmode=disable}"
+      TEMPORAL_HOSTPORT: "${TEMPORAL_HOSTPORT:-temporal:7233}"
+      FOUNDRY_DATA_DIR: "${FOUNDRY_DATA_DIR:-/workspace/.data}"
+
+  # Task 4 (SKP-02): dev's runtime dependencies, internal compose network only — see
+  # .ai/instructions/build-and-test.md container topology table (hard rule: this file
+  # holds only dev/postgres/temporal, never a 4th service or a second compose file).
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: foundry
+      POSTGRES_PASSWORD: foundry
+      POSTGRES_DB: foundry
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foundry -d foundry"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # NOTE: temporalio/auto-setup serves only the 7233 gRPC frontend; it has no built-in
+  # Web UI (that requires a separate temporalio/ui image/container). This card's Scope
+  # text ("UI port 8233") is not satisfiable without adding a 4th compose service, which
+  # the container topology hard rule above forbids — decision: no UI container is added
+  # here; deferred to a future task with its own topology-table row if a UI is required.
+  temporal:
+    image: temporalio/auto-setup:1.24
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: foundry
+      POSTGRES_PWD: foundry
+      POSTGRES_SEEDS: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   gomod-cache:
   gobuild-cache:
+  pgdata:

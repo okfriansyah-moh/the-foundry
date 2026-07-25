@@ -1,0 +1,5 @@
+interface:
+  display_name: "coding-standards"
+  short_description: "Enforce a single, consistent Go coding standard across `internal/*`, `cmd/*`, and tooling, so that any agent's"
+policy:
+  allow_implicit_invocation: true

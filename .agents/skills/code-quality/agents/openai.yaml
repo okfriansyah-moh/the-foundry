@@ -1,0 +1,5 @@
+interface:
+  display_name: "code-quality"
+  short_description: "Keep every task's implementation inside its complexity budget — correct, minimal, and maintainable, not merely"
+policy:
+  allow_implicit_invocation: true

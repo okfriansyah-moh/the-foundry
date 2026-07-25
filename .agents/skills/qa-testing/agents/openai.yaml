@@ -1,0 +1,5 @@
+interface:
+  display_name: "qa-testing"
+  short_description: "Testing discipline for a system whose entire value proposition is \"evidence-based completion; no self-reported"
+policy:
+  allow_implicit_invocation: true

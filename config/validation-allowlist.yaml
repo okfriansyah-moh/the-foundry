@@ -1,0 +1,18 @@
+# Policy stub for internal/verify.Runner's allowlist check (docs/PLAN.md
+# Task 13 / SKP-11). The first token of every command a Runner executes
+# must appear here, or execution is refused with classification
+# policy-violation before anything is exec'd (Constitution C10: no command
+# a task didn't declare gets to run under Foundry's authority).
+#
+# bash is intentionally not a plain top-level entry: it is allowed only
+# when its first argument is a path under scripts_dir (see
+# internal/verify/allowlist.go), so "bash -c '<anything>'" is refused while
+# "bash ./scripts/foo.sh" is allowed.
+commands:
+  - go
+  - make
+  - npm
+  - pnpm
+  - pytest
+
+scripts_dir: ./scripts/
