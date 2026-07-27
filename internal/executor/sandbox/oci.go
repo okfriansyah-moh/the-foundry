@@ -519,7 +519,16 @@ func (r *Runner) resolveGateIPAddress(ctx context.Context) (string, error) {
 		case <-time.After(gateReadinessPollInterval):
 		}
 	}
-	return "", lastErr
+	// The retry budget is exhausted with no explanation yet — this is not
+	// meant to stay in the codebase long-term (a temporary diagnostic aid),
+	// but a repeat CI-only failure of this exact wait with no visibility
+	// into WHY the gate never got an IP (crashed? still creating? something
+	// else?) isn't actionable from a log grep alone. State + logs of a
+	// still-existing (even if exited) `--rm`-pending container are still
+	// inspectable right up until Start's own cleanup removes it.
+	state, stateErr := r.exec(ctx, []string{"inspect", "--format", "{{json .State}}", r.gateName()})
+	logs, logsErr := r.exec(ctx, []string{"logs", r.gateName()})
+	return "", fmt.Errorf("%w (state: %s, stateErr: %v, logs: %q, logsErr: %v)", lastErr, strings.TrimSpace(state), stateErr, strings.TrimSpace(logs), logsErr)
 }
 
 // exec runs an engine subcommand (network create/rm, container rm/kill) and
