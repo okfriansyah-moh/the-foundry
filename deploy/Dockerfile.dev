@@ -64,6 +64,17 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
 RUN groupadd --gid ${USER_GID} foundry \
     && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash foundry
 
+# `useradd --create-home` sets /home/foundry as this account's home
+# directory in /etc/passwd, but that alone does not make $HOME resolve
+# there for a bare (non-login-shell) command run as this user — confirmed
+# live in CI: `make lint` failed with "failed to initialize build cache at
+# /home/foundry/.cache/golangci-lint: mkdir ...: permission denied",
+# because golangci-lint derives its own cache path from $HOME at runtime,
+# and an unset/wrong $HOME sends it somewhere this user can't write (e.g.
+# filesystem root). Setting HOME explicitly removes that ambiguity for
+# every tool that looks it up, not just golangci-lint.
+ENV HOME=/home/foundry
+
 # The `go install` step above ran as root and populated /go/pkg/mod (Go's
 # module download/build cache) with root-owned content. deploy/docker-
 # compose.yaml mounts a named volume at /go/pkg/mod; the FIRST time that
@@ -83,8 +94,17 @@ RUN groupadd --gid ${USER_GID} foundry \
 # gobuild-cache volume (mounted at this exact path) is a real, writable
 # build cache instead of a silently-unused mount point.
 ENV GOCACHE=/home/foundry/.cache/go-build
+# Chowns /home/foundry/.cache itself, not just the GOCACHE leaf directory
+# below it — `mkdir -p` (still running as root here) creates every missing
+# path component owned by root, and an earlier version of this line only
+# chowned GOCACHE's own leaf, leaving its parent .cache/ still root-owned.
+# That went unnoticed until a real CI run showed a DIFFERENT tool
+# (golangci-lint, which keeps its own cache at .cache/golangci-lint,
+# alongside go-build rather than under it) failing to `mkdir` its own new
+# sibling directory there — foundry could write inside the already-chowned
+# go-build leaf, but not create a new entry in its still-root-owned parent.
 RUN mkdir -p "${GOCACHE}" \
-    && chown -R ${USER_UID}:${USER_GID} /go "${GOCACHE}"
+    && chown -R ${USER_UID}:${USER_GID} /go /home/foundry/.cache
 
 USER foundry
 WORKDIR /workspace
