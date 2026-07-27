@@ -71,8 +71,23 @@ func TestRunSubprocess_TimeoutKillsProcessGroup(t *testing.T) {
 		t.Fatalf("parse pid: %v", err)
 	}
 
-	// Signal 0 checks liveness without actually signaling the process.
-	if sigErr := syscall.Kill(pid, syscall.Signal(0)); sigErr == nil {
-		t.Fatalf("grandchild pid %d still alive after process-group kill", pid)
+	// The grandchild receives SIGKILL directly (same process-group kill as
+	// its parent, not a cascading death), but reaping its zombie afterward
+	// depends on the container's PID-1 subreaper actually getting scheduled
+	// to call wait() on it — real kernel-scheduling latency, not
+	// instantaneous. A single immediate check (as this test originally
+	// did) is only reliable on an otherwise-idle host; confirmed live on
+	// real CI (a busier, shared 2-vCPU runner) that the exact same
+	// process-group kill logic is correct but the zombie sometimes isn't
+	// reaped within the first few milliseconds. Poll with a bounded
+	// deadline instead of assuming either "instant" or "never".
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		// Signal 0 checks liveness without actually signaling the process.
+		if sigErr := syscall.Kill(pid, syscall.Signal(0)); sigErr != nil {
+			return // reaped — the grandchild is gone, as expected.
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
+	t.Fatalf("grandchild pid %d still alive 2s after process-group kill", pid)
 }
