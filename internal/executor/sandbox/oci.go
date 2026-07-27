@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -91,6 +92,7 @@ const (
 	defaultTimeout         = 30 * time.Minute
 	gatePort               = 8080
 	gateImageAllowlistPath = "/etc/foundry/sandbox-egress-allowlist.yaml"
+	gateImageAllowlistDir  = "/etc/foundry"
 	// externalNetwork is Docker Engine's own default bridge network name.
 	// Podman's default network (netavark or CNI) is named "podman", not
 	// "bridge" — see externalNetworkName, whose per-engine defaulting is the
@@ -107,6 +109,12 @@ const (
 	// docker), caught while wiring this task's rootless test lane.
 	externalNetworkPodman = "podman"
 )
+
+// allowlistVolumeFile is gateImageAllowlistPath's own basename — the
+// filename buildAllowlistSeedArgs writes inside its named volume, which
+// buildGateRunArgs then mounts at gateImageAllowlistDir so the full path
+// the gate is started with (gateImageAllowlistPath) resolves correctly.
+var allowlistVolumeFile = path.Base(gateImageAllowlistPath)
 
 // CacheKind identifies which Go cache a CacheMount represents, so
 // buildSandboxRunArgs can both mount it in the right read/write mode and
@@ -341,9 +349,10 @@ func randomID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (r *Runner) networkName() string { return "foundry-sbx-net-" + r.id }
-func (r *Runner) gateName() string    { return "foundry-sbx-gate-" + r.id }
-func (r *Runner) sandboxName() string { return "foundry-sbx-run-" + r.id }
+func (r *Runner) networkName() string         { return "foundry-sbx-net-" + r.id }
+func (r *Runner) gateName() string            { return "foundry-sbx-gate-" + r.id }
+func (r *Runner) sandboxName() string         { return "foundry-sbx-run-" + r.id }
+func (r *Runner) allowlistVolumeName() string { return "foundry-sbx-allowlist-" + r.id }
 
 // externalNetworkName returns the pre-existing engine-default network the
 // gate container is additionally attached to for real internet egress.
@@ -372,7 +381,29 @@ func (r *Runner) Start(ctx context.Context) error {
 	if _, err := r.exec(ctx, buildNetworkCreateArgs(r.networkName())); err != nil {
 		return fmt.Errorf("sandbox: create network: %w", err)
 	}
-	if _, err := r.exec(ctx, buildGateRunArgs(r.cfg, r.gateName(), r.networkName())); err != nil {
+	// The gate's allowlist file is a small, no-secrets YAML, but it still
+	// must be READABLE by the gate container's own fixed, unrelated UID
+	// (cfg.User). Bind-mounting cfg.AllowlistHostPath directly (an earlier
+	// version of this code) depends on every directory from the host
+	// filesystem root down to that file being traversable by that UID —
+	// true on a local dev machine, but not on a real CI runner, where the
+	// checkout lives under that runner account's own restrictive-permission
+	// home directory tree (confirmed live: the gate container exited
+	// immediately with "read allowlist ...: permission denied", which this
+	// whole session's prior "DNS race"/"IP race" theories had misdiagnosed
+	// — the container was never racing anything, it was crashing outright).
+	// Seeding a named volume via a root-privileged helper (root bypasses
+	// DAC permission checks entirely, including directory traversal —
+	// same reasoning buildCacheChownArgs already relies on) sidesteps host
+	// permission bits altogether: the volume's own copy is chmod'd
+	// world-readable regardless of what the host file's or its parent
+	// directories' permissions were.
+	if _, err := r.exec(ctx, buildAllowlistSeedArgs(r.cfg, r.allowlistVolumeName())); err != nil {
+		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
+		return fmt.Errorf("sandbox: seed allowlist volume: %w", err)
+	}
+	if _, err := r.exec(ctx, buildGateRunArgs(r.cfg, r.gateName(), r.networkName(), r.allowlistVolumeName())); err != nil {
+		_, _ = r.exec(ctx, buildVolumeRemoveArgs(r.allowlistVolumeName()))
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 		return fmt.Errorf("sandbox: start gate: %w", err)
 	}
@@ -390,6 +421,7 @@ func (r *Runner) Start(ctx context.Context) error {
 	gateIP, err := r.resolveGateIPAddress(ctx)
 	if err != nil {
 		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
+		_, _ = r.exec(ctx, buildVolumeRemoveArgs(r.allowlistVolumeName()))
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 		return fmt.Errorf("sandbox: resolve gate IP address: %w", err)
 	}
@@ -402,17 +434,20 @@ func (r *Runner) Start(ctx context.Context) error {
 	// long in the common case).
 	if _, err := r.exec(ctx, buildGateReadinessArgs(r.cfg, r.gateAddr, r.networkName())); err != nil {
 		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
+		_, _ = r.exec(ctx, buildVolumeRemoveArgs(r.allowlistVolumeName()))
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 		return fmt.Errorf("sandbox: wait for gate to accept connections: %w", err)
 	}
 	if _, err := r.exec(ctx, buildNetworkConnectArgs(r.externalNetworkName(), r.gateName())); err != nil {
 		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
+		_, _ = r.exec(ctx, buildVolumeRemoveArgs(r.allowlistVolumeName()))
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 		return fmt.Errorf("sandbox: attach gate to external network: %w", err)
 	}
 	if args := buildCacheChownArgs(r.cfg); args != nil {
 		if _, err := r.exec(ctx, args); err != nil {
 			_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
+			_, _ = r.exec(ctx, buildVolumeRemoveArgs(r.allowlistVolumeName()))
 			_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 			return fmt.Errorf("sandbox: fix up cache mount ownership: %w", err)
 		}
@@ -476,6 +511,9 @@ func (r *Runner) RunCommand(ctx context.Context, argv []string, timeout time.Dur
 func (r *Runner) Close(ctx context.Context) error {
 	var errs []string
 	if _, err := r.exec(ctx, buildContainerRemoveArgs(r.gateName())); err != nil {
+		errs = append(errs, err.Error())
+	}
+	if _, err := r.exec(ctx, buildVolumeRemoveArgs(r.allowlistVolumeName())); err != nil {
 		errs = append(errs, err.Error())
 	}
 	if _, err := r.exec(ctx, buildNetworkRemoveArgs(r.networkName())); err != nil {
@@ -585,6 +623,44 @@ func buildContainerRemoveArgs(name string) []string {
 	return []string{"rm", "-f", name}
 }
 
+func buildVolumeRemoveArgs(name string) []string {
+	return []string{"volume", "rm", "-f", name}
+}
+
+// buildAllowlistSeedArgs constructs a one-shot, root-privileged helper
+// invocation that copies cfg.AllowlistHostPath's content into volumeName
+// (auto-created by this same `docker run`'s -v flag) and makes it
+// world-readable. Root, not the gate's own fixed non-root cfg.User, does
+// the reading here specifically because root bypasses DAC permission
+// checks entirely (same reasoning buildCacheChownArgs already relies on)
+// — the host allowlist file's own directory chain may not be traversable
+// by cfg.User at all (confirmed in this session: a real CI runner's
+// checkout lives under that runner account's own restrictive-permission
+// home directory, which the gate's unrelated fixed UID has no access
+// into), regardless of the target file's own mode. Capabilities are pared
+// back to exactly DAC_OVERRIDE (needed to read past that permission
+// chain) — no CHOWN, no others; this helper only ever reads and copies,
+// never changes ownership.
+func buildAllowlistSeedArgs(cfg Config, volumeName string) []string {
+	// allowlistVolumeFile must match gateImageAllowlistPath's own basename:
+	// the gate is started with -allowlist gateImageAllowlistPath, and
+	// buildGateRunArgs mounts volumeName at that path's parent directory,
+	// so the filename inside the volume has to line up exactly.
+	target := "/out/" + allowlistVolumeFile
+	script := fmt.Sprintf("cp /seed/allowlist.yaml %s && chmod 0644 %s", target, target)
+	return []string{
+		"run", "--rm",
+		"--network", "none",
+		"--user", "0:0",
+		"--cap-drop=ALL",
+		"--cap-add=DAC_OVERRIDE",
+		"--security-opt", "no-new-privileges",
+		"-v", cfg.AllowlistHostPath + ":/seed/allowlist.yaml:ro",
+		"-v", volumeName + ":/out",
+		cfg.Image, "sh", "-c", script,
+	}
+}
+
 func buildContainerKillArgs(name string) []string {
 	return []string{"kill", name}
 }
@@ -638,9 +714,10 @@ func buildCacheChownArgs(cfg Config) []string {
 
 // buildGateRunArgs constructs the args that launch the egress-gate sidecar,
 // detached, named, on the run's private network, with the allowlist YAML
-// bind-mounted read-only and no other filesystem access, no cache mounts,
-// no workspace — the gate never touches task content, only tunnels bytes.
-func buildGateRunArgs(cfg Config, gateName, network string) []string {
+// (via allowlistVolume — see buildAllowlistSeedArgs) mounted read-only and
+// no other filesystem access, no cache mounts, no workspace — the gate
+// never touches task content, only tunnels bytes.
+func buildGateRunArgs(cfg Config, gateName, network, allowlistVolume string) []string {
 	args := []string{
 		"run", "-d",
 		"--name", gateName,
@@ -649,7 +726,11 @@ func buildGateRunArgs(cfg Config, gateName, network string) []string {
 		"--cap-drop=ALL",
 		"--security-opt", "no-new-privileges",
 		"--user", cfg.User,
-		"-v", cfg.AllowlistHostPath + ":" + gateImageAllowlistPath + ":ro",
+		// Mounts allowlistVolume (already seeded + chmod'd world-readable by
+		// buildAllowlistSeedArgs), not cfg.AllowlistHostPath directly — see
+		// Start's comment on why a direct host bind mount isn't reliable
+		// across arbitrary host directory-permission layouts.
+		"-v", allowlistVolume + ":" + gateImageAllowlistDir + ":ro",
 	}
 	for _, h := range cfg.GateExtraHosts {
 		args = append(args, "--add-host", h)

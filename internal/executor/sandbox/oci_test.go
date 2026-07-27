@@ -121,21 +121,49 @@ func TestBuildGateRunArgs_NoWorkspaceOrCacheMounts(t *testing.T) {
 		User:              "10001:10001",
 		AllowlistHostPath: "/host/config/sandbox-egress-allowlist.yaml",
 	}
-	args := buildGateRunArgs(cfg, "foundry-sbx-gate-abc", "foundry-sbx-net-abc")
+	args := buildGateRunArgs(cfg, "foundry-sbx-gate-abc", "foundry-sbx-net-abc", "foundry-sbx-allowlist-abc")
 	joined := strings.Join(args, " ")
 
 	for _, want := range []string{
 		"--read-only", "--cap-drop=ALL", "no-new-privileges",
 		"--user 10001:10001",
-		"/host/config/sandbox-egress-allowlist.yaml:" + gateImageAllowlistPath + ":ro",
+		"foundry-sbx-allowlist-abc:" + gateImageAllowlistDir + ":ro",
 		"foundry-egress-gate",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("gate run args missing %q; got %q", want, joined)
 		}
 	}
+	if strings.Contains(joined, "/host/config") {
+		t.Errorf("gate must not bind-mount the host allowlist path directly (host directory permissions aren't reliable) — got %q", joined)
+	}
 	if strings.Contains(joined, "/workspace") {
 		t.Errorf("gate must not mount the task workspace; got %q", joined)
+	}
+}
+
+func TestBuildAllowlistSeedArgs_CopiesIntoVolumeAsRoot(t *testing.T) {
+	cfg := Config{
+		Image:             DefaultImage,
+		AllowlistHostPath: "/host/config/sandbox-egress-allowlist.yaml",
+	}
+	args := buildAllowlistSeedArgs(cfg, "foundry-sbx-allowlist-abc")
+	joined := strings.Join(args, " ")
+
+	for _, want := range []string{
+		"--user 0:0",
+		"--cap-drop=ALL", "--cap-add=DAC_OVERRIDE",
+		"/host/config/sandbox-egress-allowlist.yaml:/seed/allowlist.yaml:ro",
+		"foundry-sbx-allowlist-abc:/out",
+		"cp /seed/allowlist.yaml /out/" + allowlistVolumeFile,
+		"chmod 0644 /out/" + allowlistVolumeFile,
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("allowlist seed args missing %q; got %q", want, joined)
+		}
+	}
+	if strings.Contains(joined, "--cap-add=CHOWN") {
+		t.Errorf("allowlist seed only reads and copies, never chowns; got %q", joined)
 	}
 }
 
