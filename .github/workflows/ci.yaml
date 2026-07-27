@@ -40,6 +40,20 @@ jobs:
       - name: Build dev image
         run: docker compose -f deploy/docker-compose.yaml build dev
 
+      # deploy/docker-compose.yaml's `dev` service always sets a default
+      # PG_DSN pointing at a `postgres` host, whether or not one is
+      # actually running in this job — unlike the `migrations` job (which
+      # explicitly starts one), this job never had one, so every gated
+      # `*_pg_test.go` file (which treats "PG_DSN is set" as "run for
+      # real") tried to connect to a hostname Docker's embedded DNS
+      # genuinely had no entry for, confirmed live:
+      # "lookup postgres on 127.0.0.11:53: server misbehaving" — not
+      # flaky DNS, a real, always-absent service. Local development never
+      # hits this because `make up` leaves postgres/temporal running
+      # persistently; this job now matches that parity.
+      - name: Start dev-time services (postgres, temporal)
+        run: docker compose -f deploy/docker-compose.yaml up -d postgres temporal
+
       - name: bootstrap test lint fitness
         run: make bootstrap test lint fitness
 
