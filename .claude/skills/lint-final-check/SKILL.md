@@ -20,12 +20,12 @@ Run the final CI-parity gate after implementation/review so local completion mat
 3. Prefer minimal cleanup patterns: `_ = x.Close()`, checked `fmt.Fprintf`, and direct gofumpt formatting.
 4. Run CI-parity local validation: `make bootstrap test lint fitness`.
 5. If any edited path is under `.ai/`, recompose provider artifacts before final validation:
-	- `docker compose -f deploy/docker-compose.yaml run --rm dev ars compose --target codex`
-	- `docker compose -f deploy/docker-compose.yaml run --rm dev ars compose --target claude`
-	- Then rerun `make bootstrap doclint` (or `make bootstrap test lint fitness`).
+   - `docker compose -f deploy/docker-compose.yaml run --rm dev ars compose --target codex`
+   - `docker compose -f deploy/docker-compose.yaml run --rm dev ars compose --target claude`
+   - Then rerun `make bootstrap doclint` (or `make bootstrap test lint fitness`).
 6. If a PR exists for the branch, verify checks are green before reporting done:
-	- `gh pr checks <number> --required`
-	- Optionally `gh pr checks <number> --watch` until completion.
+   - `gh pr checks <number> --required`
+   - Optionally `gh pr checks <number> --watch` until completion.
 7. If any step in this process edits files, rerun the relevant validation commands before reporting.
 
 # Anti-Patterns
