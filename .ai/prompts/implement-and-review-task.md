@@ -34,7 +34,7 @@ Implement, self-review, fix, and report Task `{{TASK_NUMBER}}` from `docs/PLAN.m
    - run CI-parity validation (`make bootstrap test lint fitness`),
    - if `.ai/` files changed, recompose via `ars compose --target codex` and `ars compose --target claude` then rerun doclint/fitness,
    - if a PR exists, verify required checks are green before marking done.
-   If this step changes files, rerun the task's Validation commands and `make test && make fitness` before moving on.
+     If this step changes files, rerun the task's Validation commands and `make test && make fitness` before moving on.
 8. Report changed files, fixes made, validation results, skipped commands, and blockers.
 9. Flip `Status: ☐ Not started` to `Status: ✅ <date>` for Task `{{TASK_NUMBER}}` and check its box in the §D
    Master Index of `docs/PLAN.md`.
