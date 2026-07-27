@@ -1,5 +1,11 @@
 ---
 name: lint-final-check
+description: "Run the final CI-parity gate after implementation/review so local completion matches CI outcomes, then report done only after required checks are green."
+---
+
+<!-- ars:source .ai/skills/lint-final-check/SKILL.md -->
+---
+name: lint-final-check
 description: "Use when a task is otherwise complete and you need final CI-parity gating; run golangci-lint at the end, fix findings in-scope, rerun validation, and enforce .ai composed-file reproducibility and PR checks before reporting done."
 ---
 
