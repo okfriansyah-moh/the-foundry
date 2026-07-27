@@ -311,6 +311,12 @@ type Runner struct {
 	engine string
 
 	started bool
+	// gateAddr is the gate container's own IP address on r.networkName()
+	// (resolved once, in Start, via container inspect). RunCommand's
+	// sandbox container talks to the gate by this IP, not by its container
+	// name — see the comment on resolveGateIPAddress for why name-based
+	// resolution is not used here.
+	gateAddr string
 }
 
 // NewRunner validates cfg, applies defaults, and returns a Runner. It does
@@ -370,22 +376,34 @@ func (r *Runner) Start(ctx context.Context) error {
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 		return fmt.Errorf("sandbox: start gate: %w", err)
 	}
-	// A freshly-started container's name is not always immediately
-	// resolvable via the network's embedded DNS server — `docker run -d`
-	// returns once the entrypoint process has been exec'd, not once every
-	// other container on the network can already resolve its name. This
-	// race is normally too narrow to notice, but is genuinely observable
-	// under CI load (confirmed live: RunCommand's first real invocation
-	// failing with curl's "Could not resolve proxy", a DNS-resolution
-	// failure specifically, not a connection-refused/not-yet-listening
-	// one). Block Start() on the SAME lookup a real sandbox container will
-	// need (resolving r.gateName() from another container on this same
-	// internal network) rather than a fixed sleep, which would either be
-	// too short under worse load or wastefully long in the common case.
-	if _, err := r.exec(ctx, buildGateReadinessArgs(r.cfg, r.gateName(), r.networkName())); err != nil {
+	// Address the gate by its own IP on this network, not by its container
+	// name: an earlier version of this code relied on the network's
+	// embedded DNS resolving r.gateName(), which proved unreliable in this
+	// repo's own CI (confirmed live: RunCommand's real invocations failing
+	// with curl's "Could not resolve proxy" — a DNS-resolution failure —
+	// and, separately, a DNS-readiness probe using `getent hosts` inside a
+	// container on this same network never succeeding either, even for
+	// Runners that otherwise worked fine before). Whatever the underlying
+	// cause, the container's IP address is assigned at creation time (not
+	// racy the way name registration apparently is here) and sidesteps the
+	// whole class of problem rather than trying to out-wait it.
+	gateIP, err := r.resolveGateIPAddress(ctx)
+	if err != nil {
 		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
-		return fmt.Errorf("sandbox: wait for gate to become DNS-resolvable: %w", err)
+		return fmt.Errorf("sandbox: resolve gate IP address: %w", err)
+	}
+	r.gateAddr = gateIP
+	// The gate's own listening socket may not be bound the instant `docker
+	// run -d` returns (its entrypoint process has been exec'd, but the Go
+	// binary itself still needs a moment to start listening). Block Start()
+	// on the SAME TCP connectivity a real sandbox container will need,
+	// rather than a fixed sleep (too short under worse load, or wastefully
+	// long in the common case).
+	if _, err := r.exec(ctx, buildGateReadinessArgs(r.cfg, r.gateAddr, r.networkName())); err != nil {
+		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
+		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
+		return fmt.Errorf("sandbox: wait for gate to accept connections: %w", err)
 	}
 	if _, err := r.exec(ctx, buildNetworkConnectArgs(r.externalNetworkName(), r.gateName())); err != nil {
 		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
@@ -427,7 +445,7 @@ func (r *Runner) RunCommand(ctx context.Context, argv []string, timeout time.Dur
 	}
 	defer envFileCleanup()
 
-	args := buildSandboxRunArgs(r.cfg, r.sandboxName(), r.networkName(), r.gateName(), envFilePath, argv)
+	args := buildSandboxRunArgs(r.cfg, r.sandboxName(), r.networkName(), r.gateAddr, envFilePath, argv)
 	cmdLine := strings.Join(append([]string{r.engine}, args...), " ")
 
 	start := time.Now()
@@ -464,10 +482,28 @@ func (r *Runner) Close(ctx context.Context) error {
 		errs = append(errs, err.Error())
 	}
 	r.started = false
+	r.gateAddr = ""
 	if len(errs) > 0 {
 		return fmt.Errorf("sandbox: close: %s", strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+// resolveGateIPAddress returns the gate container's own IP address on
+// r.networkName(), read directly from the engine rather than assumed or
+// looked up by name — see Start's comment for why this Runner addresses
+// the gate by IP, not by container name.
+func (r *Runner) resolveGateIPAddress(ctx context.Context) (string, error) {
+	format := fmt.Sprintf("{{(index .NetworkSettings.Networks %q).IPAddress}}", r.networkName())
+	out, err := r.exec(ctx, []string{"inspect", "--format", format, r.gateName()})
+	if err != nil {
+		return "", err
+	}
+	ip := strings.TrimSpace(out)
+	if ip == "" {
+		return "", fmt.Errorf("sandbox: %s reported no IP address for %s on network %s", r.engine, r.gateName(), r.networkName())
+	}
+	return ip, nil
 }
 
 // exec runs an engine subcommand (network create/rm, container rm/kill) and
@@ -607,9 +643,9 @@ func buildGateRunArgs(cfg Config, gateName, network string) []string {
 
 // gateReadinessMaxAttempts/gateReadinessInterval bound how long
 // buildGateReadinessArgs' generated script will retry — 40 * 250ms = 10s,
-// comfortably above any observed DNS-registration delay, while still
+// comfortably above any observed listener-startup delay, while still
 // failing loudly (not hanging indefinitely) if the gate genuinely never
-// becomes resolvable.
+// starts accepting connections.
 const (
 	gateReadinessMaxAttempts = 40
 	gateReadinessInterval    = "0.25"
@@ -617,18 +653,19 @@ const (
 
 // buildGateReadinessArgs constructs a short-lived probe container, attached
 // to the same internal network the real sandbox container will use, that
-// retries resolving gateName via the network's embedded DNS until it
-// succeeds or the attempt budget is exhausted. `getent hosts` is a
-// standard, portable glibc NSS lookup — available in cfg.Image (Debian-
-// based, same image as the gate itself) without any extra tool dependency.
-// A single container running an internal retry loop (rather than this
+// retries a plain TCP connection to gateIP:gatePort until it succeeds or the
+// attempt budget is exhausted. Uses curl (already in cfg.Image for the
+// sandbox's own task workloads, so no extra tool dependency) purely for its
+// connection attempt — any response at all, even an HTTP error, proves the
+// listener is up; this never inspects what curl returns beyond its exit
+// code. A single container running an internal retry loop (rather than this
 // package retrying many separate `docker run`s from the host) minimizes
-// per-attempt container-creation overhead, which matters given how tight
-// the actual race window is.
-func buildGateReadinessArgs(cfg Config, gateName, network string) []string {
+// per-attempt container-creation overhead.
+func buildGateReadinessArgs(cfg Config, gateIP, network string) []string {
+	target := fmt.Sprintf("http://%s:%d/", gateIP, gatePort)
 	script := fmt.Sprintf(
-		"i=0; while [ \"$i\" -lt %d ]; do getent hosts %s >/dev/null 2>&1 && exit 0; i=$((i+1)); sleep %s; done; echo \"gate %s never became DNS-resolvable after %d attempts\" >&2; exit 1",
-		gateReadinessMaxAttempts, gateName, gateReadinessInterval, gateName, gateReadinessMaxAttempts,
+		"i=0; while [ \"$i\" -lt %d ]; do curl -s -o /dev/null --max-time 1 %s && exit 0; i=$((i+1)); sleep %s; done; echo \"gate at %s never accepted a connection after %d attempts\" >&2; exit 1",
+		gateReadinessMaxAttempts, target, gateReadinessInterval, target, gateReadinessMaxAttempts,
 	)
 	return []string{
 		"run", "--rm",
@@ -650,9 +687,10 @@ func buildGateReadinessArgs(cfg Config, gateName, network string) []string {
 // already avoids this class of leak by passing environment via envp, not
 // argv; this mirrors that discipline at the container boundary. Only
 // EnvAllowlist values go through the env-file: HTTPS_PROXY/HTTP_PROXY/
-// NO_PROXY name only this run's own internal gate container, never a
-// secret, so they stay as plain -e args.
-func buildSandboxRunArgs(cfg Config, name, network, gateName, envFilePath string, argv []string) []string {
+// NO_PROXY name only this run's own internal gate container (by IP, not
+// name — see Start's comment on resolveGateIPAddress), never a secret, so
+// they stay as plain -e args.
+func buildSandboxRunArgs(cfg Config, name, network, gateAddr, envFilePath string, argv []string) []string {
 	args := []string{
 		"run", "--rm",
 		"--name", name,
@@ -687,7 +725,7 @@ func buildSandboxRunArgs(cfg Config, name, network, gateName, envFilePath string
 	if envFilePath != "" {
 		args = append(args, "--env-file", envFilePath)
 	}
-	gateURL := "http://" + gateName + ":" + strconv.Itoa(gatePort)
+	gateURL := "http://" + gateAddr + ":" + strconv.Itoa(gatePort)
 	args = append(args,
 		"-e", "HTTPS_PROXY="+gateURL,
 		"-e", "HTTP_PROXY="+gateURL,

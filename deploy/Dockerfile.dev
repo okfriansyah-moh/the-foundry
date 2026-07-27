@@ -88,3 +88,16 @@ RUN mkdir -p "${GOCACHE}" \
 
 USER foundry
 WORKDIR /workspace
+
+# /workspace is a bind mount of the host's checkout — on a real Linux CI
+# runner (unlike macOS Docker Desktop's bind-mount layer, which silently
+# normalizes this), it's owned by whatever UID checked it out on the host,
+# not this container's own `foundry` UID. Git 2.35+'s "dubious ownership"
+# safety check refuses to operate on a repo owned by a different UID than
+# the one running it — and `go build`/`go vet`/etc.'s own VCS-stamping
+# machinery shells out to `git status` internally, so without this, any
+# such command fails with "error obtaining VCS status: exit status 128"
+# before ever reaching its own real work. Scoped to this one path (not a
+# blanket `*`) since /workspace is always what this image's own
+# docker-compose.yaml mounts here, never an arbitrary/untrusted repo.
+RUN git config --global --add safe.directory /workspace

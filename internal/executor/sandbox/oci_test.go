@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -138,19 +139,22 @@ func TestBuildGateRunArgs_NoWorkspaceOrCacheMounts(t *testing.T) {
 	}
 }
 
-func TestBuildGateReadinessArgs_RetriesResolutionOnSameNetwork(t *testing.T) {
+func TestBuildGateReadinessArgs_RetriesConnectionOnSameNetwork(t *testing.T) {
 	cfg := Config{Image: DefaultImage}
-	args := buildGateReadinessArgs(cfg, "foundry-sbx-gate-abc", "foundry-sbx-net-abc")
+	args := buildGateReadinessArgs(cfg, "10.0.5.2", "foundry-sbx-net-abc")
 	joined := strings.Join(args, " ")
 
 	for _, want := range []string{
 		"--network foundry-sbx-net-abc",
-		"getent hosts foundry-sbx-gate-abc",
+		"curl -s -o /dev/null --max-time 1 http://10.0.5.2:" + strconv.Itoa(gatePort) + "/",
 		DefaultImage,
 	} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("gate readiness args missing %q; got %q", want, joined)
 		}
+	}
+	if strings.Contains(joined, "getent") {
+		t.Errorf("gate readiness args should no longer depend on DNS resolution; got %q", joined)
 	}
 	if strings.Contains(joined, "--rm --rm") {
 		t.Errorf("unexpected duplicated --rm flag; got %q", joined)
