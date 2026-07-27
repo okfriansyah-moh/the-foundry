@@ -493,17 +493,33 @@ func (r *Runner) Close(ctx context.Context) error {
 // r.networkName(), read directly from the engine rather than assumed or
 // looked up by name — see Start's comment for why this Runner addresses
 // the gate by IP, not by container name.
+//
+// `docker run -d` can return before the engine has finished populating a
+// just-started container's own network-settings state: confirmed live in
+// this repo's own CI, an inspect issued immediately afterward sometimes
+// finds the network key present but its IPAddress field still empty. This
+// retries a bounded number of times (all lightweight host-side inspects, no
+// container spin-up, unlike the readiness check below) rather than treating
+// the first empty read as final.
 func (r *Runner) resolveGateIPAddress(ctx context.Context) (string, error) {
 	format := fmt.Sprintf("{{(index .NetworkSettings.Networks %q).IPAddress}}", r.networkName())
-	out, err := r.exec(ctx, []string{"inspect", "--format", format, r.gateName()})
-	if err != nil {
-		return "", err
+	var lastErr error
+	for attempt := 0; attempt < gateReadinessMaxAttempts; attempt++ {
+		out, err := r.exec(ctx, []string{"inspect", "--format", format, r.gateName()})
+		if err != nil {
+			return "", err
+		}
+		if ip := strings.TrimSpace(out); ip != "" {
+			return ip, nil
+		}
+		lastErr = fmt.Errorf("sandbox: %s reported no IP address yet for %s on network %s", r.engine, r.gateName(), r.networkName())
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(gateReadinessPollInterval):
+		}
 	}
-	ip := strings.TrimSpace(out)
-	if ip == "" {
-		return "", fmt.Errorf("sandbox: %s reported no IP address for %s on network %s", r.engine, r.gateName(), r.networkName())
-	}
-	return ip, nil
+	return "", lastErr
 }
 
 // exec runs an engine subcommand (network create/rm, container rm/kill) and
@@ -641,14 +657,17 @@ func buildGateRunArgs(cfg Config, gateName, network string) []string {
 	return args
 }
 
-// gateReadinessMaxAttempts/gateReadinessInterval bound how long
-// buildGateReadinessArgs' generated script will retry — 40 * 250ms = 10s,
-// comfortably above any observed listener-startup delay, while still
-// failing loudly (not hanging indefinitely) if the gate genuinely never
-// starts accepting connections.
+// gateReadinessMaxAttempts/gateReadinessPollInterval bound how long both
+// resolveGateIPAddress's Go-side retry loop and buildGateReadinessArgs'
+// generated shell script will retry — 40 * 250ms = 10s, comfortably above
+// any observed startup delay, while still failing loudly (not hanging
+// indefinitely) if the gate genuinely never becomes ready.
+// gateReadinessInterval is the same interval as gateReadinessPollInterval,
+// spelled as the shell-script-embeddable string `sleep` expects.
 const (
-	gateReadinessMaxAttempts = 40
-	gateReadinessInterval    = "0.25"
+	gateReadinessMaxAttempts  = 40
+	gateReadinessPollInterval = 250 * time.Millisecond
+	gateReadinessInterval     = "0.25"
 )
 
 // buildGateReadinessArgs constructs a short-lived probe container, attached
