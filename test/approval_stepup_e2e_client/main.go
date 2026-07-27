@@ -219,7 +219,7 @@ func runApprove(serverURL, sessionToken, planID string) error {
 	if err != nil {
 		return fmt.Errorf("approve: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("approve: status = %d, want 200", resp.StatusCode)
 	}
@@ -243,7 +243,7 @@ func postJSON(client *http.Client, url, authHeader string, body []byte) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 4096)
 	for {

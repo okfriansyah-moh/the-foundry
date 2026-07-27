@@ -191,7 +191,7 @@ FROM budgets WHERE scope = $1 AND scope_id = $2 ORDER BY kind, period`
 	if err != nil {
 		return nil, fmt.Errorf("cost: list budgets %s/%s: %w", scope, scopeID, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var budgets []Budget
 	for rows.Next() {

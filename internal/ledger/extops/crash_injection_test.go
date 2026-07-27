@@ -93,7 +93,7 @@ func runCrashHarness() {
 	// worker), which is exactly the crash window a lost activity-ack
 	// represents.
 	fmt.Println("COMMITTED")
-	os.Stdout.Sync()
+	_ = os.Stdout.Sync()
 	select {}
 }
 

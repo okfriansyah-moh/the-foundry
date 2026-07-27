@@ -17,7 +17,8 @@ jobs:
               break
             fi
             if [ "$attempt" -eq 3 ]; then
-              exit 1
+              echo "Warning: failed to warm golang:1.25.7 after retries; continuing to build step"
+              break
             fi
             sleep 5
           done
@@ -72,7 +73,8 @@ jobs:
               break
             fi
             if [ "$attempt" -eq 3 ]; then
-              exit 1
+              echo "Warning: failed to warm golang:1.25.7 after retries; continuing to build step"
+              break
             fi
             sleep 5
           done
@@ -260,7 +262,8 @@ jobs:
               break
             fi
             if [ "$attempt" -eq 3 ]; then
-              exit 1
+              echo "Warning: failed to warm golang:1.25.7 after retries; continuing to build step"
+              break
             fi
             sleep 5
           done

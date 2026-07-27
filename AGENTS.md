@@ -188,6 +188,7 @@ the runner.
 - .agents/skills/code-review/SKILL.md
 - .agents/skills/coding-standards/SKILL.md
 - .agents/skills/frontend-development/SKILL.md
+- .agents/skills/lint-final-check/SKILL.md
 - .agents/skills/qa-testing/SKILL.md
 - .agents/skills/security-hardening/SKILL.md
 - .agents/skills/stop-ai-slop/SKILL.md

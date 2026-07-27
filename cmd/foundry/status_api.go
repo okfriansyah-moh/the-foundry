@@ -44,7 +44,7 @@ func runStatusViaAPI(parsed statusArgs) error {
 	if err != nil {
 		return fmt.Errorf("status --api-addr: request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("status --api-addr: %s: %s", resp.Status, readAPIErrorMessage(resp))
@@ -56,15 +56,19 @@ func runStatusViaAPI(parsed statusArgs) error {
 	}
 
 	if body.Consistency == "fresh" {
-		fmt.Fprintf(os.Stdout,
+		if _, err := fmt.Fprintf(os.Stdout,
 			"workflow_id: %s\nstatus: %s\nphase: %s\ntemporal_status: %s\nconsistency: fresh\n",
 			body.WorkflowID, body.Status, body.Phase, body.TemporalStatus,
-		)
+		); err != nil {
+			return fmt.Errorf("status --api-addr: write output: %w", err)
+		}
 		return nil
 	}
-	fmt.Fprintf(os.Stdout,
+	if _, err := fmt.Fprintf(os.Stdout,
 		"workflow_id: %s\nstatus: %s\nphase: %s\nlast_seq: %d\nconsistency: projected (lag: %.0fs)\n",
 		body.WorkflowID, body.Status, body.Phase, body.LastSeq, body.LagSeconds,
-	)
+	); err != nil {
+		return fmt.Errorf("status --api-addr: write output: %w", err)
+	}
 	return nil
 }

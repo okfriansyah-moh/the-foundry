@@ -184,6 +184,7 @@ the runner.
 - .claude/skills/code-review/SKILL.md
 - .claude/skills/coding-standards/SKILL.md
 - .claude/skills/frontend-development/SKILL.md
+- .claude/skills/lint-final-check/SKILL.md
 - .claude/skills/qa-testing/SKILL.md
 - .claude/skills/security-hardening/SKILL.md
 - .claude/skills/stop-ai-slop/SKILL.md

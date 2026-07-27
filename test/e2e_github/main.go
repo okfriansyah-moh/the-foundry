@@ -49,7 +49,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping postgres (is `make up` running?): %w", err)
 	}
@@ -61,7 +61,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("create work dir: %w", err)
 	}
-	defer os.RemoveAll(workdir)
+	defer func() { _ = os.RemoveAll(workdir) }()
 
 	fixtureRemote := filepath.Join(workdir, "fixture-remote.git")
 	if _, err := git.PlainInit(fixtureRemote, true); err != nil {

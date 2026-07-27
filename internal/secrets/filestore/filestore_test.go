@@ -164,7 +164,7 @@ func TestStore_AuditLogsReadsWithoutLeakingValue(t *testing.T) {
 }
 
 func TestPassphraseKeySource_MissingEnvVarErrors(t *testing.T) {
-	os.Unsetenv("FILESTORE_TEST_MISSING_PASSPHRASE")
+	_ = os.Unsetenv("FILESTORE_TEST_MISSING_PASSPHRASE")
 	src := filestore.PassphraseKeySource{EnvVar: "FILESTORE_TEST_MISSING_PASSPHRASE"}
 
 	if _, err := src.Identity(context.Background()); err == nil {

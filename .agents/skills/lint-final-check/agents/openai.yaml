@@ -1,0 +1,5 @@
+interface:
+  display_name: "lint-final-check"
+  short_description: "Run the final CI-parity gate after implementation/review so local completion matches CI outcomes, then report done only after required checks are green."
+policy:
+  allow_implicit_invocation: true

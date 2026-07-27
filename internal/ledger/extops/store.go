@@ -213,7 +213,7 @@ FROM external_operations WHERE state = $1 ORDER BY created_at ASC LIMIT $2`
 	if err != nil {
 		return nil, fmt.Errorf("extops: list by state %s: %w", state, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var ops []Op
 	for rows.Next() {

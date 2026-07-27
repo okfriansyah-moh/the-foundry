@@ -151,13 +151,13 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	rawStore, err := provenance.OpenPGRawStore(pgDSN)
 	if err != nil {
 		return fmt.Errorf("open provenance store: %w", err)
 	}
-	defer rawStore.Close()
+	defer func() { _ = rawStore.Close() }()
 
 	costDefaults, err := cost.LoadDefaults(costDefaultsPath)
 	if err != nil {

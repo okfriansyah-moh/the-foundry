@@ -123,5 +123,7 @@ func TestSecretsTokenSource_CustomNameOverridesDefault(t *testing.T) {
 	}
 }
 
-var _ write.TokenSource = write.SecretsTokenSource{}
-var _ write.TokenSource = write.EnvTokenSource{}
+var (
+	_ write.TokenSource = write.SecretsTokenSource{}
+	_ write.TokenSource = write.EnvTokenSource{}
+)

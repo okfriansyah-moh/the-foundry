@@ -38,7 +38,7 @@ func TestGenerateHistories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start dev server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	historiesDir := filepath.Join("..", "..", "test", "histories")
 	if err := os.MkdirAll(historiesDir, 0o755); err != nil {

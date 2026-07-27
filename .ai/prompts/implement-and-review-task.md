@@ -11,6 +11,7 @@ Implement, self-review, fix, and report Task `{{TASK_NUMBER}}` from `docs/PLAN.m
 - `docs/PLAN.md`
 - `.ai/skills/task-implementation/SKILL.md`
 - `.ai/skills/task-review/SKILL.md`
+- `.ai/skills/lint-final-check/SKILL.md`
 - `.ai/agents/<role>/AGENT.md` for the card's `Exec` role — its `## Uses` section names every other skill this
   task needs (coding standards, code quality, security hardening, AI-vulnerability defense, QA, frontend/UI-UX);
   see `docs/architecture.md`'s Skill Catalog for the full roster.
@@ -28,8 +29,14 @@ Implement, self-review, fix, and report Task `{{TASK_NUMBER}}` from `docs/PLAN.m
 4. For each finding, apply `.ai/prompts/pr-remediation.md`: terse classification, exact fix, no filler.
 5. Fix findings immediately when they are in Task `{{TASK_NUMBER}}` scope. Do not implement future tasks.
 6. Run the task's Validation commands, then repo-wide `make test && make fitness`.
-7. Report changed files, fixes made, validation results, skipped commands, and blockers.
-8. Flip `Status: ☐ Not started` to `Status: ✅ <date>` for Task `{{TASK_NUMBER}}` and check its box in the §D
+7. At the very end, run `.ai/skills/lint-final-check/SKILL.md` as the final CI-parity gate:
+   - rerun repo-wide `golangci-lint` and fix in-scope findings,
+   - run CI-parity validation (`make bootstrap test lint fitness`),
+   - if `.ai/` files changed, recompose via `ars compose --target codex` and `ars compose --target claude` then rerun doclint/fitness,
+   - if a PR exists, verify required checks are green before marking done.
+     If this step changes files, rerun the task's Validation commands and `make test && make fitness` before moving on.
+8. Report changed files, fixes made, validation results, skipped commands, and blockers.
+9. Flip `Status: ☐ Not started` to `Status: ✅ <date>` for Task `{{TASK_NUMBER}}` and check its box in the §D
    Master Index of `docs/PLAN.md`.
 
 ## Check

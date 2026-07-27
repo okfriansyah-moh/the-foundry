@@ -193,7 +193,7 @@ LIMIT $1`
 	if err != nil {
 		return nil, fmt.Errorf("observe: list dead-letter items: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []DeadLetterItem
 	for rows.Next() {

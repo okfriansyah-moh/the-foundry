@@ -44,7 +44,7 @@ func runProjectionRebuild(args []string) error {
 	if err != nil {
 		return fmt.Errorf("projection rebuild: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), projectionCmdTimeout)
 	defer cancel()
@@ -87,7 +87,7 @@ func runProjectionRollout(args []string) error {
 	if err != nil {
 		return fmt.Errorf("projection rollout: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), projectionRolloutCmdTimeout)
 	defer cancel()

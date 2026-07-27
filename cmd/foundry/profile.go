@@ -63,7 +63,7 @@ func runProfileCreate(args []string) error {
 	if err != nil {
 		return fmt.Errorf("profile create: %w", err)
 	}
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 	store := profile.NewStore(raw)
 
 	ctx, cancel := context.WithTimeout(context.Background(), profileTimeout)
@@ -85,7 +85,7 @@ func runProfileShow(args []string) error {
 	if err != nil {
 		return fmt.Errorf("profile show: %w", err)
 	}
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 	store := profile.NewStore(raw)
 
 	ctx, cancel := context.WithTimeout(context.Background(), profileTimeout)
@@ -104,7 +104,7 @@ func runProfileList(_ []string) error {
 	if err != nil {
 		return fmt.Errorf("profile list: %w", err)
 	}
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 	store := profile.NewStore(raw)
 
 	ctx, cancel := context.WithTimeout(context.Background(), profileTimeout)

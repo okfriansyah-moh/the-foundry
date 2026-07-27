@@ -45,7 +45,7 @@ func openTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 
 	if err := db.PingContext(context.Background()); err != nil {
 		t.Fatalf("ping postgres: %v", err)

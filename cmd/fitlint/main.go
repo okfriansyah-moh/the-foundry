@@ -244,7 +244,7 @@ func checkTerm(roots []string) ([]string, error) {
 		if err != nil {
 			return nil // unreadable/gone mid-walk; not this tool's concern
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		scanner := bufio.NewScanner(f)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		line := 0
@@ -552,7 +552,7 @@ func checkSecretsLeak(roots []string) ([]string, error) {
 		if err != nil {
 			return nil // unreadable/gone mid-walk; not this tool's concern
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		scanner := bufio.NewScanner(f)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		line := 0

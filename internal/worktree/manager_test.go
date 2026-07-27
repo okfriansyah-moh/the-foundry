@@ -21,7 +21,7 @@ func TestAcquireCreatesIsolatedWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
-	defer ws.Release()
+	defer func() { _ = ws.Release() }()
 
 	if ws.Branch != "foundry/wf1/task1" {
 		t.Fatalf("branch = %q, want foundry/wf1/task1", ws.Branch)
@@ -200,7 +200,7 @@ func TestSweepOlderThanKeepsRecent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
-	defer ws.Release()
+	defer func() { _ = ws.Release() }()
 
 	if err := m.SweepOlderThan(time.Hour); err != nil {
 		t.Fatalf("SweepOlderThan: %v", err)
