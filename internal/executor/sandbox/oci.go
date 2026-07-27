@@ -370,6 +370,23 @@ func (r *Runner) Start(ctx context.Context) error {
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
 		return fmt.Errorf("sandbox: start gate: %w", err)
 	}
+	// A freshly-started container's name is not always immediately
+	// resolvable via the network's embedded DNS server — `docker run -d`
+	// returns once the entrypoint process has been exec'd, not once every
+	// other container on the network can already resolve its name. This
+	// race is normally too narrow to notice, but is genuinely observable
+	// under CI load (confirmed live: RunCommand's first real invocation
+	// failing with curl's "Could not resolve proxy", a DNS-resolution
+	// failure specifically, not a connection-refused/not-yet-listening
+	// one). Block Start() on the SAME lookup a real sandbox container will
+	// need (resolving r.gateName() from another container on this same
+	// internal network) rather than a fixed sleep, which would either be
+	// too short under worse load or wastefully long in the common case.
+	if _, err := r.exec(ctx, buildGateReadinessArgs(r.cfg, r.gateName(), r.networkName())); err != nil {
+		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
+		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
+		return fmt.Errorf("sandbox: wait for gate to become DNS-resolvable: %w", err)
+	}
 	if _, err := r.exec(ctx, buildNetworkConnectArgs(r.externalNetworkName(), r.gateName())); err != nil {
 		_, _ = r.exec(ctx, buildContainerRemoveArgs(r.gateName()))
 		_, _ = r.exec(ctx, buildNetworkRemoveArgs(r.networkName()))
@@ -586,6 +603,40 @@ func buildGateRunArgs(cfg Config, gateName, network string) []string {
 		args = append(args, "-allow-private-ips")
 	}
 	return args
+}
+
+// gateReadinessMaxAttempts/gateReadinessInterval bound how long
+// buildGateReadinessArgs' generated script will retry — 40 * 250ms = 10s,
+// comfortably above any observed DNS-registration delay, while still
+// failing loudly (not hanging indefinitely) if the gate genuinely never
+// becomes resolvable.
+const (
+	gateReadinessMaxAttempts = 40
+	gateReadinessInterval    = "0.25"
+)
+
+// buildGateReadinessArgs constructs a short-lived probe container, attached
+// to the same internal network the real sandbox container will use, that
+// retries resolving gateName via the network's embedded DNS until it
+// succeeds or the attempt budget is exhausted. `getent hosts` is a
+// standard, portable glibc NSS lookup — available in cfg.Image (Debian-
+// based, same image as the gate itself) without any extra tool dependency.
+// A single container running an internal retry loop (rather than this
+// package retrying many separate `docker run`s from the host) minimizes
+// per-attempt container-creation overhead, which matters given how tight
+// the actual race window is.
+func buildGateReadinessArgs(cfg Config, gateName, network string) []string {
+	script := fmt.Sprintf(
+		"i=0; while [ \"$i\" -lt %d ]; do getent hosts %s >/dev/null 2>&1 && exit 0; i=$((i+1)); sleep %s; done; echo \"gate %s never became DNS-resolvable after %d attempts\" >&2; exit 1",
+		gateReadinessMaxAttempts, gateName, gateReadinessInterval, gateName, gateReadinessMaxAttempts,
+	)
+	return []string{
+		"run", "--rm",
+		"--network", network,
+		"--entrypoint", "sh",
+		cfg.Image,
+		"-c", script,
+	}
 }
 
 // buildSandboxRunArgs constructs the args that launch one task command
