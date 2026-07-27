@@ -1,0 +1,15 @@
+# Auto-provisioned Grafana dashboard source for the `obs` compose profile
+# (docs/PLAN.md Task 31 / FND-12) — loads every JSON file mounted at
+# /var/lib/grafana/dashboards (../../dashboards in this repo) on startup,
+# so the catalog-subset dashboard is seeded without a manual import.
+apiVersion: 1
+
+providers:
+  - name: foundry
+    orgId: 1
+    folder: Foundry
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

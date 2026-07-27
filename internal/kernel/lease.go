@@ -36,6 +36,14 @@ type LeaseStore interface {
 	// for resource — the fencing check every mutating activity must pass
 	// before touching the resource.
 	Check(ctx context.Context, resource, token string) (bool, error)
+	// Release gives up resource if token is still its current holder's
+	// token (docs/PLAN.md Task 27/FND-08: the push protocol explicitly
+	// releases its lease once the push either lands or is rejected,
+	// rather than only relying on TTL expiry). Releasing a resource/token
+	// pair that is not currently held — already expired, already
+	// released, or held by a different token — is a safe no-op, not an
+	// error.
+	Release(ctx context.Context, resource, token string) error
 }
 
 // newToken returns a random 128-bit fencing token, hex-encoded.
@@ -94,6 +102,17 @@ func (s *MemLeaseStore) Check(_ context.Context, resource, token string) (bool, 
 		return false, nil
 	}
 	return lease.Token == token && s.now().Before(lease.ExpiresAt), nil
+}
+
+// Release implements LeaseStore.
+func (s *MemLeaseStore) Release(_ context.Context, resource, token string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if lease, ok := s.leases[resource]; ok && lease.Token == token {
+		delete(s.leases, resource)
+	}
+	return nil
 }
 
 // PGLeaseStore is the Postgres-backed LeaseStore (internal/db/migrations/00002).
@@ -158,4 +177,13 @@ func (s *PGLeaseStore) Check(ctx context.Context, resource, token string) (bool,
 		return false, fmt.Errorf("kernel: check lease %s: %w", resource, err)
 	}
 	return gotToken == token && time.Now().Before(expiresAt), nil
+}
+
+// Release implements LeaseStore.
+func (s *PGLeaseStore) Release(ctx context.Context, resource, token string) error {
+	const q = `DELETE FROM leases WHERE resource = $1 AND token = $2`
+	if _, err := s.db.ExecContext(ctx, q, resource, token); err != nil {
+		return fmt.Errorf("kernel: release lease %s: %w", resource, err)
+	}
+	return nil
 }

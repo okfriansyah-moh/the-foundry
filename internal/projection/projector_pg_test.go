@@ -151,3 +151,85 @@ func TestProjector_Idempotency_RealPostgres(t *testing.T) {
 		t.Fatalf("rebuild checksum not reproducible: first=%s second=%s", result.Checksum, result2.Checksum)
 	}
 }
+
+// TestProjector_StaleContentAtNewHigherSeq_RealPostgres reproduces the
+// exact defect found live by Task 39 (FND-20, M1 exit drill;
+// docs/notes/m1-exit-report.md) and fixed by this change: unlike
+// TestProjector_Idempotency_RealPostgres above (which rewinds the *offset*
+// and reprocesses the same already-applied seq values), this test appends a
+// stale transition as a genuinely NEW row at a NEW, higher seq — the case
+// upsertProjectionSQL's old last_seq-only guard let through, regressing the
+// projected phase backward. This is the same fixture
+// test/projection_rebuild_e2e.sh seeds.
+func TestProjector_StaleContentAtNewHigherSeq_RealPostgres(t *testing.T) {
+	dsn := os.Getenv("PROJECTION_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("PROJECTION_TEST_PG_DSN not set — skipping; see TestProjector_Idempotency_RealPostgres's doc comment for how to run this against a real Postgres")
+	}
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open postgres: %v", err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if _, err := db.ExecContext(ctx, `TRUNCATE workflow_transitions, workflow_status_projection`); err != nil {
+		t.Fatalf("reset tables: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM projection_offsets`); err != nil {
+		t.Fatalf("reset offsets: %v", err)
+	}
+
+	insertAt := func(workflowID string, phase state.Phase, occurredAt time.Time) {
+		payload, err := json.Marshal(state.Transition{
+			WorkflowID: workflowID,
+			Status:     state.StatusRunning,
+			PhaseTo:    phase,
+			Attempt:    1,
+			OccurredAt: occurredAt,
+		})
+		if err != nil {
+			t.Fatalf("marshal transition: %v", err)
+		}
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO workflow_transitions (workflow_id, payload) VALUES ($1, $2)`,
+			workflowID, payload,
+		); err != nil {
+			t.Fatalf("insert transition: %v", err)
+		}
+	}
+
+	t0 := time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)
+	insertAt("wf-a", "acquiring-worktree", t0)
+	insertAt("wf-a", "executing", t0.Add(time.Minute))
+	insertAt("wf-b", "done", t0.Add(2*time.Minute))
+	// Stale redelivery: same content as the first wf-a transition, appended
+	// LAST so it lands at the highest seq, but its occurred_at is the
+	// OLDEST of the three. The old last_seq-only guard would let this win
+	// and regress wf-a's projected phase back to "acquiring-worktree".
+	insertAt("wf-a", "acquiring-worktree", t0)
+
+	p := &Projector{DB: db}
+	for {
+		n, err := p.Tick(ctx)
+		if err != nil {
+			t.Fatalf("Tick: %v", err)
+		}
+		if n == 0 {
+			break
+		}
+	}
+
+	var phase string
+	if err := db.QueryRowContext(ctx,
+		`SELECT phase FROM workflow_status_projection WHERE workflow_id = 'wf-a'`,
+	).Scan(&phase); err != nil {
+		t.Fatalf("query projected phase for wf-a: %v", err)
+	}
+	if phase != "executing" {
+		t.Fatalf("wf-a projected phase = %q, want %q (stale higher-seq redelivery regressed the projection)", phase, "executing")
+	}
+}

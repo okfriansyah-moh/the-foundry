@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
-# Standalone reproducibility check for the ARES-canonical .ai/ harness (Task 2).
-# Retired once Task 37 absorbs this into the real `make fitness` suite.
+# docs/PLAN.md Task 37 (FND-18): composed-file-reproducibility lint. Absorbs
+# Task 2's standalone scripts/check-ai-harness.sh into real CI (that script
+# is retired now that this runs as part of `make fitness` / `make doclint` on
+# every PR, not just once at Task 2 time).
+#
+# ARES's golden rule, made a literal, enforced gate: AGENTS.md and CLAUDE.md
+# (plus the .agents/.claude/.codex provider directories `ars compose` also
+# emits) are *composed*, never hand-edited, from .ai/. Deleting them and
+# re-running `ars compose` for both targets must reproduce them
+# byte-identical. Any difference — a hand-edit that drifted from .ai/, or a
+# forgotten recompose after an .ai/ change — fails this check by name.
 set -euo pipefail
+
+cd "$(dirname "$0")/../.."
 
 fail=0
 
-echo "== check-ai-harness: required paths exist =="
+echo "== doclint/ai-harness-repro: required .ai/ + composed-file paths exist =="
 required_paths=(
   ".ai/manifest.yaml"
   ".ai/instructions/build-and-test.md"
@@ -44,7 +55,7 @@ for p in "${required_paths[@]}"; do
   fi
 done
 
-echo "== check-ai-harness: six AGENT.md files each name a constitution article =="
+echo "== doclint/ai-harness-repro: six AGENT.md files each name a constitution article =="
 for f in .ai/agents/*/AGENT.md; do
   if ! grep -qE 'C([1-9]|1[0-9]|2[0-2])\b' "$f"; then
     echo "NO CONSTITUTION ARTICLE CITED: $f"
@@ -52,49 +63,17 @@ for f in .ai/agents/*/AGENT.md; do
   fi
 done
 
-echo "== check-ai-harness: docs/foundry internal links resolve =="
-if ! python3 - <<'PYEOF'; then
-import re, os, sys
-
-root = "docs/foundry"
-link_re = re.compile(r'\]\(([^)]+)\)')
-broken = False
-
-for dirpath, _, files in os.walk(root):
-    for fn in files:
-        if not fn.endswith('.md'):
-            continue
-        path = os.path.join(dirpath, fn)
-        with open(path, encoding='utf-8') as f:
-            content = f.read()
-        for m in link_re.finditer(content):
-            link = m.group(1)
-            if link.startswith(('http://', 'https://', 'mailto:', '#')):
-                continue
-            clean = link.split('#')[0]
-            if not clean:
-                continue
-            target = os.path.normpath(os.path.join(dirpath, clean))
-            if not os.path.exists(target):
-                print(f"BROKEN: {path} -> {link}")
-                broken = True
-
-sys.exit(1 if broken else 0)
-PYEOF
-  fail=1
-fi
-
-echo "== check-ai-harness: ars validate =="
+echo "== doclint/ai-harness-repro: ars validate =="
 if command -v ars >/dev/null 2>&1; then
   if ! ars validate --root . --json; then
     echo "ars validate FAILED"
     fail=1
   fi
 else
-  echo "SKIPPED: ars not on PATH (expected inside dev image once Dockerfile.dev is rebuilt)"
+  echo "SKIPPED: ars not on PATH (expected inside dev image — deploy/Dockerfile.dev installs it)"
 fi
 
-echo "== check-ai-harness: golden-rule reproducibility (delete + ars compose == byte-identical) =="
+echo "== doclint/ai-harness-repro: golden-rule reproducibility (delete + ars compose == byte-identical) =="
 if command -v ars >/dev/null 2>&1; then
   tmp="$(mktemp -d)"
   generated=(AGENTS.md CLAUDE.md .agents .claude .codex)
@@ -108,18 +87,18 @@ if command -v ars >/dev/null 2>&1; then
     before="$tmp/$(basename "$g").before"
     [ -e "$before" ] || continue
     if ! diff -rq "$before" "$g" >/dev/null 2>&1; then
-      echo "$g NOT reproducible from .ai/"
+      echo "$g NOT reproducible from .ai/ (hand-edited or .ai/ change not recomposed)"
       fail=1
     fi
   done
   rm -rf "$tmp"
 else
-  echo "SKIPPED: ars not on PATH (expected inside dev image once Dockerfile.dev is rebuilt)"
+  echo "SKIPPED: ars not on PATH (expected inside dev image — deploy/Dockerfile.dev installs it)"
 fi
 
 if [ "$fail" -ne 0 ]; then
-  echo "check-ai-harness FAILED"
+  echo "doclint/ai-harness-repro FAILED"
   exit 1
 fi
 
-echo "check-ai-harness OK"
+echo "doclint/ai-harness-repro OK"

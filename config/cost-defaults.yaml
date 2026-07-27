@@ -1,0 +1,6 @@
+# docs/PLAN.md Task 29 (FND-10): default per-task cost estimate the
+# kernel's ReserveBudget activity (internal/kernel/activities.go) reserves
+# when a task carries no declared cost estimate of its own — see
+# internal/ledger/cost/defaults.go's decision comment for why every task
+# uses this single default today.
+default_usd: 0.50

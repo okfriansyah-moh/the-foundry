@@ -21,6 +21,18 @@ Thumbs.db
 coverage.out
 coverage.html
 
+# Stray root-level compiled binaries from ad hoc `go build ./cmd/<x>/...`
+# or `go build ./tools/<x>/...` compile-checks run without -o (defaults to
+# cwd, basename = the built package's directory name) — a recurring class
+# of mess (docs/PLAN.md Tasks 35/37 hit fitlint/planrunner; this follows up
+# on a stray `foundry`). One entry per current cmd/ or tools/ entry point;
+# add a new line here whenever a new cmd/<name> or tools/<name> package is
+# created.
+/foundry
+/foundryd
+/fitlint
+/planrunner
+
 # Go module cache (local only)
 /go/pkg/mod/
 /.cache/
@@ -34,6 +46,11 @@ coverage.html
 /evidence/
 *.tmp
 *.bak
+
+# Backup/restore drill outputs (docs/PLAN.md Task 39 / FND-20): pg_dump
+# custom-format dumps + evidence tars, runtime artifacts, never source.
+/backups/
+/data/
 
 # Environment files
 .env

@@ -84,13 +84,16 @@ func TestProjector_Run_StopsOnContextCancel(t *testing.T) {
 
 // TestUpsertProjectionSQL_HasIdempotencyGuard pins the load-bearing
 // correctness property described in docs/PLAN.md Task 14 Step 2 — the
-// ON CONFLICT DO UPDATE is guarded by a WHERE clause comparing last_seq, so
-// out-of-order/duplicate delivery is a no-op, never a regression. A full
-// exercise of this guard against real Postgres semantics lives in
-// projector_pg_test.go (gated on PROJECTION_TEST_PG_DSN); this test just
-// guards against someone silently dropping the WHERE clause in a refactor.
+// ON CONFLICT DO UPDATE is guarded by a WHERE clause comparing the
+// semantically-ordered (occurred_at, last_seq) tuple, so out-of-order and
+// duplicate delivery (including a stale transition redelivered at a new,
+// higher seq — the bug found live by Task 39/FND-20, fixed here) is a
+// no-op, never a regression. A full exercise of this guard against real
+// Postgres semantics lives in projector_pg_test.go (gated on
+// PROJECTION_TEST_PG_DSN); this test just guards against someone silently
+// dropping or weakening the WHERE clause in a refactor.
 func TestUpsertProjectionSQL_HasIdempotencyGuard(t *testing.T) {
-	const want = "WHERE workflow_status_projection.last_seq < EXCLUDED.last_seq"
+	const want = "WHERE (EXCLUDED.occurred_at, EXCLUDED.last_seq) > (COALESCE(workflow_status_projection.occurred_at, '-infinity'), workflow_status_projection.last_seq)"
 	if !strings.Contains(upsertProjectionSQL, want) {
 		t.Fatalf("upsertProjectionSQL missing idempotency guard %q:\n%s", want, upsertProjectionSQL)
 	}

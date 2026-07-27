@@ -1,0 +1,35 @@
+# docs/PLAN.md Task 33 (FND-14): priority-lane declarative config —
+# internal/observe.LoadQueueConfig's source. Four lanes in the fixed
+# priority order this task's card names (recovery > delivery >
+# notification > learning), each mapped to its own Temporal task queue
+# name (so a future kernel-owned task can register one worker per lane
+# without inventing queue names ad hoc) and a worker slot allocation
+# (MaxConcurrentActivityExecutionSize-shaped budget for that worker).
+#
+# sheddable=true is the only lane docs/foundry/docs/operations/control-plane-protection.md's
+# brownout mode ("shed lowest-priority loops first: learning, memory
+# curation — keep delivery and recovery alive") requires shedding.
+# notification stays sheddable=false: it is this same task's own P1
+# dead-letter alert path, which the card's Acceptance requires to always
+# fire, so this config cannot shed the channel that carries it.
+lanes:
+  - name: recovery
+    task_queue: foundry-recovery
+    priority: 0
+    worker_slots: 4
+    sheddable: false
+  - name: delivery
+    task_queue: foundry-delivery
+    priority: 1
+    worker_slots: 8
+    sheddable: false
+  - name: notification
+    task_queue: foundry-notification
+    priority: 2
+    worker_slots: 4
+    sheddable: false
+  - name: learning
+    task_queue: foundry-learning
+    priority: 3
+    worker_slots: 2
+    sheddable: true

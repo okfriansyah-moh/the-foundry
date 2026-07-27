@@ -16,14 +16,21 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
+	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
+	"github.com/okfriansyah-moh/the-foundry/internal/verify"
 	"github.com/okfriansyah-moh/the-foundry/internal/worktree"
 )
 
 // planSource is a minimal single-task plan whose task's Goal references a
 // fake_script.yaml path (the fake executor's own convention, per
 // internal/executor/fake's doc.go) filled in by newFixture at test time.
+// validation_commands is also a %[2]s placeholder (docs/PLAN.md Task 99 /
+// SKP-11R): "noop" is not on config/validation-allowlist.yaml's real
+// allowlist, so callers pick a real, allowlisted command — newFixture's
+// own default is "go version"; newFixtureWithValidation lets a test name
+// a different one to exercise a genuine validation failure.
 const planSourceTemplate = `---
 id: plan-kernel-fixture
 title: Kernel fixture plan
@@ -34,11 +41,11 @@ repos:
     branch: main
 tasks:
   - id: t1
-    goal: %s
+    goal: %[1]s
     commands:
       - noop
     validation_commands:
-      - noop
+      - %[2]s
     files:
       - README.md
 declared_effects:
@@ -60,6 +67,17 @@ permissions:
     target: "*"
 `
 
+// validationAllowlistSource is the internal/verify.Allowlist this
+// fixture's Activities.Validator checks every validation command against
+// (docs/PLAN.md Task 13 Step 2) — a minimal stand-in for the real
+// config/validation-allowlist.yaml, allowlisting only "go" since every
+// fixture's own validation commands are go subcommands.
+const validationAllowlistSource = `
+commands:
+  - go
+scripts_dir: ./scripts/
+`
+
 // kernelFixture bundles everything DeliverPlan needs: a signed
 // ApprovedPlan backed by an in-memory provenance store, a real git repo
 // for worktree.Manager to operate on, and a fresh Activities set backed by
@@ -71,11 +89,26 @@ type kernelFixture struct {
 	RepoPath     string
 	Activities   *kernel.Activities
 	Transitions  *kernel.MemTransitionStore
+	BudgetStore  *kernel.MemBudgetStore
 }
 
 // newFixture builds a kernelFixture whose single task runs the given fake
-// executor script (exitCode 0 == success, nonzero == failure).
+// executor script (exitCode 0 == success, nonzero == failure), validated
+// by the real internal/verify.Runner against "go version" (a real,
+// allowlisted, always-succeeding command — the default every test not
+// specifically exercising validation failure wants).
 func newFixture(t *testing.T, scriptYAML string) kernelFixture {
+	t.Helper()
+	return newFixtureWithValidation(t, scriptYAML, "go version")
+}
+
+// newFixtureWithValidation is newFixture with the task's single
+// validation command overridden, so a test can exercise a genuine
+// validation-command failure/policy-violation independently of whether
+// the fake executor itself claims success (docs/PLAN.md Task 99 /
+// SKP-11R's honest-completion proof: the executor's claim must never be
+// what decides the outcome).
+func newFixtureWithValidation(t *testing.T, scriptYAML, validationCmd string) kernelFixture {
 	t.Helper()
 	dir := t.TempDir()
 
@@ -84,7 +117,7 @@ func newFixture(t *testing.T, scriptYAML string) kernelFixture {
 		t.Fatalf("write fake script: %v", err)
 	}
 
-	planSource := fmt.Sprintf(planSourceTemplate, scriptPath)
+	planSource := fmt.Sprintf(planSourceTemplate, scriptPath, validationCmd)
 	doc, err := plan.ParseBytes([]byte(planSource))
 	if err != nil {
 		t.Fatalf("parse fixture plan: %v", err)
@@ -146,7 +179,17 @@ func newFixture(t *testing.T, scriptYAML string) kernelFixture {
 
 	repoPath := initFixtureRepo(t, dir)
 
+	validationAllowPath := filepath.Join(dir, "validation-allowlist.yaml")
+	if err := os.WriteFile(validationAllowPath, []byte(validationAllowlistSource), 0o644); err != nil {
+		t.Fatalf("write validation allowlist: %v", err)
+	}
+	validationAllow, err := verify.LoadAllowlist(validationAllowPath)
+	if err != nil {
+		t.Fatalf("load validation allowlist: %v", err)
+	}
+
 	transitions := kernel.NewMemTransitionStore()
+	budgetStore := kernel.NewMemBudgetStore()
 	acts := kernel.NewActivities(
 		store,
 		&worktree.Manager{Root: filepath.Join(dir, "worktrees")},
@@ -154,6 +197,9 @@ func newFixture(t *testing.T, scriptYAML string) kernelFixture {
 		kernel.NewMemLeaseStore(),
 		kernel.NewMemReceiptStore(),
 		transitions,
+		budgetStore,
+		cost.Defaults{DefaultUSD: 0.10},
+		verify.NewRunner(validationAllow),
 	)
 
 	return kernelFixture{
@@ -163,6 +209,7 @@ func newFixture(t *testing.T, scriptYAML string) kernelFixture {
 		RepoPath:     repoPath,
 		Activities:   acts,
 		Transitions:  transitions,
+		BudgetStore:  budgetStore,
 	}
 }
 
@@ -198,6 +245,8 @@ func initFixtureRepo(t *testing.T, dir string) string {
 // cmd/foundryd/main.go does for the real worker.
 func registerActivities(env *testsuite.TestWorkflowEnvironment, a *kernel.Activities) {
 	env.RegisterActivityWithOptions(a.LoadApprovedPlan, activity.RegisterOptions{Name: kernel.ActivityLoadApprovedPlan})
+	env.RegisterActivityWithOptions(a.RecheckApproval, activity.RegisterOptions{Name: kernel.ActivityRecheckApproval})
+	env.RegisterActivityWithOptions(a.ReserveBudget, activity.RegisterOptions{Name: kernel.ActivityReserveBudget})
 	env.RegisterActivityWithOptions(a.AcquireLease, activity.RegisterOptions{Name: kernel.ActivityAcquireLease})
 	env.RegisterActivityWithOptions(a.AcquireWorktree, activity.RegisterOptions{Name: kernel.ActivityAcquireWorktree})
 	env.RegisterActivityWithOptions(a.ReleaseWorktree, activity.RegisterOptions{Name: kernel.ActivityReleaseWorktree})

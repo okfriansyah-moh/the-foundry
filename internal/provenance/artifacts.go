@@ -40,6 +40,12 @@ type Approver struct {
 	Principal string    `json:"principal"`
 	Method    string    `json:"method"`
 	At        time.Time `json:"at"`
+	// AssertionHash is the sha256 hex digest of the raw strong-auth
+	// assertion (e.g. a WebAuthn assertion response) that authorized this
+	// approval, set only when Method requires one
+	// (docs/PLAN.md Task 25 / Constitution C12). Empty for approval
+	// methods that carry no such assertion (e.g. AuthMethodEd25519Local).
+	AssertionHash string `json:"assertion_hash,omitempty"`
 }
 
 // AuthMethodEd25519Local is the only strong-auth method this v0 supports
@@ -70,6 +76,8 @@ type ApprovedPlan struct {
 	approvedAt          time.Time
 	expiresAt           time.Time
 	revoked             bool
+	revokedBy           string
+	revocationReason    string
 	signature           []byte
 }
 
@@ -144,10 +152,27 @@ func (a *ApprovedPlan) Granted() []plan.Permission {
 	return append([]plan.Permission{}, a.granted...)
 }
 
-// Revoked reports the (unenforced in this task — Task 24) revocation flag.
+// Approvers returns a copy of the recorded approvals.
+func (a *ApprovedPlan) Approvers() []Approver {
+	return append([]Approver{}, a.approvers...)
+}
+
+// Revoked reports whether this plan has been revoked. Store.Load enforces
+// this — see docs/PLAN.md Task 24 — so callers do not need to re-check it
+// themselves after a successful Load.
 func (a *ApprovedPlan) Revoked() bool { return a.revoked }
 
-// ExpiresAt returns the (unenforced in this task — Task 24) expiry time.
+// RevokedBy returns the principal that revoked this plan, empty if never
+// revoked.
+func (a *ApprovedPlan) RevokedBy() string { return a.revokedBy }
+
+// RevocationReason returns the recorded reason for revocation, empty if
+// never revoked.
+func (a *ApprovedPlan) RevocationReason() string { return a.revocationReason }
+
+// ExpiresAt returns the expiry time. Store.Load enforces this — see
+// docs/PLAN.md Task 24 — so callers do not need to re-check it themselves
+// after a successful Load.
 func (a *ApprovedPlan) ExpiresAt() time.Time { return a.expiresAt }
 
 // approvedPlanWire is the full JSON wire/storage representation of an
@@ -172,6 +197,8 @@ type approvedPlanWire struct {
 	ApprovedAt          time.Time         `json:"approved_at"`
 	ExpiresAt           time.Time         `json:"expires_at"`
 	Revoked             bool              `json:"revoked"`
+	RevokedBy           string            `json:"revoked_by,omitempty"`
+	RevocationReason    string            `json:"revocation_reason,omitempty"`
 	Signature           string            `json:"signature,omitempty"` // base64
 }
 
@@ -194,6 +221,8 @@ func (a *ApprovedPlan) toWire() approvedPlanWire {
 		ApprovedAt:          a.approvedAt,
 		ExpiresAt:           a.expiresAt,
 		Revoked:             a.revoked,
+		RevokedBy:           a.revokedBy,
+		RevocationReason:    a.revocationReason,
 	}
 }
 
@@ -239,6 +268,8 @@ func (a *ApprovedPlan) UnmarshalJSON(data []byte) error {
 		approvedAt:          w.ApprovedAt,
 		expiresAt:           w.ExpiresAt,
 		revoked:             w.Revoked,
+		revokedBy:           w.RevokedBy,
+		revocationReason:    w.RevocationReason,
 		signature:           sig,
 	}
 	return nil

@@ -6,10 +6,20 @@ services:
       args:
         USER_UID: "${USER_UID:-1000}"
         USER_GID: "${USER_GID:-1000}"
+    # internal/executor's TestRunSubprocess_TimeoutKillsProcessGroup only fails
+    # inside this container: with no PID-1 init/subreaper, a SIGKILLed grandchild
+    # becomes an unreaped zombie that kill(pid,0) still reports as alive.
+    # init: true makes Compose inject Docker's built-in docker-init (tini) as
+    # PID 1, which reaps it. `docker compose run` honors this automatically.
+    init: true
     volumes:
       - ..:/workspace
       - gomod-cache:/go/pkg/mod
-      - gobuild-cache:/root/.cache/go-build
+      # Matches Dockerfile.dev's GOCACHE (the non-root `foundry` user's own
+      # $HOME) — mounting this at /root/.cache/go-build would be silently
+      # unused, since `foundry` (not root) is the user that actually runs
+      # `go build`/`go test` in this container.
+      - gobuild-cache:/home/foundry/.cache/go-build
     working_dir: /workspace
     environment:
       PG_DSN: "${PG_DSN:-postgres://foundry:foundry@postgres:5432/foundry?sslmode=disable}"
@@ -17,8 +27,11 @@ services:
       FOUNDRY_DATA_DIR: "${FOUNDRY_DATA_DIR:-/workspace/.data}"
 
   # Task 4 (SKP-02): dev's runtime dependencies, internal compose network only — see
-  # .ai/instructions/build-and-test.md container topology table (hard rule: this file
-  # holds only dev/postgres/temporal, never a 4th service or a second compose file).
+  # .ai/instructions/build-and-test.md container topology table (hard rule: never a
+  # second compose file or a fifth *image lineage*/Dockerfile we own). Task 31 (FND-12)
+  # extends this same row with prometheus/grafana below: both are off-the-shelf images
+  # (no Dockerfile of our own, same as postgres/temporal above), gated behind the `obs`
+  # compose profile so a bare `make up`/`docker compose up` never starts them.
   postgres:
     image: postgres:16
     environment:
@@ -54,6 +67,42 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  # Task 31 (FND-12): observability baseline. `obs` compose profile so
+  # `make up PROFILE=obs` brings these up alongside dev/postgres/temporal
+  # without changing plain `make up`'s behavior. Prometheus scrapes
+  # foundryd's own /metrics (see prometheus/prometheus.yml's doc comment
+  # for the `dev:9090` scrape-target assumption); Grafana auto-provisions
+  # that same Prometheus as its datasource and loads
+  # ../deploy/dashboards/*.json on startup — no manual clicking needed
+  # after `make up PROFILE=obs`.
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["obs"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Task 38 (FND-19): projection-lag alert rule.
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9091:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["obs"]
+    depends_on:
+      - prometheus
+    environment:
+      # Dev-only viewer convenience (no secrets, no production data) —
+      # consistent with this file's existing dev/postgres/temporal stance
+      # of no hardening on non-sandbox services (.ai/instructions/
+      # build-and-test.md container topology table).
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
 
 volumes:
   gomod-cache:

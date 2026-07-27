@@ -122,8 +122,9 @@ Concretely, when editing anything under `.ai/`:
 - **Serialize any generated list deterministically** (sorted, not insertion-order-from-a-map) — an unstable
   ordering is a silent cache invalidator even when the actual content hasn't changed.
 - **Recompose and diff after every `.ai/` change** (`ars compose --target codex` / `--target claude`, then check
-  the golden-rule reproducibility test in `scripts/check-ai-harness.sh`) — that check is also, incidentally, the
-  check that this repo hasn't broken its own cacheability.
+  the golden-rule reproducibility test in `scripts/doclint/ai-harness-repro.sh`, wired into `make fitness` /
+  `make doclint` per `docs/PLAN.md` Task 37) — that check is also, incidentally, the check that this repo hasn't
+  broken its own cacheability.
 
 ## What this buys you, concretely
 

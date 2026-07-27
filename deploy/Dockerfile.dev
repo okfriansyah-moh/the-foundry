@@ -26,21 +26,98 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
+# PostgreSQL client tools pinned to major version 16 to match
+# deploy/docker-compose.yaml's `postgres:16` server (docs/notes/
+# m1-exit-report.md's documented client/server skew: this base image's
+# Debian trixie main repo only carries the unversioned `postgresql-client`
+# metapackage, which resolves to v17 — mismatched with the pinned v16
+# server). PGDG's own apt repo is required because trixie's main repo does
+# not carry postgresql-client-16 at all.
+RUN install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Playwright system dependencies
 RUN npx --yes playwright@1.45.0 install-deps chromium || true
 
 # Go tooling (GOTOOLCHAIN=auto lets `go install` fetch a newer toolchain
-# on demand when a tool's go.mod requires one newer than the base image)
+# on demand when a tool's go.mod requires one newer than the base image).
+# goreleaser@latest still needs GOTOOLCHAIN=go1.24.10 pinned: its transitive
+# golang.org/x/tools@v0.21.0 dependency fails to compile under go1.25.x
+# ("invalid array length -delta * delta"). golangci-lint has no such issue
+# and must NOT be pinned this way: doing so makes the installed binary
+# self-report "built with go1.24", which then refuses to lint this repo's
+# go.mod (`go 1.25.7`) — "can't load config: the Go language version
+# (go1.24) used to build golangci-lint is lower than the targeted Go
+# version (1.25.7)".
 ENV GOTOOLCHAIN=auto
 ENV GOBIN=/usr/local/bin
 RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
     && GOTOOLCHAIN=go1.24.10 go install github.com/goreleaser/goreleaser@latest \
-    && GOTOOLCHAIN=go1.24.10 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
     && go install github.com/okfriansyah-moh/ares/cmd/ars@latest
 
 # Non-root user with host-matching UID/GID so bind-mounted files keep sane ownership
 RUN groupadd --gid ${USER_GID} foundry \
     && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash foundry
 
+# `useradd --create-home` sets /home/foundry as this account's home
+# directory in /etc/passwd, but that alone does not make $HOME resolve
+# there for a bare (non-login-shell) command run as this user — confirmed
+# live in CI: `make lint` failed with "failed to initialize build cache at
+# /home/foundry/.cache/golangci-lint: mkdir ...: permission denied",
+# because golangci-lint derives its own cache path from $HOME at runtime,
+# and an unset/wrong $HOME sends it somewhere this user can't write (e.g.
+# filesystem root). Setting HOME explicitly removes that ambiguity for
+# every tool that looks it up, not just golangci-lint.
+ENV HOME=/home/foundry
+
+# The `go install` step above ran as root and populated /go/pkg/mod (Go's
+# module download/build cache) with root-owned content. deploy/docker-
+# compose.yaml mounts a named volume at /go/pkg/mod; the FIRST time that
+# volume is used, Docker seeds it by copying this image directory's content
+# verbatim, preserving root ownership — on a brand-new volume (always true
+# in CI, where nothing persists between runs) this leaves every directory
+# the non-root `foundry` user hasn't itself created still owned by root, so
+# any `go build`/`go test`/`go mod download` needing a NEW dependency not
+# already cached by the tool installs above (e.g. this repo's own
+# growing go.mod, not just goose/goreleaser/golangci-lint/ars's own
+# transitive deps) fails outright with "mkdir ...: permission denied".
+# Chowning here, before the volume's very first use, makes the seeded
+# content already correctly owned. GOCACHE is also repointed at the
+# non-root user's own $HOME (its default under golang:1.22 was under
+# /root, which `foundry` — a different, non-root user — can never resolve
+# to) and chowned the same way, so deploy/docker-compose.yaml's
+# gobuild-cache volume (mounted at this exact path) is a real, writable
+# build cache instead of a silently-unused mount point.
+ENV GOCACHE=/home/foundry/.cache/go-build
+# Chowns /home/foundry/.cache itself, not just the GOCACHE leaf directory
+# below it — `mkdir -p` (still running as root here) creates every missing
+# path component owned by root, and an earlier version of this line only
+# chowned GOCACHE's own leaf, leaving its parent .cache/ still root-owned.
+# That went unnoticed until a real CI run showed a DIFFERENT tool
+# (golangci-lint, which keeps its own cache at .cache/golangci-lint,
+# alongside go-build rather than under it) failing to `mkdir` its own new
+# sibling directory there — foundry could write inside the already-chowned
+# go-build leaf, but not create a new entry in its still-root-owned parent.
+RUN mkdir -p "${GOCACHE}" \
+    && chown -R ${USER_UID}:${USER_GID} /go /home/foundry/.cache
+
 USER foundry
 WORKDIR /workspace
+
+# /workspace is a bind mount of the host's checkout — on a real Linux CI
+# runner (unlike macOS Docker Desktop's bind-mount layer, which silently
+# normalizes this), it's owned by whatever UID checked it out on the host,
+# not this container's own `foundry` UID. Git 2.35+'s "dubious ownership"
+# safety check refuses to operate on a repo owned by a different UID than
+# the one running it — and `go build`/`go vet`/etc.'s own VCS-stamping
+# machinery shells out to `git status` internally, so without this, any
+# such command fails with "error obtaining VCS status: exit status 128"
+# before ever reaching its own real work. Scoped to this one path (not a
+# blanket `*`) since /workspace is always what this image's own
+# docker-compose.yaml mounts here, never an arbitrary/untrusted repo.
+RUN git config --global --add safe.directory /workspace

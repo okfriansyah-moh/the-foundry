@@ -4,7 +4,16 @@
 #   (a) enum lint            — cmd/fitlint enum
 #   (b) superseded-term lint — cmd/fitlint term
 #   (c) import boundaries    — scripts/check_stdlib_only.sh, scripts/check_scm_boundary.sh
-#   (d) doc-link resolver    — cmd/fitlint doclinks
+#   (d) documentation lints  — scripts/doclint/run.sh: doc-link resolver +
+#       anchor checking, duplicate Mermaid D-ID detector, single-source
+#       contract heuristic, container-inventory lint, composed-file
+#       reproducibility (docs/PLAN.md Task 37 / FND-18 — also `make doclint`
+#       standalone; absorbs and retires Task 2's scripts/check-ai-harness.sh)
+#   (e) authority boundary   — cmd/fitlint authority (docs/PLAN.md Task 28 / FND-09)
+#   (f) secrets leak scan     — cmd/fitlint secretsleak (docs/PLAN.md Task 35 / FND-16)
+#   (g) mission loop contract — cmd/fitlint missionloop (docs/PLAN.md Task 40 / VEN-01):
+#       MissionLoop must refuse to start without a registered loop contract
+#       (mission-contract.md §3) — structurally proven, not just documented.
 # plus the Task 1 v0 checks (go vet, doc.go presence) this script already had.
 #
 # test/fitness_seeds/** is deliberately excluded from every check below — it
@@ -46,7 +55,16 @@ echo "== fitness (c): import boundaries =="
 bash scripts/check_stdlib_only.sh ./internal/state
 bash scripts/check_scm_boundary.sh .
 
-echo "== fitness (d): doc-link resolver =="
-"${fitlint_bin}" doclinks . docs/foundry
+echo "== fitness (d): documentation lints (docs/PLAN.md Task 37 / FND-18) =="
+bash scripts/doclint/run.sh
+
+echo "== fitness (e): authority import boundary (Task 28 / FND-09) =="
+"${fitlint_bin}" authority ./internal/... ./cmd/... ./tools/...
+
+echo "== fitness (f): secrets leak scan (Task 35 / FND-16) =="
+"${fitlint_bin}" secretsleak .
+
+echo "== fitness (g): mission loop contract (Task 40 / VEN-01) =="
+"${fitlint_bin}" missionloop internal cmd tools
 
 echo "fitness OK"

@@ -31,6 +31,13 @@ CREATE TABLE IF NOT EXISTS projection_offsets (
 -- result) so `foundry projection rebuild` and its e2e test can prove a
 -- truncate-and-replay reproduces byte-identical projected state
 -- (data-consistency.md §2: "rebuild is a routine, tested operation").
+--
+-- StatementBegin/StatementEnd (fixed by Task 38/FND-19 -- discovered while
+-- running `foundry migrate up` against a real Postgres for the first time
+-- in this repo's history): without this fencing, goose's naive ';'
+-- splitter cuts the dollar-quoted function body at the "rows;" semicolon
+-- inside it, sending Postgres a statement with an unterminated $$ string.
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION projection_checksum() RETURNS TEXT AS $$
     SELECT COALESCE(
         md5(string_agg(row_digest, '|' ORDER BY workflow_id)),
@@ -54,6 +61,7 @@ CREATE OR REPLACE FUNCTION projection_checksum() RETURNS TEXT AS $$
         FROM workflow_status_projection
     ) rows;
 $$ LANGUAGE sql STABLE;
+-- +goose StatementEnd
 
 COMMENT ON TABLE workflow_status_projection IS 'Rebuildable projection (Constitution C3): NEVER execution authority. Fed idempotently from workflow_transitions by a versioned projector; truncate-and-replay must reproduce byte-identical state.';
 COMMENT ON TABLE projection_offsets IS 'Rebuildable projection bookkeeping (Constitution C3): per-projector last-applied sequence offset, not authoritative on its own.';

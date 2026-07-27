@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
+	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
+	"github.com/okfriansyah-moh/the-foundry/internal/verify"
 )
 
 func TestReceiptStore_PutThenGetRoundTrips(t *testing.T) {
@@ -115,7 +117,7 @@ func TestExecuteTask_WithoutReceiptGuardActuallyReRuns(t *testing.T) {
 	// ReceiptStore *type* — a brand-new, empty one — so the (workflow,
 	// task, attempt) key from the call above has no receipt here. Every
 	// other collaborator is nil because ExecuteTask never touches them.
-	freshActivities := kernel.NewActivities(nil, nil, nil, nil, kernel.NewMemReceiptStore(), nil)
+	freshActivities := kernel.NewActivities(nil, nil, nil, nil, kernel.NewMemReceiptStore(), nil, nil, cost.Defaults{}, verify.Runner{})
 
 	execIn.Packet.Goal = "/no/such/script.yaml"
 	if _, err := freshActivities.ExecuteTask(ctx, execIn); err == nil {

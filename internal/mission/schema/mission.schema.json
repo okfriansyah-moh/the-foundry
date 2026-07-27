@@ -1,0 +1,104 @@
+{
+  "$id": "https://foundry.dev/schemas/mission-contract/v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Foundry MissionContract v1",
+  "description": "docs/PLAN.md Task 40 (VEN-01): field-for-field shape of docs/foundry/docs/autonomy/mission-contract.md §1's MissionContract. Every autonomous mission MUST have a contract (Constitution C18) -- a loop without an exit condition is an incident, not a feature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mission"],
+  "properties": {
+    "mission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "statement",
+        "target",
+        "budget",
+        "cadence",
+        "constraints",
+        "pause_when",
+        "terminate_when",
+        "post_success_policy"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "statement": { "type": "string", "minLength": 1 },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "metric",
+            "source",
+            "verification",
+            "amount_usd",
+            "confirmation_window",
+            "minimum_unrelated_paying_customers",
+            "refund_chargeback_rate_below"
+          ],
+          "properties": {
+            "metric": { "const": "net_mrr" },
+            "source": { "const": "payment-provider-ledger" },
+            "verification": { "const": "reconciled" },
+            "amount_usd": { "type": "number", "minimum": 0 },
+            "confirmation_window": {
+              "type": "string",
+              "description": "Duration string, e.g. \"30d\" (days) or a Go duration like \"720h\".",
+              "pattern": "^[0-9]+[dhms]$"
+            },
+            "minimum_unrelated_paying_customers": { "type": "integer", "minimum": 0 },
+            "refund_chargeback_rate_below": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monthly_usd", "total_experiment_usd"],
+          "properties": {
+            "monthly_usd": { "type": "number", "minimum": 0 },
+            "total_experiment_usd": { "type": "number", "minimum": 0 }
+          }
+        },
+        "cadence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["observe", "improve"],
+          "properties": {
+            "observe": { "type": "string", "minLength": 1 },
+            "improve": { "type": "string", "minLength": 1 }
+          }
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maximum_active_products", "maximum_validation_cycles", "maximum_no_progress_cycles"],
+          "properties": {
+            "maximum_active_products": { "type": "integer", "minimum": 1 },
+            "maximum_validation_cycles": { "type": "integer", "minimum": 1 },
+            "maximum_no_progress_cycles": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "pause_when": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["monthly-budget-exhausted", "payment-data-unavailable", "unforeseen-human-gate"]
+          }
+        },
+        "terminate_when": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["total-budget-exhausted", "prohibited-market-detected", "no-viable-candidate-after-max-cycles"]
+          }
+        },
+        "post_success_policy": {
+          "type": "string",
+          "enum": ["stop", "maintenance", "raise-target", "continue-growth", "start-another-product"]
+        }
+      }
+    }
+  }
+}

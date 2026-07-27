@@ -1,0 +1,18 @@
+# docs/PLAN.md Task 34 (FND-15): the executor sandbox's egress allowlist.
+#
+# Default-deny: the sandbox network has no route out at all except to the
+# gate (internal/executor/sandbox/gate), which relays a CONNECT tunnel only
+# to an entry listed below — exact host, exact port, no wildcards. Nothing
+# is listed here beyond the configured executor's own LLM provider endpoint,
+# because SCM writes, deployments, and billing are kernel-side activities
+# that happen outside the sandbox entirely (Constitution C4) — the sandbox
+# itself never legitimately needs GitHub, Stripe, or Fly.
+#
+# Adding an entry here is a security-relevant change: it must name the
+# executor/provider that needs it and be reviewed like any other egress
+# widening (security-hardening SKILL.md A01/SSRF: allowlist, not denylist).
+version: 1
+allow:
+  - host: api.anthropic.com
+    port: 443
+    reason: "FOUNDRY_EXECUTOR=claude-code's own LLM provider endpoint (docs/PLAN.md Task 17)"

@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/okfriansyah-moh/the-foundry/internal/secrets/filestore"
 )
 
 func main() {
@@ -51,10 +53,10 @@ func run(args []string) int {
 		impl = &realImplementer{}
 		val = &realValidator{}
 		scm = &realSCM{}
-		token := os.Getenv("TELEGRAM_BOT_TOKEN")
+		token := resolveTelegramToken()
 		chatID := os.Getenv("TELEGRAM_CHAT_ID")
 		if token == "" || chatID == "" {
-			slog.Error("real mode requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (see .env.example)")
+			slog.Error("real mode requires a Telegram bot token (secrets store or TELEGRAM_BOT_TOKEN env var) and TELEGRAM_CHAT_ID (see .env.example)")
 			return 1
 		}
 		notif = NewTelegramNotifier(token, chatID)
@@ -81,6 +83,33 @@ func run(args []string) int {
 		}
 	}
 	return exitCode
+}
+
+// planrunnerSecretsScope is the fixed profile scope this tool reads its
+// own bootstrap Telegram token under. tools/planrunner drives building
+// Foundry itself, before Foundry has any real profiles of its own, so a
+// fixed scope name stands in for a real profile ID here.
+const planrunnerSecretsScope = "bootstrap"
+
+// telegramTokenSecretName is the secret name resolveTelegramToken reads
+// (docs/PLAN.md Task 35 / FND-16's secrets seam).
+const telegramTokenSecretName = "telegram_bot_token"
+
+// resolveTelegramToken migrates this tool off a bare TELEGRAM_BOT_TOKEN
+// env var and behind Task 35's secrets seam: it tries
+// internal/secrets/filestore first, falling back to the original
+// TELEGRAM_BOT_TOKEN env var (the .env.example-documented path) when the
+// secrets store has nothing provisioned under planrunnerSecretsScope —
+// so an existing .env-based bootstrap keeps working unchanged until it
+// chooses to provision the secrets store instead.
+func resolveTelegramToken() string {
+	if path, err := filestore.DefaultPath(); err == nil {
+		store := filestore.New(path, filestore.DefaultKeySource())
+		if v, err := store.Get(context.Background(), planrunnerSecretsScope, telegramTokenSecretName); err == nil {
+			return v
+		}
+	}
+	return os.Getenv("TELEGRAM_BOT_TOKEN")
 }
 
 func parseIntSet(csv string) map[int]bool {

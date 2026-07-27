@@ -1,0 +1,321 @@
+# foundryd HTTP API (docs/PLAN.md Task 36 / FND-17).
+#
+# This file is the source of truth for internal/api's route surface:
+# internal/api/contract_test.go diffs Server.Routes() (the runtime route
+# table) against the (method, path) pairs declared here. A route
+# registered in code but undocumented here — or vice versa — fails that
+# test by name, not just at review time (the card's "spec-drift test
+# fails on undocumented route" acceptance).
+#
+# Every route requires a bearer session JWT (see securitySchemes below)
+# and is additionally authorized per-route by internal/policy.Decider
+# (Task 23's OPA-backed PDP) before its handler runs.
+openapi: 3.0.3
+info:
+  title: Foundry API
+  version: "1.0.0"
+  description: >
+    HTTP API mirroring the `foundry` CLI's submit/approve/status/evidence/
+    profiles commands. Read-only where the CLI is read-only; the kernel
+    (internal/kernel, Constitution C4) remains the sole owner of every
+    side effect this API's routes can lead to — this surface only
+    exposes the same non-authority seams the CLI already calls directly.
+servers:
+  - url: /v1
+security:
+  - sessionBearer: []
+paths:
+  /plans:
+    post:
+      operationId: submitPlan
+      summary: Parse and digest a plan (mirrors `foundry plan submit`)
+      description: >
+        Performs no admission decision and no persistence — identical to
+        the CLI's `foundry plan submit`. Submitter is always the
+        authenticated session principal, never a client-supplied field.
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: Raw PLAN.md bytes (YAML front matter + Markdown body).
+      responses:
+        "200":
+          description: Plan parsed; submission artifact returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanSubmission"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: Plan body exceeds the 1 MiB limit.
+        "422":
+          description: Plan failed to parse.
+  /plans/{id}/approve:
+    post:
+      operationId: approvePlan
+      summary: Record an approval (mirrors the Task 25 approve endpoint)
+      description: >
+        Requires a fresh WebAuthn assertion when the plan's classification
+        requires strong auth (Tier H or an organization profile).
+      parameters:
+        - $ref: "#/components/parameters/PlanID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveRequest"
+      responses:
+        "200":
+          description: Approval recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApproveResponse"
+        "400":
+          description: Malformed request body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: PDP denied, or step-up (WebAuthn) required/failed.
+        "404":
+          description: Plan not found.
+        "409":
+          description: Could not record approval.
+  /webauthn/register/begin:
+    post:
+      operationId: webauthnRegisterBegin
+      summary: Begin WebAuthn credential registration
+      responses:
+        "200":
+          description: Registration ceremony options.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Could not begin registration.
+  /webauthn/register/finish:
+    post:
+      operationId: webauthnRegisterFinish
+      summary: Finish WebAuthn credential registration
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential registered.
+        "400":
+          description: Missing session_id, or registration verification failed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /webauthn/login/begin:
+    post:
+      operationId: webauthnLoginBegin
+      summary: Begin a WebAuthn login/assertion ceremony
+      responses:
+        "200":
+          description: Assertion ceremony options.
+        "400":
+          description: Could not begin login.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /workflows/{id}/status:
+    get:
+      operationId: getWorkflowStatus
+      summary: Workflow status (mirrors `foundry status`)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: consistency
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [fresh, projected]
+            default: projected
+          description: >
+            "projected" (default) reads the Task 14 PG projection;
+            "fresh" reads Temporal's DescribeWorkflowExecution plus the
+            latest transition row directly, bypassing the projection.
+      responses:
+        "200":
+          description: Workflow status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowStatus"
+        "400":
+          description: Missing workflow id, or invalid consistency value.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No projection row / no transitions for this workflow.
+        "502":
+          description: Could not reach Temporal (fresh consistency only).
+  /evidence/{id}:
+    get:
+      operationId: getEvidence
+      summary: Show an evidence bundle's manifest (mirrors `foundry evidence show`)
+      parameters:
+        - $ref: "#/components/parameters/EvidenceID"
+      responses:
+        "200":
+          description: Evidence manifest.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Bundle not found.
+  /evidence/{id}/verify:
+    get:
+      operationId: verifyEvidence
+      summary: Re-verify an evidence bundle (mirrors `foundry evidence verify`)
+      parameters:
+        - $ref: "#/components/parameters/EvidenceID"
+      responses:
+        "200":
+          description: Verification passed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Verification failed — content no longer matches its recorded hash.
+        "422":
+          description: Bundle unreadable.
+  /profiles:
+    get:
+      operationId: listProfiles
+      summary: List profiles (mirrors `foundry profile list`)
+      responses:
+        "200":
+          description: Every profile.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createProfile
+      summary: Create a profile (mirrors `foundry profile create`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfileRequest"
+      responses:
+        "201":
+          description: Profile created.
+        "400":
+          description: Missing/invalid fields, or config fails profile.schema.json.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Profile id already exists.
+  /profiles/{id}:
+    get:
+      operationId: getProfile
+      summary: Show a profile (mirrors `foundry profile show`)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The profile.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Profile not found.
+components:
+  securitySchemes:
+    sessionBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Foundry session JWT (internal/authn.IssueSession, ES256,
+        15-minute TTL), obtained via `foundry login`'s OIDC device-code
+        flow (Task 25).
+  parameters:
+    PlanID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    EvidenceID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired session JWT.
+    Forbidden:
+      description: PDP denied this (principal, action, resource).
+  schemas:
+    PlanSubmission:
+      type: object
+      properties:
+        digest: { type: string }
+        source: { type: string }
+        submitter: { type: string }
+        at: { type: string, format: date-time }
+    ApproveRequest:
+      type: object
+      properties:
+        webauthn_session_id:
+          type: string
+        webauthn_assertion:
+          type: object
+          description: Raw browser PublicKeyCredential assertion response.
+    ApproveResponse:
+      type: object
+      properties:
+        plan_id: { type: string }
+        approver: { type: object }
+        approvers:
+          type: array
+          items:
+            type: object
+    WorkflowStatus:
+      type: object
+      properties:
+        workflow_id: { type: string }
+        status: { type: string }
+        phase: { type: string }
+        consistency: { type: string, enum: [fresh, projected] }
+        last_seq: { type: integer }
+        lag_seconds: { type: number }
+        temporal_status: { type: string }
+    CreateProfileRequest:
+      type: object
+      required: [id, name, kind, config]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [personal, organization] }
+        org_id: { type: string }
+        config:
+          type: object
+          description: Must validate against config/schemas/profile.schema.json.

@@ -1,0 +1,25 @@
+# Prometheus alerting rules for the `obs` compose profile (docs/PLAN.md
+# Task 38 / FND-19). Loaded via prometheus.yml's rule_files; scraped from
+# foundryd's /metrics (internal/observe/metrics.go's ProjectionLagSeconds,
+# set by internal/projection.Projector.Tick's live-table path).
+#
+# Threshold decision (No-gaps rule, docs/PLAN.md §A): observability-and-alerts.md
+# §1's metric catalog marks projection_lag's alert threshold "owner-defined"
+# without naming a number. 60s sustained for 5m is the smallest reversible
+# default absent a stated SLO — adjust once a real one is set.
+groups:
+  - name: foundry_projection
+    rules:
+      - alert: ProjectionLagHigh
+        expr: foundry_projection_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Foundry workflow-status projection lag exceeds 60s"
+          description: >-
+            foundry_projection_lag_seconds has been above 60 seconds for at
+            least 5 minutes (current value {{ $value }}s). The
+            workflow_status_projection read model is falling behind
+            workflow_transitions. See runbook for triage steps.
+          runbook: "docs/runbooks/projection-lag.md"
