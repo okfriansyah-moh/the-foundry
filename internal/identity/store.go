@@ -205,7 +205,7 @@ func (p *PGStore) ListPrincipals(ctx context.Context) ([]*Principal, error) {
 	if err != nil {
 		return nil, fmt.Errorf("identity: list principals: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []*Principal
 	for rows.Next() {
@@ -254,7 +254,7 @@ func (p *PGStore) ListOrganizations(ctx context.Context) ([]*Organization, error
 	if err != nil {
 		return nil, fmt.Errorf("identity: list organizations: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []*Organization
 	for rows.Next() {
@@ -290,7 +290,7 @@ func (p *PGStore) ListOrgMembers(ctx context.Context, orgID string) ([]*OrgMembe
 	if err != nil {
 		return nil, fmt.Errorf("identity: list org members for %s: %w", orgID, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []*OrgMember
 	for rows.Next() {

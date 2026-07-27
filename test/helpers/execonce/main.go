@@ -17,14 +17,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-
-	"database/sql"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
@@ -60,7 +59,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Only ReceiptStore matters: ExecuteTask never touches the other
 	// Activities collaborators (provenance, worktree, evidence, lease,

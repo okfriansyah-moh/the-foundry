@@ -229,7 +229,7 @@ func startMockProvider(t *testing.T, body string) mockProvider {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(body))
 	}))
-	mock.Listener.Close()
+	_ = mock.Listener.Close()
 	mock.Listener = ln
 	mock.StartTLS()
 	t.Cleanup(mock.Close)

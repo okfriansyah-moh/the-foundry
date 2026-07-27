@@ -245,16 +245,16 @@ func (p *Projector) Tick(ctx context.Context) (int, error) {
 	for rows.Next() {
 		var r transitionRow
 		if err := rows.Scan(&r.WorkflowID, &r.Seq, &r.Payload); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return 0, fmt.Errorf("projection: scan transition: %w", err)
 		}
 		batch = append(batch, r)
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
+		_ = rows.Close()
 		return 0, fmt.Errorf("projection: iterate transitions: %w", err)
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	if len(batch) == 0 {
 		return 0, tx.Commit()

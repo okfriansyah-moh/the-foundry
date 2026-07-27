@@ -40,7 +40,7 @@ func TestProjector_Idempotency_RealPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -171,7 +171,7 @@ func TestProjector_StaleContentAtNewHigherSeq_RealPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

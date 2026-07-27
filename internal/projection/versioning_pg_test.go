@@ -37,7 +37,7 @@ func TestRollout_RealPostgres_LiveLoadLosesZeroUpdates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -94,7 +94,7 @@ func TestRollout_RealPostgres_LiveLoadLosesZeroUpdates(t *testing.T) {
 		defer generatorWG.Done()
 		for i := 0; i < generatedWorkflows; i++ {
 			insert(workflowIDFor(i%seedWorkflows), i+1) // update an existing workflow
-			insert(newWorkflowIDFor(i), 0)               // and a brand-new one
+			insert(newWorkflowIDFor(i), 0)              // and a brand-new one
 			time.Sleep(2 * time.Millisecond)
 		}
 	}()
@@ -150,7 +150,7 @@ func TestRollout_RealPostgres_LiveLoadLosesZeroUpdates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query mismatches: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var mismatches int
 	for rows.Next() {
 		var wf string

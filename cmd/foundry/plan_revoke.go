@@ -60,7 +60,7 @@ func runPlanRevoke(args []string) error {
 	if err != nil {
 		return fmt.Errorf("plan revoke: %w", err)
 	}
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 
 	store := provenance.NewStore(raw, kp.Public)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

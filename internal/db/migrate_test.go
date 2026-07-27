@@ -17,7 +17,7 @@ func TestNewMigrator_EmbeddedSourcesParse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
 	}
-	t.Cleanup(func() { sqlDB.Close() })
+	t.Cleanup(func() { _ = sqlDB.Close() })
 
 	m, err := NewMigrator(sqlDB)
 	if err != nil {

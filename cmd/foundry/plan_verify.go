@@ -51,7 +51,7 @@ func runPlanVerify(args []string) error {
 	if err != nil {
 		return fmt.Errorf("plan verify: %w", err)
 	}
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 
 	store := provenance.NewStore(raw, pub)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

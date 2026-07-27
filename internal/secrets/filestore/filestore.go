@@ -71,7 +71,7 @@ func (s *Store) load(ctx context.Context) (payload, error) {
 	if err != nil {
 		return nil, fmt.Errorf("filestore: open %s: %w", s.Path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	id, err := s.Keys.Identity(ctx)
 	if err != nil {
@@ -121,24 +121,33 @@ func (s *Store) save(ctx context.Context, p payload) error {
 		return fmt.Errorf("filestore: create temp file: %w", err)
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath) // no-op once the rename below succeeds
+	defer func() {
+		if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			s.logger().WarnContext(ctx, "filestore: remove temp file", "path", tmpPath, "error", err)
+		}
+	}()
+	closeTmp := func(op string) {
+		if err := tmp.Close(); err != nil {
+			s.logger().WarnContext(ctx, "filestore: close temp file after failed operation", "op", op, "path", tmpPath, "error", err)
+		}
+	}
 
 	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
+		closeTmp("chmod")
 		return fmt.Errorf("filestore: chmod temp file: %w", err)
 	}
 
 	w, err := age.Encrypt(tmp, recipient)
 	if err != nil {
-		tmp.Close()
+		closeTmp("start encryption")
 		return fmt.Errorf("filestore: start encryption: %w", err)
 	}
 	if _, err := w.Write(data); err != nil {
-		tmp.Close()
+		closeTmp("write encrypted secrets")
 		return fmt.Errorf("filestore: write encrypted secrets: %w", err)
 	}
 	if err := w.Close(); err != nil {
-		tmp.Close()
+		closeTmp("finalize encryption")
 		return fmt.Errorf("filestore: finalize encryption: %w", err)
 	}
 	if err := tmp.Close(); err != nil {

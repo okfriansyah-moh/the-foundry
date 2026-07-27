@@ -97,7 +97,7 @@ LIMIT $1`
 	if err != nil {
 		return nil, fmt.Errorf("notify: claim pending: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []Notification
 	for rows.Next() {

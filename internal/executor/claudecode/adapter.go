@@ -117,9 +117,9 @@ func (a *Adapter) applySecretsEnv(ctx context.Context) (func(), error) {
 	}
 	return func() {
 		if hadPrev {
-			os.Setenv(envVar, prev)
+			_ = os.Setenv(envVar, prev)
 		} else {
-			os.Unsetenv(envVar)
+			_ = os.Unsetenv(envVar)
 		}
 	}, nil
 }
@@ -189,7 +189,7 @@ func (a *Adapter) Run(ctx context.Context) (executor.Summary, error) {
 	if err != nil {
 		return executor.Summary{}, fmt.Errorf("claudecode: open prompt file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	timeout := defaultTimeout
 	if a.packet.TimeoutSec > 0 {

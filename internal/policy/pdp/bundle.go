@@ -62,7 +62,7 @@ func digestFiles(files map[string]string) string {
 
 	h := sha256.New()
 	for _, name := range names {
-		fmt.Fprintf(h, "%s\n%s\n", name, files[name])
+		_, _ = fmt.Fprintf(h, "%s\n%s\n", name, files[name])
 	}
 	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }

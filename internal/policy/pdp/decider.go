@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/open-policy-agent/opa/rego"
+	rego "github.com/open-policy-agent/opa/rego" //nolint:staticcheck // TODO(foundry): migrate PDP and rego bundle syntax to opa/v1 in a dedicated change.
 
 	"github.com/okfriansyah-moh/the-foundry/internal/policy"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"

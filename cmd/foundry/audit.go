@@ -39,7 +39,7 @@ func runAuditVerify(args []string) error {
 	if err != nil {
 		return fmt.Errorf("audit verify: open db: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), auditVerifyTimeout)
 	defer cancel()

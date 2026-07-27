@@ -167,7 +167,7 @@ func (p *PGRawStore) List(ctx context.Context) ([]*Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("profile: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []*Profile
 	for rows.Next() {

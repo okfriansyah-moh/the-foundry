@@ -56,7 +56,7 @@ func runPolicyResolve(args []string) error {
 	if err != nil {
 		return fmt.Errorf("policy resolve: %w", err)
 	}
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 	store := profile.NewStore(raw)
 
 	ctx, cancel := context.WithTimeout(context.Background(), policyTimeout)
