@@ -181,7 +181,7 @@ func describeTemporalWorkflow(ctx context.Context, hostPort, namespace, workflow
 	if err != nil {
 		return "", fmt.Errorf("dial temporal: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := workflowservice.NewWorkflowServiceClient(conn)
 	resp, err := client.DescribeWorkflowExecution(ctx, &workflowservice.DescribeWorkflowExecutionRequest{

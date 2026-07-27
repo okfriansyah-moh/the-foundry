@@ -166,7 +166,7 @@ func (g *gate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upstream dial failed", http.StatusBadGateway)
 		return
 	}
-	defer upstream.Close()
+	defer func() { _ = upstream.Close() }()
 
 	hj, ok := w.(http.Hijacker)
 	if !ok {
@@ -178,7 +178,7 @@ func (g *gate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "hijack failed", http.StatusInternalServerError)
 		return
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if _, err := client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
 		return

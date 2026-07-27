@@ -440,7 +440,7 @@ func TestPushBranch_RecordsReceiptInRealLedger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.PingContext(context.Background()); err != nil {
 		t.Fatalf("ping postgres: %v", err)
 	}

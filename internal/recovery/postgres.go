@@ -41,7 +41,7 @@ WHERE status NOT IN ($1, $2, $3)`
 	if err != nil {
 		return nil, fmt.Errorf("recovery: list nonterminal projections: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var snaps []WorkflowSnapshot
 	for rows.Next() {

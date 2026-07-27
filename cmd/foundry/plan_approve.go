@@ -109,7 +109,7 @@ func runPlanApprove(args []string) error {
 	if err != nil {
 		return fmt.Errorf("plan approve: %w", err)
 	}
-	defer raw2.Close()
+	defer func() { _ = raw2.Close() }()
 
 	store := provenance.NewStore(raw2, kp.Public)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

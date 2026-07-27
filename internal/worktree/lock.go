@@ -31,7 +31,7 @@ func lockRepo(root, repoKey string) (*repoLock, error) {
 	}
 
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, fmt.Errorf("worktree: flock %s: %w", path, err)
 	}
 
@@ -41,7 +41,7 @@ func lockRepo(root, repoKey string) (*repoLock, error) {
 // unlock releases the flock and closes the underlying file descriptor.
 func (l *repoLock) unlock() error {
 	if err := syscall.Flock(int(l.f.Fd()), syscall.LOCK_UN); err != nil {
-		l.f.Close()
+		_ = l.f.Close()
 		return fmt.Errorf("worktree: unlock: %w", err)
 	}
 	return l.f.Close()

@@ -184,7 +184,7 @@ func hashFile(path string) (string, int64, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := sha256.New()
 	n, err := io.Copy(h, f)
@@ -199,7 +199,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", src, err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("create dir for %s: %w", dst, err)
@@ -209,7 +209,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", dst, err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return fmt.Errorf("copy %s to %s: %w", src, dst, err)

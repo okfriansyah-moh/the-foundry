@@ -18,10 +18,12 @@ type fakeController struct {
 func (f *fakeController) Status(_ context.Context, workflow string) (string, error) {
 	return "status of " + workflow, nil
 }
+
 func (f *fakeController) Pause(_ context.Context, workflow string) error {
 	f.paused = append(f.paused, workflow)
 	return nil
 }
+
 func (f *fakeController) Resume(_ context.Context, workflow string) error {
 	f.resumed = append(f.resumed, workflow)
 	return nil

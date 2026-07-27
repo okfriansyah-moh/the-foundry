@@ -172,7 +172,7 @@ func runStatus(args []string) error {
 	if err != nil {
 		return fmt.Errorf("status: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if parsed.fresh {
 		return runStatusFresh(ctx, db, parsed)
@@ -252,7 +252,7 @@ func describeTemporalWorkflow(ctx context.Context, hostPort, namespace, workflow
 	if err != nil {
 		return "", fmt.Errorf("dial temporal: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := workflowservice.NewWorkflowServiceClient(conn)
 	resp, err := client.DescribeWorkflowExecution(ctx, &workflowservice.DescribeWorkflowExecutionRequest{

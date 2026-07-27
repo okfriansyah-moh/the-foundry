@@ -198,6 +198,6 @@ func retryCount(t *testing.T, activity string) float64 {
 // environment silently changing TestSetupTracing_DisabledByDefaultIsNoop's
 // meaning.
 func TestMain(m *testing.M) {
-	os.Unsetenv(observe.EnvTracingEnabled)
+	_ = os.Unsetenv(observe.EnvTracingEnabled)
 	os.Exit(m.Run())
 }

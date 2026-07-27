@@ -63,7 +63,7 @@ func TestDefaultKeySource_PicksPassphraseWhenEnvVarSet(t *testing.T) {
 }
 
 func TestDefaultKeySource_PicksKeychainWhenEnvVarUnset(t *testing.T) {
-	os.Unsetenv(filestore.PassphraseEnvVar)
+	_ = os.Unsetenv(filestore.PassphraseEnvVar)
 	src := filestore.DefaultKeySource()
 	if _, ok := src.(filestore.KeychainKeySource); !ok {
 		t.Fatalf("DefaultKeySource with no passphrase env: got %T, want KeychainKeySource", src)

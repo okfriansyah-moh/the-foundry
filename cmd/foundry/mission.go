@@ -76,7 +76,7 @@ func runMissionCreate(args []string) error {
 	if err != nil {
 		return fmt.Errorf("mission create: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := mission.NewStore(db)
 	ctx, cancel := context.WithTimeout(context.Background(), missionCmdTimeout)
@@ -134,7 +134,7 @@ func runMissionShow(args []string) error {
 	if err != nil {
 		return fmt.Errorf("mission show: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := mission.NewStore(db)
 	ctx, cancel := context.WithTimeout(context.Background(), missionCmdTimeout)
@@ -193,7 +193,7 @@ func signalMission(args []string, cmdName, signalName string, payload func(reque
 	if err != nil {
 		return fmt.Errorf("%s: open postgres: %w", cmdName, err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	store := mission.NewStore(sqlDB)
 	ctx, cancel := context.WithTimeout(context.Background(), missionCmdTimeout)

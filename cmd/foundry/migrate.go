@@ -30,7 +30,7 @@ func openMigrator() (*sql.DB, *db.Migrator, error) {
 	}
 	migrator, err := db.NewMigrator(sqlDB)
 	if err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, nil, fmt.Errorf("migrate: construct migrator: %w", err)
 	}
 	return sqlDB, migrator, nil
@@ -41,7 +41,7 @@ func runMigrateUp(_ []string) error {
 	if err != nil {
 		return err
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), migrateTimeout)
 	defer cancel()
@@ -58,7 +58,7 @@ func runMigrateDown(_ []string) error {
 	if err != nil {
 		return err
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), migrateTimeout)
 	defer cancel()
@@ -75,7 +75,7 @@ func runMigrateStatus(_ []string) error {
 	if err != nil {
 		return err
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), migrateTimeout)
 	defer cancel()

@@ -44,7 +44,7 @@ func runPrincipalCreate(args []string) error {
 	if err != nil {
 		return fmt.Errorf("principal create: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), principalTimeout)
 	defer cancel()

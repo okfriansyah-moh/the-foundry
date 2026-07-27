@@ -75,7 +75,7 @@ func (m *Manager) Acquire(ctx context.Context, repoPath, wfID, taskID string) (W
 	if err != nil {
 		return Workspace{}, err
 	}
-	defer lock.unlock()
+	defer func() { _ = lock.unlock() }()
 
 	if _, err := os.Stat(wsPath); err == nil {
 		return Workspace{}, fmt.Errorf("worktree: %s already exists", wsPath)
@@ -117,7 +117,7 @@ func (m *Manager) release(repoPath, wfID, taskID, branch string) error {
 	if err != nil {
 		return err
 	}
-	defer lock.unlock()
+	defer func() { _ = lock.unlock() }()
 
 	wsPath := filepath.Join(m.Root, wfID, taskID)
 

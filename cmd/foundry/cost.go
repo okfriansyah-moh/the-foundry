@@ -60,7 +60,7 @@ func runCostShow(args []string) error {
 	if err != nil {
 		return fmt.Errorf("cost show: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), costCmdTimeout)
 	defer cancel()

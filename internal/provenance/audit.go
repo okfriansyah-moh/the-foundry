@@ -95,7 +95,7 @@ func VerifyAuditChain(ctx context.Context, db *sql.DB) (*AuditVerifyResult, erro
 	if err != nil {
 		return nil, fmt.Errorf("provenance: query audit_log: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := &AuditVerifyResult{OK: true}
 	var prevHash []byte

@@ -76,7 +76,7 @@ func runBudgetRaise(args []string) error {
 	if err != nil {
 		return fmt.Errorf("budget raise: open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), budgetCmdTimeout)
 	defer cancel()

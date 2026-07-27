@@ -48,7 +48,7 @@ func checkPostgres(ctx context.Context, dsn string) error {
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	var result int
 	if err := db.QueryRowContext(ctx, "SELECT 1").Scan(&result); err != nil {
@@ -62,7 +62,7 @@ func checkTemporal(ctx context.Context, hostPort string) error {
 	if err != nil {
 		return fmt.Errorf("dial temporal: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := workflowservice.NewWorkflowServiceClient(conn)
 	if _, err := client.GetSystemInfo(ctx, &workflowservice.GetSystemInfoRequest{}); err != nil {
