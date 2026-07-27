@@ -57,13 +57,36 @@ func requireSandbox(t *testing.T) string {
 	return testEngine(t)
 }
 
+// sandboxWritableTempDir returns a fresh temp dir, host-permissioned so the
+// sandbox container's own fixed --user 10001:10001 (a different UID than
+// whatever user is running `go test`) can actually write into it once
+// bind-mounted as /workspace:rw. t.TempDir() alone defaults to 0o700, owned
+// solely by the test process's own UID — on real Linux (unlike macOS Docker
+// Desktop's permissive bind-mount layer, which silently masked this the
+// first time these tests ran anywhere) that leaves UID 10001 with no
+// permission to create or modify anything inside it, so every test that
+// needs the sandboxed process to write into its own workspace failed with
+// "permission denied" the first time this ran on a real Linux CI runner.
+// 0o777 is safe here specifically because this directory's entire lifetime
+// is a single ephemeral test run under t.TempDir()'s own cleanup — it is
+// never a production workspace path (those are the caller/kernel's own
+// concern, not this test helper's).
+func sandboxWritableTempDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatalf("chmod test workspace dir %s: %v", dir, err)
+	}
+	return dir
+}
+
 // newTestRunner builds a Runner wired to a real, disposable workspace dir
 // and the repo's own shipped allowlist, and returns it already Start()'d,
 // with cleanup registered.
 func newTestRunner(t *testing.T, engine string) *Runner {
 	t.Helper()
 
-	wsHost := t.TempDir()
+	wsHost := sandboxWritableTempDir(t)
 	allowlistPath, err := filepath.Abs(filepath.Join("..", "..", "..", "config", "sandbox-egress-allowlist.yaml"))
 	if err != nil {
 		t.Fatalf("resolve allowlist path: %v", err)
@@ -278,7 +301,7 @@ allow:
 func TestLegitimateEgress_AllowlistedDestinationSucceeds(t *testing.T) {
 	engine := requireSandbox(t)
 	mp := startMockProvider(t, "mock-provider-ok")
-	r := runnerAgainstMock(t, engine, mp, t.TempDir(), "test-only mock provider endpoint")
+	r := runnerAgainstMock(t, engine, mp, sandboxWritableTempDir(t), "test-only mock provider endpoint")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -313,7 +336,7 @@ func TestClaudeCodeAdapter_FunctionalInsideSandbox(t *testing.T) {
 	engine := requireSandbox(t)
 	mp := startMockProvider(t, `{"result":"hello world","is_error":false}`)
 
-	wsHost := t.TempDir()
+	wsHost := sandboxWritableTempDir(t)
 	stub := "#!/bin/sh\n" +
 		"set -e\n" +
 		"cat > /workspace/prompt-received.txt\n" +
@@ -372,7 +395,7 @@ func TestRealWorkload_GoBuildUsesWritableCacheMounts(t *testing.T) {
 		_ = exec.Command(engine, "volume", "rm", "-f", gomodVol, gobuildVol).Run()
 	})
 
-	wsHost := t.TempDir()
+	wsHost := sandboxWritableTempDir(t)
 	if err := os.WriteFile(filepath.Join(wsHost, "go.mod"), []byte("module example.com/sandboxtest\n\ngo 1.25\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
@@ -483,7 +506,7 @@ allow:
 	cfg := Config{
 		Engine:            engine,
 		Image:             testImage(),
-		WorkspaceHost:     t.TempDir(),
+		WorkspaceHost:     sandboxWritableTempDir(t),
 		Allowlist:         allow,
 		AllowlistHostPath: allowlistPath,
 		// rebindHost matches the allowlist by name, but resolves (via
