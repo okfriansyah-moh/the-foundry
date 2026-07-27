@@ -1,0 +1,4 @@
+# Seeded fitness violation for docs/PLAN.md Task 37 / FND-18: this file must
+# not be mapped in cmd/fitlint's containerFileAllowlist, proving `fitlint
+# containers` flags an untracked container image lineage by name.
+FROM scratch

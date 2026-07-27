@@ -3,15 +3,30 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+
+	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: foundry <command>")
+		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission>")
 		os.Exit(1)
 	}
+
+	// OTel trace wiring (docs/PLAN.md Task 31): opt-in via
+	// observe.EnvTracingEnabled; a no-op shutdown when unset, so every CLI
+	// invocation pays this cost unconditionally with zero runtime overhead
+	// when tracing is off.
+	ctx := context.Background()
+	shutdownTracing, err := observe.SetupTracing(ctx, "foundry")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, fmt.Errorf("foundry: setup tracing: %w", err))
+		os.Exit(1)
+	}
+	defer func() { _ = shutdownTracing(ctx) }()
 
 	switch os.Args[1] {
 	case "doctor":
@@ -24,9 +39,14 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "login":
+		if err := runLogin(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "plan":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry plan <submit|approve|verify> ...")
+			fmt.Fprintln(os.Stderr, "usage: foundry plan <submit|approve|verify|revoke> ...")
 			os.Exit(1)
 		}
 		var err error
@@ -37,6 +57,8 @@ func main() {
 			err = runPlanApprove(os.Args[3:])
 		case "verify":
 			err = runPlanVerify(os.Args[3:])
+		case "revoke":
+			err = runPlanRevoke(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown plan subcommand: %s\n", os.Args[2])
 			os.Exit(1)
@@ -47,13 +69,15 @@ func main() {
 		}
 	case "projection":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry projection <rebuild>")
+			fmt.Fprintln(os.Stderr, "usage: foundry projection <rebuild|rollout>")
 			os.Exit(1)
 		}
 		var err error
 		switch os.Args[2] {
 		case "rebuild":
 			err = runProjectionRebuild(os.Args[3:])
+		case "rollout":
+			err = runProjectionRollout(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown projection subcommand: %s\n", os.Args[2])
 			os.Exit(1)
@@ -156,6 +180,80 @@ func main() {
 			err = runEvidenceShow(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown evidence subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "cost":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry cost <show>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "show":
+			err = runCostShow(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown cost subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "budget":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry budget <raise>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "raise":
+			err = runBudgetRaise(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown budget subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "audit":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry audit <verify>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "verify":
+			err = runAuditVerify(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown audit subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "mission":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry mission <create|show|pause|kill>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "create":
+			err = runMissionCreate(os.Args[3:])
+		case "show":
+			err = runMissionShow(os.Args[3:])
+		case "pause":
+			err = runMissionPause(os.Args[3:])
+		case "kill":
+			err = runMissionKill(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown mission subcommand: %s\n", os.Args[2])
 			os.Exit(1)
 		}
 		if err != nil {

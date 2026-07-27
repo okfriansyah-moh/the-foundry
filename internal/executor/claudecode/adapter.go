@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/secrets"
 	"github.com/okfriansyah-moh/the-foundry/internal/worktree"
 )
 
@@ -48,6 +49,10 @@ var allowedEnv = []string{
 // defaultTimeout applies when TaskPacket.TimeoutSec is unset.
 const defaultTimeout = 30 * time.Minute
 
+// defaultSecretsEnvVar is the subprocess env var SecretsEnvVar populates
+// when left empty.
+const defaultSecretsEnvVar = "ANTHROPIC_API_KEY"
+
 // Adapter is the executor.Adapter that runs the `claude` CLI in
 // non-interactive print mode inside a worktree.Workspace.
 type Adapter struct {
@@ -55,6 +60,21 @@ type Adapter struct {
 	ws         worktree.Workspace
 	packet     executor.TaskPacket
 	promptPath string
+
+	// Secrets, when non-nil, supplies Claude Code's own auth credential
+	// from Task 35 (FND-16)'s secrets seam instead of relying solely on
+	// whatever the ambient process environment already passed through
+	// allowedEnv. Nil (the default New() leaves it) preserves this
+	// adapter's original ambient-env-only behavior exactly.
+	Secrets secrets.Store
+	// SecretsScope is the profile ID Secrets.Get reads under.
+	SecretsScope string
+	// SecretsEnvVar names which allowedEnv auth variable to populate.
+	// Empty means defaultSecretsEnvVar (ANTHROPIC_API_KEY).
+	SecretsEnvVar string
+	// SecretsName is the secret's logical name in Secrets. Empty means
+	// the lowercased form of SecretsEnvVar.
+	SecretsName string
 }
 
 // New constructs a fresh Adapter. The binary is "claude" unless
@@ -65,6 +85,43 @@ func New() *Adapter {
 		bin = v
 	}
 	return &Adapter{binary: bin}
+}
+
+// applySecretsEnv fetches a's configured auth secret (if Secrets is set)
+// and sets it into the process environment under SecretsEnvVar for the
+// duration of Run, returning a func that restores whatever value (or
+// absence) was there beforehand. When Secrets is nil this is a no-op —
+// Run's env passthrough behaves exactly as before Task 35.
+func (a *Adapter) applySecretsEnv(ctx context.Context) (func(), error) {
+	if a.Secrets == nil {
+		return func() {}, nil
+	}
+
+	envVar := a.SecretsEnvVar
+	if envVar == "" {
+		envVar = defaultSecretsEnvVar
+	}
+	name := a.SecretsName
+	if name == "" {
+		name = strings.ToLower(envVar)
+	}
+
+	v, err := a.Secrets.Get(ctx, a.SecretsScope, name)
+	if err != nil {
+		return nil, fmt.Errorf("claudecode: read %s from secrets store: %w", envVar, err)
+	}
+
+	prev, hadPrev := os.LookupEnv(envVar)
+	if err := os.Setenv(envVar, v); err != nil {
+		return nil, fmt.Errorf("claudecode: set %s: %w", envVar, err)
+	}
+	return func() {
+		if hadPrev {
+			os.Setenv(envVar, prev)
+		} else {
+			os.Unsetenv(envVar)
+		}
+	}, nil
 }
 
 // Prepare writes the task packet's content to a fixed-name prompt file
@@ -138,6 +195,12 @@ func (a *Adapter) Run(ctx context.Context) (executor.Summary, error) {
 	if a.packet.TimeoutSec > 0 {
 		timeout = time.Duration(a.packet.TimeoutSec) * time.Second
 	}
+
+	restore, err := a.applySecretsEnv(ctx)
+	if err != nil {
+		return executor.Summary{}, err
+	}
+	defer restore()
 
 	cmdLine := a.binary + " -p --output-format json --permission-mode bypassPermissions"
 	result, err := executor.RunSubprocessWithStdin(ctx, a.ws.Path, cmdLine, f, allowedEnv, timeout)

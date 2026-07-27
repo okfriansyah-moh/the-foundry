@@ -1,0 +1,40 @@
+# Prometheus scrape config for the `obs` compose profile (docs/PLAN.md
+# Task 31 / FND-12). Mounted read-only into the `prometheus` service
+# defined in ../docker-compose.yaml.
+#
+# Scrape target: `dev:9090`, resolved via Docker's embedded DNS to
+# whichever `dev`-service container currently holds that network alias.
+# Plain `docker compose run --rm dev ...` does NOT register the service's
+# own alias on the one-off container it creates (verified: only its
+# randomly generated run-container name resolves) — `--use-aliases` is
+# required, which is why `make skp-e2e` specifically passes it (see the
+# Makefile's `skp-e2e` target comment). Verified manually: `docker compose
+# run --rm --use-aliases --service-ports dev <foundryd binary serving
+# :9090>` then `curl localhost:9091/api/v1/targets` shows this job
+# `health: "up"`, and `curl localhost:9091/api/v1/query?query=foundry_...`
+# returns real samples.
+#
+# `dev` is not a long-running service started by `make up` — this target
+# is only reachable for the duration of a `--use-aliases` `dev`-service
+# container actually running foundryd (exactly `make skp-e2e`'s window,
+# the card's own Acceptance scenario). Outside that window this target is
+# simply down — Prometheus surfaces that as an absent/unhealthy target,
+# not an error. Concurrency caveat, stated plainly: if more than one
+# `--use-aliases` `dev` container is alive at once, Docker's embedded DNS
+# may resolve `dev` to whichever one, not necessarily the one running
+# foundryd — acceptable for this task's single-script Acceptance scenario,
+# not a guarantee under concurrent `dev` invocations.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+# docs/PLAN.md Task 38 (FND-19): projection-lag alert rule (alerts.yml),
+# mounted alongside this file by deploy/docker-compose.yaml's prometheus
+# service.
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: foundryd
+    static_configs:
+      - targets: ["dev:9090"]

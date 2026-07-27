@@ -42,6 +42,14 @@ type statusArgs struct {
 	pgDSN            string
 	temporalHostPort string
 	temporalNS       string
+	// apiAddr, when set, routes this command over foundryd's HTTP API
+	// (docs/PLAN.md Task 36: "CLI reimplemented over API for status+
+	// submit paths") instead of querying Postgres/Temporal directly. It
+	// is opt-in (empty by default) so every existing direct-DB caller —
+	// test/status_consistency_e2e.sh, test/skp_e2e.sh,
+	// test/skp_resume_test.sh, none of which set --api-addr — keeps its
+	// current behavior unchanged.
+	apiAddr string
 }
 
 func parseStatusArgs(args []string) (statusArgs, error) {
@@ -50,6 +58,7 @@ func parseStatusArgs(args []string) (statusArgs, error) {
 	pgDSN := fs.String("pg-dsn", "", "Postgres DSN (defaults to $PG_DSN)")
 	temporalHostPort := fs.String("temporal-hostport", "", "Temporal frontend host:port (defaults to $TEMPORAL_HOSTPORT)")
 	temporalNS := fs.String("temporal-namespace", "", "Temporal namespace (defaults to $TEMPORAL_NAMESPACE, then \"default\")")
+	apiAddr := fs.String("api-addr", os.Getenv("FOUNDRY_API_ADDR"), "foundryd API base URL (e.g. http://localhost:8080); when set, status is read over the API instead of Postgres/Temporal directly")
 
 	var workflowID string
 	var flagArgs []string
@@ -102,6 +111,7 @@ func parseStatusArgs(args []string) (statusArgs, error) {
 		pgDSN:            dsn,
 		temporalHostPort: hostPort,
 		temporalNS:       ns,
+		apiAddr:          *apiAddr,
 	}, nil
 }
 
@@ -146,6 +156,13 @@ func runStatus(args []string) error {
 	parsed, err := parseStatusArgs(args)
 	if err != nil {
 		return err
+	}
+
+	// docs/PLAN.md Task 36 dogfood: --api-addr (or $FOUNDRY_API_ADDR)
+	// routes this command over foundryd's HTTP API instead of querying
+	// Postgres/Temporal directly. Opt-in and additive — see statusArgs.apiAddr.
+	if parsed.apiAddr != "" {
+		return runStatusViaAPI(parsed)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), statusCmdTimeout)

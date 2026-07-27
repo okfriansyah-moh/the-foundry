@@ -1,0 +1,13 @@
+# docs/PLAN.md Task 39 (FND-20): a deliberately slow fake-executor fixture
+# so test/drill/backup_restore_e2e.sh has a real, pollable window in which
+# the workflow is observably RUNNING (not yet terminal) before it reaches
+# SUCCEEDED — used to take a genuine "backup mid-flight" snapshot rather
+# than a fixed-sleep timing guess (docs/PLAN.md §A: no flaky
+# timing-dependent synchronization, per .ai/skills/qa-testing/SKILL.md).
+patches:
+  - path: output.txt
+    content: "hello from the backup/restore drill's slow fixture\n"
+sleep_ms: 6000
+exit_code: 0
+claimed: "all tests pass"
+exit_notes: "ran 3 commands, all succeeded"

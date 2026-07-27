@@ -1,0 +1,120 @@
+{
+  "title": "Foundry Overview (Task 31 catalog subset)",
+  "uid": "foundry-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "10s",
+  "tags": ["foundry", "observability"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "workflow_completion_rate (SUCCEEDED share)",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: workflow_completion_rate, ratio, per profile/workflow class. Owner: go-kernel. Runbook: docs/notes/observability-metrics.md.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(foundry_workflow_completion_rate{status=\"SUCCEEDED\"}) / clamp_min(sum(foundry_workflow_completion_rate), 1)"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "title": "evidence_rejection_rate",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: evidence_rejection_rate, ratio, verifier honesty signal. Owner: go-kernel. Runbook: docs/notes/observability-metrics.md.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(foundry_evidence_rejection_rate{result=\"rejected\"}) / clamp_min(sum(foundry_evidence_rejection_rate), 1)"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "title": "retry_rate by activity",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: retry_rate, ratio, per failure classification. Owner: go-kernel. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(foundry_retry_rate[5m])) by (activity)", "legendFormat": "{{activity}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "projection_lag_seconds",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: projection_lag_seconds, duration, Temporal -> PostgreSQL. Owner: go-backend. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 6 },
+      "targets": [{ "refId": "A", "expr": "foundry_projection_lag_seconds" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "title": "queue_depth (notifications)",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: queue_depth, gauge, per queue, bounded. Owner: go-backend. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 6 },
+      "targets": [
+        { "refId": "A", "expr": "foundry_queue_depth", "legendFormat": "{{queue}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "duplicate_side_effect_prevented (idempotency proof)",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: duplicate_side_effect_prevented, count, informational. Owner: go-kernel. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 6 },
+      "targets": [
+        { "refId": "A", "expr": "increase(foundry_duplicate_side_effect_prevented_total[5m])" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "external_operation_divergence",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: external_operation_divergence, count, saga reconciler findings. Owner: go-kernel. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
+      "targets": [
+        { "refId": "A", "expr": "increase(foundry_external_operation_divergence_total[5m])" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "cost_per_task (p95 USD)",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: cost_per_task, currency, from cost ledger. Owner: go-kernel. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(foundry_cost_per_task_usd_bucket[15m])) by (le, provider))",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] }
+    },
+    {
+      "id": 9,
+      "title": "provider_waiting_time (p95, STUB source)",
+      "description": "docs/foundry/docs/operations/observability-and-alerts.md §1: provider_waiting_time, duration, per provider. STUB: approximated as executor adapter Run() wall-clock duration (internal/observe.ProviderWaitingTimeSeconds). Owner: integration. Runbook: docs/notes/observability-metrics.md.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(foundry_provider_waiting_time_seconds_bucket[15m])) by (le, provider))",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    }
+  ]
+}

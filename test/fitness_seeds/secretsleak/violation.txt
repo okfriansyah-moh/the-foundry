@@ -1,0 +1,6 @@
+Seeded fitness violation for docs/PLAN.md Task 35 (FND-16): this file
+contains a plaintext-secret-shaped string `fitlint secretsleak` must flag.
+It is not a real credential — it is shaped like one (GitHub classic PAT
+format) purely to prove the scanner's pattern actually fires.
+
+GITHUB_TOKEN=ghp_000000000000000000000000000000000000

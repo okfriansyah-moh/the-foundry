@@ -36,8 +36,50 @@ expect_fail "stdlib-only import boundary on test/fitness_seeds/import_stdlib/sta
 expect_fail "scm boundary on test/fitness_seeds/import_scm" \
   bash scripts/check_scm_boundary.sh test/fitness_seeds/import_scm
 
-expect_fail "doc-link resolver on test/fitness_seeds/doclink" \
+expect_fail "doc-link resolver (incl. dead anchor, Task 37 / FND-18) on test/fitness_seeds/doclink" \
   "${fitlint_bin}" doclinks test/fitness_seeds/doclink
+
+expect_fail "authority boundary: scm/write imported outside kernel" \
+  "${fitlint_bin}" authority ./test/fitness_seeds/authority/scmwrite_caller/...
+
+expect_fail "authority boundary: pec-shaped package imports kernel" \
+  "${fitlint_bin}" authority ./test/fitness_seeds/authority/pec_shaped/internal/pec/...
+
+expect_fail "secrets leak scan on test/fitness_seeds/secretsleak" \
+  "${fitlint_bin}" secretsleak test/fitness_seeds/secretsleak
+
+# docs/PLAN.md Task 37 (FND-18) seeded violations.
+
+expect_fail "duplicate Mermaid diagram D-ID on test/fitness_seeds/mermaidid" \
+  "${fitlint_bin}" mermaidid test/fitness_seeds/mermaidid
+
+expect_fail "single-source contract heuristic on test/fitness_seeds/contract" \
+  "${fitlint_bin}" contract test/fitness_seeds/contract
+
+expect_fail "container-inventory lint: untracked Dockerfile on test/fitness_seeds/containers" \
+  "${fitlint_bin}" containers test/fitness_seeds/containers
+
+# The composed-file-reproducibility check operates on the repo's real root
+# AGENTS.md/CLAUDE.md (there is no path-scoped fixture for it), so this seed
+# temporarily hand-edits AGENTS.md, proves the check fails, then restores it
+# — via a trap so a failure mid-block can't leave the repo's real AGENTS.md
+# corrupted. (scripts/doclint/ai-harness-repro.sh's own golden-rule step
+# already recomposes AGENTS.md/CLAUDE.md as a side effect of running, which
+# also restores them — this restore is a defensive belt-and-suspenders, not
+# reliance on that side effect.)
+if command -v ars >/dev/null 2>&1; then
+  agents_backup="$(mktemp)"
+  cp AGENTS.md "${agents_backup}"
+  trap 'cp "${agents_backup}" AGENTS.md 2>/dev/null; rm -f "${agents_backup}"' EXIT
+  echo "seeded hand-edit: not reproducible from .ai/ (docs/PLAN.md Task 37 / FND-18)" >>AGENTS.md
+  expect_fail "composed-file reproducibility: hand-edited AGENTS.md drifts from ars compose" \
+    bash scripts/doclint/ai-harness-repro.sh
+  cp "${agents_backup}" AGENTS.md
+  rm -f "${agents_backup}"
+  trap - EXIT
+else
+  echo "SKIPPED: composed-file-reproducibility seed requires ars on PATH"
+fi
 
 if [ "${fail}" -ne 0 ]; then
   echo "fitness-selftest FAILED: one or more seeds did not fail their check"

@@ -3,19 +3,32 @@
 # / SKP-12 Acceptance: "drop table -> rebuild -> identical checksum;
 # out-of-order/duplicate seq handled idempotently").
 #
-# Requires a live Postgres reachable at PG_DSN with migrations/0002 and
-# migrations/0003 applied. There is no Docker daemon in this task's
-# execution environment (the same established blocker as Tasks 2/4/8/12/13),
-# so this script could not be run live here; it is provided as the real
-# validation path for an environment that does have one (docs/PLAN.md §A
-# "no self-reported done" — recorded honestly rather than faked).
+# Requires a live Postgres reachable at PG_DSN. `make projection-rebuild`
+# wraps this script (docs/PLAN.md Task 39 / FND-20 M1-exit Acceptance's
+# "projection rebuild" bullet).
+#
+# Fixed live in Task 39 (found while wiring this script into `make
+# projection-rebuild`): this script originally applied migrations via
+# `psql -f internal/db/migrations/0000{2,3}_*.sql` directly. Task 20
+# (FND-01) ported every migration file to goose format, i.e. each file now
+# carries BOTH a `-- +goose Up` and a `-- +goose Down` section — `psql -f`
+# has no concept of goose's annotations and runs the whole file top to
+# bottom, so it created the tables (Up) and then immediately dropped them
+# again (Down) in the same invocation, and the very next step ("reset
+# tables") failed with "relation \"workflow_transitions\" does not exist".
+# test/projection_rollout_e2e.sh (Task 38) already used the correct
+# `cmd/foundry migrate up` path and documented exactly this Up/Down
+# footgun in its own header comment; this script just hadn't been updated
+# to match after Task 20 shipped. Fixed by switching to the same
+# `cmd/foundry migrate` entrypoint everything else in this repo uses —
+# idempotent against a database that already has these migrations applied,
+# so no environment-specific "is this the first run" branching is needed.
 set -euo pipefail
 
 : "${PG_DSN:=postgres://foundry:foundry@postgres:5432/foundry?sslmode=disable}"
 
-echo "== apply migrations =="
-psql "${PG_DSN}" -f internal/db/migrations/00002_transitions.sql
-psql "${PG_DSN}" -f internal/db/migrations/00003_projection.sql
+echo "== apply migrations (via foundry migrate, not psql -f -- see the fix note above) =="
+PG_DSN="${PG_DSN}" go run ./cmd/foundry migrate up
 
 echo "== reset tables =="
 psql "${PG_DSN}" -c "TRUNCATE workflow_transitions, workflow_status_projection;"

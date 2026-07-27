@@ -29,6 +29,8 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
+	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
+	"github.com/okfriansyah-moh/the-foundry/internal/verify"
 )
 
 func main() {
@@ -62,8 +64,8 @@ func run() error {
 
 	// Only ReceiptStore matters: ExecuteTask never touches the other
 	// Activities collaborators (provenance, worktree, evidence, lease,
-	// transitions).
-	activities := kernel.NewActivities(nil, nil, nil, nil, kernel.NewPGReceiptStore(db), nil)
+	// transitions, cost store/defaults, validator).
+	activities := kernel.NewActivities(nil, nil, nil, nil, kernel.NewPGReceiptStore(db), nil, nil, cost.Defaults{}, verify.Runner{})
 
 	out, err := activities.ExecuteTask(context.Background(), kernel.ExecuteTaskInput{
 		WorkflowID:    *workflowID,

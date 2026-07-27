@@ -56,3 +56,184 @@ jobs:
 
       - name: migrate up -> down -> up
         run: make migrate-up migrate-down migrate-up
+
+  # docs/PLAN.md Task 34 (FND-15): the AUTHORITATIVE signal for the rootless
+  # OCI executor sandbox (Blocker B9's "hybrid" resolution). This job
+  # deliberately has NO `dev` build step and never wraps a command in
+  # `docker compose run dev` — it runs Go directly on the bare runner
+  # against the runner's own already-present container engine, because
+  # internal/executor/sandbox launches real containers/networks and doing
+  # that from *inside* `dev` would require either a mounted host Docker
+  # socket (fine for the separate, non-authoritative local convenience lane
+  # documented in README.md) or a privileged nested Docker daemon (rejected
+  # by the card: "it would weaken the outer container specifically to test
+  # the inner one's isolation"). This job's result is what actually gates
+  # merges for Task 34; the local socket-mount lane never gates anything.
+  sandbox-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build the foundry-executor-sandbox image
+        run: docker build -f deploy/images/executor.Dockerfile -t foundry-executor-sandbox:latest .
+
+      - name: Run sandbox escape + legitimate-egress tests
+        env:
+          RUN_SANDBOX: "1"
+          # ubuntu-latest ships Docker natively; this package only assumes a
+          # docker-CLI-compatible run/network surface (see
+          # internal/executor/sandbox/oci.go's package comment), so no
+          # separate podman install is needed on the runner. Config.Engine's
+          # own default remains "podman" for production use.
+          FOUNDRY_SANDBOX_TEST_ENGINE: "docker"
+        run: go test ./internal/executor/sandbox/... -v
+
+  # docs/PLAN.md Task 97 (FND-15R): the actual rootless-podman verification
+  # lane docs/PLAN.md Task 34's own title/Goal names ("rootless OCI executor
+  # sandbox") but never exercised — the sandbox-tests job above deliberately
+  # uses plain (rootful, daemon-owned) docker, which proves in-container
+  # non-root isolation (--user 10001:10001, --cap-drop=ALL) but says nothing
+  # about engine-level rootlessness. This job is a SIBLING of sandbox-tests,
+  # not a replacement: sandbox-tests stays required/unchanged (per this
+  # card's own Boundary), and this job adds real rootless podman on top of
+  # it, re-running the identical escape/legitimate-egress/cache-writability
+  # suite via FOUNDRY_SANDBOX_TEST_ENGINE=podman, plus the new
+  # rootless_test.go, which inspects the HOST-side UID owning the container
+  # process to prove genuine user-namespace remapping.
+  sandbox-tests-rootless:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # ubuntu-latest's default image ships podman, but not necessarily a
+      # version/configuration new enough or reliably rootless-ready across
+      # runner image revisions — install explicitly and pin nothing else
+      # about the runner's own Docker install (sandbox-tests' job is
+      # untouched and independent of this one). uidmap/slirp4netns are the
+      # rootless-networking/user-namespace prerequisites Debian/Ubuntu's
+      # podman package does not always pull in transitively on every image
+      # revision; installing them explicitly makes this job's own
+      # correctness not depend on that.
+      - name: Install rootless podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman uidmap slirp4netns fuse-overlayfs
+
+      # GitHub Actions' default runner user normally already has /etc/subuid
+      # and /etc/subgid ranges (Ubuntu provisions these for every user by
+      # default since 21.10), which is what makes rootless podman's
+      # user-namespace remapping possible at all. This step is a defensive
+      # backstop, not an assumption: it only adds ranges if genuinely
+      # missing, so this job's correctness does not silently depend on a
+      # runner-image implementation detail continuing to hold.
+      - name: Ensure rootless subuid/subgid ranges exist
+        run: |
+          user="$(whoami)"
+          if ! grep -q "^${user}:" /etc/subuid 2>/dev/null; then
+            sudo usermod --add-subuids 100000-165535 "${user}"
+          fi
+          if ! grep -q "^${user}:" /etc/subgid 2>/dev/null; then
+            sudo usermod --add-subgids 100000-165535 "${user}"
+          fi
+
+      # Fails the job outright (not a soft warning) if podman is not
+      # genuinely running rootless here — this job's whole point is
+      # exercising that specific property, so a silently-rootful podman
+      # install must not be allowed to report green.
+      - name: Verify podman is running rootless
+        run: |
+          rootless="$(podman info --format '{{.Host.Security.Rootless}}')"
+          echo "podman Host.Security.Rootless=${rootless}"
+          if [ "${rootless}" != "true" ]; then
+            echo "FAIL: podman is not running rootless on this runner"
+            exit 1
+          fi
+
+      - name: Build the foundry-executor-sandbox image (rootless podman)
+        run: podman build -f deploy/images/executor.Dockerfile -t foundry-executor-sandbox:latest .
+
+      - name: Pull the generic rootless-UID-check image
+        run: podman pull busybox:latest
+
+      - name: Run sandbox escape + legitimate-egress + rootless-UID tests via rootless podman
+        env:
+          RUN_SANDBOX: "1"
+          FOUNDRY_SANDBOX_TEST_ENGINE: "podman"
+        run: go test ./internal/executor/sandbox/... -v
+
+  # docs/PLAN.md Task 37 (FND-18): documentation-governance lints as their
+  # own named CI job (this task's "+ CI job" Output). `build` already runs
+  # `make fitness` (which now includes scripts/doclint/run.sh) unconditionally
+  # on every push/PR, so doc-touching PRs are never ungated even if this
+  # job's own filter below skips its steps — this job exists to give doc-only
+  # PRs a fast, clearly-named "doclint" check without waiting on the full
+  # bootstrap/test/lint/fitness pipeline. It always runs its steps on
+  # non-pull_request events (a main-branch safety net) and, on pull_request
+  # events, only when the diff touches a doc-governance-relevant path.
+  #
+  # Uses the same `dev` image as `build` (dev/CI parity, docs/PLAN.md §C)
+  # rather than a bare-runner shortcut like `sandbox-tests` above:
+  # scripts/doclint/ai-harness-repro.sh's composed-file-reproducibility check
+  # needs the `ars` CLI, which only the `dev` image installs
+  # (deploy/Dockerfile.dev) — running on a bare runner would silently SKIP
+  # that check, defeating this task's point of making the golden-rule check
+  # run for real, every PR, not just skip-if-absent.
+  doclint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether this PR touches doc-governance paths
+        id: filter
+        # Base/head SHAs are passed via env, not interpolated straight into
+        # the script, per GitHub's own secure-use-of-Actions guidance
+        # (docs/foundry/docs/governance/documentation-rules.md §30 cites
+        # docs.github.com/actions/reference/security/secure-use) — both
+        # values are git commit SHAs here, not free-form PR-controlled text,
+        # but env-var passing costs nothing and avoids the pattern entirely.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "${EVENT_NAME}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" \
+              | grep -qiE '(^docs/|(^|/)CLAUDE\.md$|(^|/)AGENTS\.md$|(^|/)\.ai/|(^|/)scripts/doclint/|(^|/)scripts/fitness|dockerfile|docker-compose.*\.ya?ml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Warm Docker Hub base image
+        if: steps.filter.outputs.run == 'true'
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull golang:1.25.7; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Build dev image
+        if: steps.filter.outputs.run == 'true'
+        run: docker compose -f deploy/docker-compose.yaml build dev
+
+      - name: bootstrap doclint
+        if: steps.filter.outputs.run == 'true'
+        run: make bootstrap doclint

@@ -19,6 +19,8 @@ import (
 // only worker.go wires them together).
 const (
 	ActivityLoadApprovedPlan = "LoadApprovedPlan"
+	ActivityRecheckApproval  = "RecheckApproval"
+	ActivityReserveBudget    = "ReserveBudget"
 	ActivityAcquireLease     = "AcquireLease"
 	ActivityAcquireWorktree  = "AcquireWorktree"
 	ActivityReleaseWorktree  = "ReleaseWorktree"
@@ -110,6 +112,20 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 		executorName = "fake"
 	}
 	opts := newActivityOptions()
+	// transitionSeq disambiguates the AppendTransition idempotency key
+	// (internal/kernel/idempotency.go) across multiple transitions that
+	// share the same target Status — e.g. a WAITING/budget pause-resume
+	// cycle produces a second `to=RUNNING` transition after the workflow's
+	// very first PENDING->RUNNING one. Keying AppendTransition's TaskID on
+	// `to` alone (as this package did before Task 29) silently drops the
+	// second transition: withReceipt finds the first one's receipt already
+	// recorded under that key and returns it unwritten. Deterministic
+	// (workflow-code-local counter, no time/rand), so safe across replay.
+	transitionSeq := 0
+	nextTransitionSeq := func() int {
+		transitionSeq++
+		return transitionSeq
+	}
 
 	loadCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
 	var loaded LoadApprovedPlanOutput
@@ -122,9 +138,9 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 	// edge — every workflow passes through RUNNING first, even one that
 	// fails immediately on its very first activity. No task has completed
 	// yet, so the checkpoint recorded here is always the empty one.
-	appendTransition(ctx, opts.noRetry, workflowID, state.StatusPending, state.StatusRunning, "", recovery.Checkpoint{})
+	appendTransition(ctx, opts.noRetry, workflowID, state.StatusPending, state.StatusRunning, "", recovery.Checkpoint{}, nextTransitionSeq())
 	if loadErr != nil {
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, "admission-rejected", recovery.Checkpoint{})
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, "admission-rejected", recovery.Checkpoint{}, nextTransitionSeq())
 		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: string(state.ResultAdmissionRejected)}, loadErr
 	}
 
@@ -144,7 +160,31 @@ taskLoop:
 			break taskLoop
 		}
 
-		result, evidenceID, taskClassification := runTask(ctx, opts, workflowID, in, task, executorName)
+		var result TaskResult
+		var evidenceID, taskClassification string
+		for budgetAttempt := 1; ; budgetAttempt++ {
+			result, evidenceID, taskClassification = runTask(ctx, opts, workflowID, in, task, executorName, budgetAttempt)
+			if taskClassification != "budget" {
+				break
+			}
+
+			// Constitution C19 / docs/PLAN.md Task 29: an exhausted budget
+			// envelope pauses the workflow rather than failing it — WAITING
+			// with the registered "budget" reason, resumable via
+			// SignalBudgetRaised once an operator runs `foundry budget
+			// raise` (Task 30's real notification engine doesn't exist yet;
+			// this is the smallest reversible stub for the operator-visible
+			// signal that a workflow is stuck on cost, not a code bug).
+			workflow.GetLogger(ctx).Warn("kernel: budget exhausted, workflow waiting", "workflow_id", workflowID, "task_id", task.ID)
+			appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonBudget, checkpoint, nextTransitionSeq())
+			workflow.GetSignalChannel(ctx, SignalBudgetRaised).Receive(ctx, nil)
+			if ctx.Err() != nil {
+				taskClassification = "cancelled"
+				break
+			}
+			appendTransition(ctx, opts.noRetry, workflowID, state.StatusWaiting, state.StatusRunning, "", checkpoint, nextTransitionSeq())
+		}
+
 		results = append(results, result)
 		if evidenceID != "" {
 			checkpoint.EvidenceIDs = append(checkpoint.EvidenceIDs, evidenceID)
@@ -158,20 +198,32 @@ taskLoop:
 
 	switch classification {
 	case "":
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusSucceeded, "", checkpoint)
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusSucceeded, "", checkpoint, nextTransitionSeq())
 		return DeliverPlanResult{Status: string(state.StatusSucceeded), Tasks: results}, nil
 	case "cancelled":
 		disconnected, _ := workflow.NewDisconnectedContext(ctx)
-		appendTransition(disconnected, opts.noRetry, workflowID, state.StatusRunning, state.StatusCancelled, "", checkpoint)
+		appendTransition(disconnected, opts.noRetry, workflowID, state.StatusRunning, state.StatusCancelled, "", checkpoint, nextTransitionSeq())
 		return DeliverPlanResult{Status: string(state.StatusCancelled), Tasks: results}, ctx.Err()
+	case "admission-rejected":
+		// A mid-flight RecheckApproval failure (revoked or expired
+		// ApprovedPlan) — same Reason/ResultCode pairing as the initial
+		// LoadApprovedPlan admission failure above, so both admission
+		// rejections (start-of-workflow and mid-flight) are
+		// indistinguishable to a consumer of the result code.
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq())
+		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: string(state.ResultAdmissionRejected), Tasks: results}, nil
 	default:
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint)
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq())
 		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: classification, Tasks: results}, nil
 	}
 }
 
-// runTask runs one plan task end to end: AcquireLease -> AcquireWorktree ->
-// ExecuteTask -> ValidateTask -> RecordEvidence -> ReleaseWorktree. It
+// runTask runs one plan task end to end: RecheckApproval -> ReserveBudget ->
+// AcquireLease -> AcquireWorktree -> ExecuteTask -> ValidateTask ->
+// RecordEvidence -> ReleaseWorktree. A "budget" classification (ReserveBudget
+// reports its envelope exhausted) is handled by DeliverPlan's caller, which
+// pauses to WAITING and retries this same task once the envelope is raised,
+// rather than treating it as a terminal failure. It
 // returns the task's TaskResult, the evidence bundle ID RecordEvidence
 // produced (empty if it never got that far), and, on failure, a non-empty
 // failure-classification string (state-model.md §2's registry) explaining
@@ -179,8 +231,39 @@ taskLoop:
 // worktree is released via defer so it happens exactly once, after
 // RecordEvidence has had a chance to read the workspace, regardless of
 // which step failed.
-func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in DeliverPlanInput, task plan.Task, executorName string) (TaskResult, string, string) {
+func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in DeliverPlanInput, task plan.Task, executorName string, budgetAttempt int) (TaskResult, string, string) {
 	failed := TaskResult{TaskID: task.ID, Failed: true}
+
+	// Constitution C7 rule 5: re-check the approval before every task, not
+	// just once at admission. This runs before any lease/worktree for this
+	// task is acquired, so a halt here never leaves an orphaned worktree —
+	// the previous task's worktree (if any) was already released by its own
+	// runTask call.
+	recheckCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
+	var recheck RecheckApprovalOutput
+	if err := workflow.ExecuteActivity(recheckCtx, ActivityRecheckApproval, RecheckApprovalInput{
+		PlanID: in.PlanID,
+	}).Get(recheckCtx, &recheck); err != nil {
+		return failed, "", cancelOr(ctx, "admission-rejected")
+	}
+
+	// Constitution C19: budgets are enforced before spend, not after — this
+	// runs before any lease/worktree/executor invocation for this task, so
+	// an exhausted envelope never lets ExecuteTask (the only activity that
+	// actually spends money) run at all.
+	reserveCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
+	var reserved ReserveBudgetOutput
+	if err := workflow.ExecuteActivity(reserveCtx, ActivityReserveBudget, ReserveBudgetInput{
+		WorkflowID:   workflowID,
+		TaskID:       task.ID,
+		ExecutorName: executorName,
+		Attempt:      budgetAttempt,
+	}).Get(reserveCtx, &reserved); err != nil {
+		return failed, "", cancelOr(ctx, "environment")
+	}
+	if reserved.Exhausted {
+		return failed, "", cancelOr(ctx, "budget")
+	}
 
 	leaseResource := "worktree:" + workflowID + ":" + task.ID
 	leaseCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
@@ -236,7 +319,10 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 	validateCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
 	var validated ValidateTaskOutput
 	if err := workflow.ExecuteActivity(validateCtx, ActivityValidateTask, ValidateTaskInput{
-		ExecuteFailed: execOut.Failed,
+		ExecuteFailed:      execOut.Failed,
+		WorkspacePath:      ws.Path,
+		ValidationCommands: task.ValidationCommands,
+		Attempt:            budgetAttempt,
 	}).Get(validateCtx, &validated); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
 	}
@@ -255,7 +341,14 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 	}
 
 	if !validated.Validated {
-		return failed, evidenced.BundleID, "verification-failed"
+		// validated.Reason is ValidateTask's real verify.Classification
+		// (docs/PLAN.md Task 99/SKP-11R) — passed through as-is, not
+		// hardcoded to "verification-failed" regardless of what actually
+		// failed (a policy-violation or no-progress classification must
+		// surface as itself, not be relabeled). Safe against
+		// state.Transition.Validate: FAILED constrains only a set
+		// ResultCode, never Reason (internal/state/transition.go).
+		return failed, evidenced.BundleID, validated.Reason
 	}
 	return TaskResult{TaskID: task.ID, Failed: false}, evidenced.BundleID, ""
 }
@@ -279,7 +372,16 @@ func cancelOr(ctx workflow.Context, fallback string) string {
 // from->to pair or invariant violation): it is logged and the transition
 // is not sent, rather than corrupting the durable stream with an invalid
 // record.
-func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workflowID string, from, to state.Status, reason state.Reason, checkpoint recovery.Checkpoint) {
+//
+// seq is a caller-assigned, monotonically increasing call index
+// (DeliverPlan's nextTransitionSeq) folded into the AppendTransition
+// idempotency key alongside `to`. Docs/PLAN.md Task 29's WAITING/budget
+// pause-resume cycle can produce two transitions with the same `to`
+// Status within one workflow (e.g. two separate `to=RUNNING` transitions:
+// the initial PENDING->RUNNING and a later WAITING->RUNNING resume) — `to`
+// alone is no longer a unique key, so seq disambiguates them; without it,
+// withReceipt's idempotency cache would silently drop the second write.
+func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workflowID string, from, to state.Status, reason state.Reason, checkpoint recovery.Checkpoint, seq int) {
 	t := state.Transition{
 		WorkflowID:   workflowID,
 		Status:       to,
@@ -295,7 +397,7 @@ func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workf
 	actCtx := workflow.WithActivityOptions(ctx, opts)
 	if err := workflow.ExecuteActivity(actCtx, ActivityAppendTransition, AppendTransitionInput{
 		WorkflowID: workflowID,
-		TaskID:     fmt.Sprintf("workflow:%s", to),
+		TaskID:     fmt.Sprintf("workflow:%d:%s", seq, to),
 		Attempt:    1,
 		Transition: t,
 	}).Get(actCtx, nil); err != nil {

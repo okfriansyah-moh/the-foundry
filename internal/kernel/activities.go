@@ -16,9 +16,12 @@ import (
 
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
+	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
 	"github.com/okfriansyah-moh/the-foundry/internal/state"
+	"github.com/okfriansyah-moh/the-foundry/internal/verify"
 	"github.com/okfriansyah-moh/the-foundry/internal/worktree"
 )
 
@@ -38,6 +41,13 @@ type Activities struct {
 	LeaseStore      LeaseStore
 	ReceiptStore    ReceiptStore
 	TransitionStore TransitionStore
+	CostStore       BudgetStore
+	CostDefaults    cost.Defaults
+	// Validator runs a task's declared validation commands and reports
+	// their real, evidence-grade outcome (docs/PLAN.md Task 13 /
+	// internal/verify). ValidateTask classifies pass/fail from this, never
+	// from ExecuteTaskOutput's executor-self-report (Constitution C10).
+	Validator verify.Runner
 
 	mu         sync.Mutex
 	workspaces map[string]worktree.Workspace
@@ -51,6 +61,9 @@ func NewActivities(
 	leaseStore LeaseStore,
 	receiptStore ReceiptStore,
 	transitionStore TransitionStore,
+	costStore BudgetStore,
+	costDefaults cost.Defaults,
+	validator verify.Runner,
 ) *Activities {
 	return &Activities{
 		ProvenanceStore: provenanceStore,
@@ -59,6 +72,9 @@ func NewActivities(
 		LeaseStore:      leaseStore,
 		ReceiptStore:    receiptStore,
 		TransitionStore: transitionStore,
+		CostStore:       costStore,
+		CostDefaults:    costDefaults,
+		Validator:       validator,
 		workspaces:      make(map[string]worktree.Workspace),
 	}
 }
@@ -132,6 +148,118 @@ func (a *Activities) LoadApprovedPlan(ctx context.Context, in LoadApprovedPlanIn
 	return LoadApprovedPlanOutput{PlanID: in.PlanID, RiskTier: approved.RiskTier(), Tasks: doc.Tasks}, nil
 }
 
+// RecheckApprovalInput is RecheckApproval's input.
+type RecheckApprovalInput struct {
+	PlanID string
+}
+
+// RecheckApprovalOutput is RecheckApproval's output.
+type RecheckApprovalOutput struct {
+	OK bool
+}
+
+// RecheckApproval re-verifies the plan's ApprovedPlan is still signed,
+// unexpired, and unrevoked (Constitution C7 rule 5: "execution re-checks
+// revocation at every wave boundary"). It is called by DeliverPlan before
+// every task, not just once at admission — a plan revoked mid-flight
+// (docs/PLAN.md Task 24 Acceptance) must stop the workflow before its
+// next task starts. It deliberately reuses ProvenanceStore.Load rather
+// than duplicating the expiry/revocation check: the same choke point that
+// enforces C7 for the initial LoadApprovedPlan enforces it here too, so
+// there is exactly one place a revocation can be missed, not two.
+func (a *Activities) RecheckApproval(ctx context.Context, in RecheckApprovalInput) (RecheckApprovalOutput, error) {
+	if _, err := a.ProvenanceStore.Load(ctx, in.PlanID); err != nil {
+		return RecheckApprovalOutput{}, fmt.Errorf("kernel: recheck approval %s: %w", in.PlanID, err)
+	}
+	return RecheckApprovalOutput{OK: true}, nil
+}
+
+// ReserveBudgetInput is ReserveBudget's input. Attempt distinguishes a
+// genuinely new logical attempt (e.g. this task is being retried after a
+// WAITING/budget pause was resolved by `foundry budget raise`) from a
+// Temporal-level re-execution of the same attempt — only the former must
+// bypass the idempotency receipt and actually call Reserve again; reusing
+// a fixed Attempt across a budget-triggered retry would replay the stale
+// exhausted result forever instead of re-checking the (now-raised)
+// envelope.
+type ReserveBudgetInput struct {
+	WorkflowID   string
+	TaskID       string
+	ExecutorName string
+	Attempt      int
+}
+
+// ReserveBudgetOutput is ReserveBudget's output. Exhausted reports a
+// business-level budget exhaustion (Constitution C19) — not an activity
+// execution fault — so DeliverPlan can pause to WAITING/budget rather
+// than fail the whole plan, mirroring how ExecuteTaskOutput.Failed
+// reports the executor's own outcome as data rather than a Go error.
+type ReserveBudgetOutput struct {
+	EntryID   string
+	Exhausted bool
+	Shadow    bool
+}
+
+// ReserveBudget reserves this task's estimated cost against its
+// workflow-scoped mission_monthly budget envelope before ExecuteTask runs
+// (Constitution C19: "Before execution: reserve expected spend ... reject
+// or shrink the work when the reservation cannot be satisfied"). The
+// estimate is a.CostDefaults.DefaultUSD for every task — see
+// internal/ledger/cost/defaults.go's doc comment for why this task does
+// not yet read a per-task declared estimate. This reservation amount also
+// serves as the per-task session cap (docs/PLAN.md Task 29 Step 5):
+// exceeding it is exactly what turns Exhausted true, cancelling the task
+// rather than letting the executor run unmetered — deep, live per-call
+// metering inside internal/executor's Run loop does not exist anywhere
+// today, so a coarser "reserve the estimate before running, over-budget
+// means don't run" is this task's whole enforcement point.
+//
+// Subscription-class executors (isSubscriptionExecutor) have no metered
+// per-call price to reserve against, so their cost is instead recorded as
+// a state=shadow cost_entries row (cost-accounting.md §1) with no ceiling
+// check at all — Shadow reports that path was taken.
+//
+// A workflow scope with no provisioned envelope (Reserve returns
+// cost.ErrBudgetNotFound) is treated as unmetered. decision (no-gaps
+// rule): requiring every workflow to have a budget provisioned before it
+// can run at all is out of this task's scope — only scopes an operator
+// has actually configured via `foundry budget raise`/CreateBudget are
+// enforced; everything else runs exactly as it did before this task.
+func (a *Activities) ReserveBudget(ctx context.Context, in ReserveBudgetInput) (ReserveBudgetOutput, error) {
+	key := IdempotencyKey{in.WorkflowID, in.TaskID, "ReserveBudget", in.Attempt}.String()
+	return withReceipt(ctx, a.ReceiptStore, key, func() (ReserveBudgetOutput, error) {
+		amountUSD := a.CostDefaults.DefaultUSD
+		meta := map[string]string{"task_id": in.TaskID}
+
+		if isSubscriptionExecutor(in.ExecutorName) {
+			entry, err := a.CostStore.RecordShadow(ctx, cost.ScopeWorkflow, in.WorkflowID, amountUSD, in.ExecutorName, costPricingVersion, meta)
+			if err != nil {
+				return ReserveBudgetOutput{}, fmt.Errorf("kernel: record shadow cost %s/%s: %w", in.WorkflowID, in.TaskID, err)
+			}
+			// cost_per_task (docs/PLAN.md Task 31): the reservation/shadow
+			// amount is the only per-task cost-ledger figure this codebase
+			// records anywhere today — no activity calls CostStore.Incur
+			// with an actual observed amount yet (that wiring is a Task 29
+			// follow-up, out of this task's Scope), so this is the estimate,
+			// not a reconciled actual.
+			observe.ObserveCostPerTask(in.ExecutorName, entry.AmountUSD)
+			return ReserveBudgetOutput{EntryID: entry.ID, Shadow: true}, nil
+		}
+
+		entry, err := a.CostStore.Reserve(ctx, cost.ScopeWorkflow, in.WorkflowID, cost.KindMissionMonthly, currentPeriod(time.Now()), amountUSD, in.ExecutorName, costPricingVersion, meta)
+		switch {
+		case errors.Is(err, cost.ErrBudgetExhausted):
+			return ReserveBudgetOutput{Exhausted: true}, nil
+		case errors.Is(err, cost.ErrBudgetNotFound):
+			return ReserveBudgetOutput{}, nil
+		case err != nil:
+			return ReserveBudgetOutput{}, fmt.Errorf("kernel: reserve budget %s/%s: %w", in.WorkflowID, in.TaskID, err)
+		}
+		observe.ObserveCostPerTask(in.ExecutorName, entry.AmountUSD)
+		return ReserveBudgetOutput{EntryID: entry.ID}, nil
+	})
+}
+
 // AcquireLeaseInput is AcquireLease's input.
 type AcquireLeaseInput struct {
 	Resource   string
@@ -177,6 +305,16 @@ type AcquireWorktreeOutput struct {
 // attempt) returns the recorded receipt instead of creating a second
 // worktree.
 func (a *Activities) AcquireWorktree(ctx context.Context, in AcquireWorktreeInput) (AcquireWorktreeOutput, error) {
+	// retry_rate (docs/PLAN.md Task 31): activity.Info.Attempt is
+	// Temporal's own per-call attempt counter (opts.retry allows up to 3
+	// here — workflow.go), distinct from in.Attempt, this repo's
+	// workflow-level logical-attempt field (internal/kernel/idempotency.go).
+	// A real failure classification per docs/foundry/docs/operations/
+	// observability-and-alerts.md's "per failure classification" note is
+	// Task 32's retry-policy engine, not built yet — recorded as "" until
+	// then rather than fabricated.
+	observe.RecordActivityAttempt("AcquireWorktree", temporalAttempt(ctx), "")
+
 	ok, err := a.LeaseStore.Check(ctx, in.LeaseResource, in.LeaseToken)
 	if err != nil {
 		return AcquireWorktreeOutput{}, fmt.Errorf("kernel: check lease %s: %w", in.LeaseResource, err)
@@ -251,6 +389,8 @@ type ExecuteTaskOutput struct {
 // named executor.Adapter, heartbeating every 10s so Temporal knows the
 // activity is alive during a long-running task.
 func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (ExecuteTaskOutput, error) {
+	observe.RecordActivityAttempt("ExecuteTask", temporalAttempt(ctx), "")
+
 	key := IdempotencyKey{in.WorkflowID, in.TaskID, "ExecuteTask", in.Attempt}.String()
 	return withReceipt(ctx, a.ReceiptStore, key, func() (ExecuteTaskOutput, error) {
 		adapter, err := executor.Get(in.ExecutorName)
@@ -263,9 +403,15 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 			return ExecuteTaskOutput{}, fmt.Errorf("kernel: prepare task %s/%s: %w", in.WorkflowID, in.TaskID, err)
 		}
 
+		// provider_waiting_time (docs/PLAN.md Task 31): STUB per the card
+		// ("stub source is acceptable") — adapter.Run's wall-clock duration
+		// conflates real provider wait time with the adapter's own local
+		// work; see observe.ProviderWaitingTimeSeconds's doc comment.
+		runStart := time.Now()
 		stopHeartbeat := startHeartbeat(ctx)
 		summary, runErr := adapter.Run(ctx)
 		stopHeartbeat()
+		observe.ObserveProviderWaitingTime(in.ExecutorName, time.Since(runStart).Seconds())
 
 		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes}
 		if runErr != nil {
@@ -281,6 +427,20 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 		out.ArtifactPaths = artifacts.Paths
 		return out, nil
 	})
+}
+
+// temporalAttempt returns ctx's Temporal activity.Info.Attempt, or 1 (a
+// harmless "first attempt" default that observe.RecordActivityAttempt
+// treats as a no-op) when ctx is not a real Temporal activity context —
+// e.g. this package's own unit tests, which call Activities methods
+// directly against context.Background() (see idempotency_test.go).
+// activity.GetInfo panics outside a real activity context, so
+// activity.IsActivity guards the call rather than relying on recover.
+func temporalAttempt(ctx context.Context) int32 {
+	if !activity.IsActivity(ctx) {
+		return 1
+	}
+	return activity.GetInfo(ctx).Attempt
 }
 
 // startHeartbeat records an activity heartbeat every heartbeatInterval
@@ -306,9 +466,18 @@ func startHeartbeat(ctx context.Context) func() {
 	return func() { close(done) }
 }
 
-// ValidateTaskInput is ValidateTask's input.
+// ValidateTaskInput is ValidateTask's input. WorkspacePath/
+// ValidationCommands are only consulted when ExecuteFailed is false — see
+// ValidateTask's doc comment. Attempt is the 1-indexed number of times
+// this same task's validation has now run (mirrors ReserveBudgetInput's
+// own budget-retry Attempt — see runTask), and is forwarded to
+// verify.Evaluate to distinguish a timeout's first occurrence from a
+// repeat.
 type ValidateTaskInput struct {
-	ExecuteFailed bool
+	ExecuteFailed      bool
+	WorkspacePath      string
+	ValidationCommands []string
+	Attempt            int
 }
 
 // ValidateTaskOutput is ValidateTask's output.
@@ -317,18 +486,34 @@ type ValidateTaskOutput struct {
 	Reason    string
 }
 
-// ValidateTask is a STUB pending Task 13 (internal/verify): it checks only
-// whether ExecuteTask's adapter run reported failure — it does not
-// independently re-run or verify commands against recorded evidence, and
-// it must not be mistaken for Task 13's honest, evidence-based validator.
-// TODO(Task 13): replace this body with a call into internal/verify.Runner
-// and classify from its CommandRecords, not from the executor's own
-// self-report.
-func (a *Activities) ValidateTask(_ context.Context, in ValidateTaskInput) (ValidateTaskOutput, error) {
+// ValidateTask is the sole place a task's pass/fail verdict is decided
+// (Constitution C10: honest completion comes from commands actually run,
+// never from an executor's self-reported claim). ExecuteFailed
+// short-circuits to today's fast path — ExecuteTask's own adapter run
+// already reported failure, so there is nothing further to validate.
+// Otherwise it runs in.ValidationCommands for real via a.Validator.Run and
+// classifies the outcome from the resulting CommandRecords via
+// verify.Evaluate — the executor's Summary/claimed success is never
+// consulted here (docs/PLAN.md Task 13's honest-completion contract,
+// wired into the kernel workflow by Task 99/SKP-11R).
+func (a *Activities) ValidateTask(ctx context.Context, in ValidateTaskInput) (ValidateTaskOutput, error) {
 	if in.ExecuteFailed {
+		observe.RecordEvidenceResult(false, "verification-failed")
 		return ValidateTaskOutput{Validated: false, Reason: "verification-failed"}, nil
 	}
-	return ValidateTaskOutput{Validated: true}, nil
+
+	records, err := a.Validator.Run(ctx, worktree.Workspace{Path: in.WorkspacePath}, in.ValidationCommands)
+	if err != nil {
+		return ValidateTaskOutput{}, fmt.Errorf("kernel: validate task: %w", err)
+	}
+
+	ok, classification := verify.Evaluate(records, in.Attempt)
+	if ok {
+		observe.RecordEvidenceResult(true, "")
+		return ValidateTaskOutput{Validated: true}, nil
+	}
+	observe.RecordEvidenceResult(false, string(classification))
+	return ValidateTaskOutput{Validated: false, Reason: string(classification)}, nil
 }
 
 // RecordEvidenceInput is RecordEvidence's input.
@@ -351,6 +536,8 @@ type RecordEvidenceOutput struct {
 // content-addressed (Task 11): re-recording identical evidence returns the
 // existing bundle's ID rather than erroring.
 func (a *Activities) RecordEvidence(ctx context.Context, in RecordEvidenceInput) (RecordEvidenceOutput, error) {
+	observe.RecordActivityAttempt("RecordEvidence", temporalAttempt(ctx), "")
+
 	key := IdempotencyKey{in.WorkflowID, in.TaskID, "RecordEvidence", in.Attempt}.String()
 	return withReceipt(ctx, a.ReceiptStore, key, func() (RecordEvidenceOutput, error) {
 		artifacts := make([]evidence.ArtifactRef, 0, len(in.ArtifactPaths))
@@ -432,6 +619,15 @@ func (a *Activities) AppendTransition(ctx context.Context, in AppendTransitionIn
 		seq, err := a.TransitionStore.Append(ctx, in.WorkflowID, in.Transition)
 		if err != nil {
 			return AppendTransitionOutput{}, fmt.Errorf("kernel: append transition %s: %w", in.WorkflowID, err)
+		}
+		// workflow_completion_rate (docs/PLAN.md Task 31): recorded inside
+		// this closure, not after withReceipt returns, so a receipt hit
+		// (this activity re-invoked for a key already recorded — e.g. a
+		// worker crash/redelivery of the same attempt) can never
+		// double-count it; this closure body runs at most once per
+		// (workflow, task, attempt) key by withReceipt's own contract.
+		if in.Transition.Status.IsTerminal() {
+			observe.RecordWorkflowCompletion(string(in.Transition.Status))
 		}
 		return AppendTransitionOutput{Seq: seq}, nil
 	})

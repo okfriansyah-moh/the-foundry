@@ -26,16 +26,38 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
+# PostgreSQL client tools pinned to major version 16 to match
+# deploy/docker-compose.yaml's `postgres:16` server (docs/notes/
+# m1-exit-report.md's documented client/server skew: this base image's
+# Debian trixie main repo only carries the unversioned `postgresql-client`
+# metapackage, which resolves to v17 — mismatched with the pinned v16
+# server). PGDG's own apt repo is required because trixie's main repo does
+# not carry postgresql-client-16 at all.
+RUN install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Playwright system dependencies
 RUN npx --yes playwright@1.45.0 install-deps chromium || true
 
 # Go tooling (GOTOOLCHAIN=auto lets `go install` fetch a newer toolchain
-# on demand when a tool's go.mod requires one newer than the base image)
+# on demand when a tool's go.mod requires one newer than the base image).
+# goreleaser@latest still needs GOTOOLCHAIN=go1.24.10 pinned: its transitive
+# golang.org/x/tools@v0.21.0 dependency fails to compile under go1.25.x
+# ("invalid array length -delta * delta"). golangci-lint has no such issue
+# and must NOT be pinned this way: doing so makes the installed binary
+# self-report "built with go1.24", which then refuses to lint this repo's
+# go.mod (`go 1.25.7`) — "can't load config: the Go language version
+# (go1.24) used to build golangci-lint is lower than the targeted Go
+# version (1.25.7)".
 ENV GOTOOLCHAIN=auto
 ENV GOBIN=/usr/local/bin
 RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
     && GOTOOLCHAIN=go1.24.10 go install github.com/goreleaser/goreleaser@latest \
-    && GOTOOLCHAIN=go1.24.10 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
     && go install github.com/okfriansyah-moh/ares/cmd/ars@latest
 
 # Non-root user with host-matching UID/GID so bind-mounted files keep sane ownership
