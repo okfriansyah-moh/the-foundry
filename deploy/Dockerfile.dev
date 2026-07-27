@@ -64,5 +64,27 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
 RUN groupadd --gid ${USER_GID} foundry \
     && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash foundry
 
+# The `go install` step above ran as root and populated /go/pkg/mod (Go's
+# module download/build cache) with root-owned content. deploy/docker-
+# compose.yaml mounts a named volume at /go/pkg/mod; the FIRST time that
+# volume is used, Docker seeds it by copying this image directory's content
+# verbatim, preserving root ownership — on a brand-new volume (always true
+# in CI, where nothing persists between runs) this leaves every directory
+# the non-root `foundry` user hasn't itself created still owned by root, so
+# any `go build`/`go test`/`go mod download` needing a NEW dependency not
+# already cached by the tool installs above (e.g. this repo's own
+# growing go.mod, not just goose/goreleaser/golangci-lint/ars's own
+# transitive deps) fails outright with "mkdir ...: permission denied".
+# Chowning here, before the volume's very first use, makes the seeded
+# content already correctly owned. GOCACHE is also repointed at the
+# non-root user's own $HOME (its default under golang:1.22 was under
+# /root, which `foundry` — a different, non-root user — can never resolve
+# to) and chowned the same way, so deploy/docker-compose.yaml's
+# gobuild-cache volume (mounted at this exact path) is a real, writable
+# build cache instead of a silently-unused mount point.
+ENV GOCACHE=/home/foundry/.cache/go-build
+RUN mkdir -p "${GOCACHE}" \
+    && chown -R ${USER_UID}:${USER_GID} /go "${GOCACHE}"
+
 USER foundry
 WORKDIR /workspace

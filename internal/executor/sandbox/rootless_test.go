@@ -11,14 +11,20 @@
 // This file adds the one test that actually distinguishes the two
 // properties: it inspects the HOST-side UID that owns a running container's
 // process (via /proc/<pid>/status, which only the host kernel — not
-// anything running inside the container's own user namespace — can see).
-// Under rootless podman, the container's process is launched directly by
-// the invoking unprivileged user via a user-namespace + /etc/subuid mapping
-// (no root daemon ever execs it), so the host sees that unprivileged UID,
-// never 0. Under plain rootful docker (or rootful podman), a root daemon
-// execs the container process directly, so the host sees UID 0 regardless
-// of whatever --user the container itself was launched with — this is
-// exactly the property engine-level "rootless" claims and in-container
+// anything running inside the container's own user namespace — can see),
+// and compares it against the container's own known, injected --user UID
+// (rootlessTestContainerUID). Under rootless podman, the container's
+// process runs inside a genuine user namespace remapped via /etc/subuid, so
+// the HOST sees a DIFFERENT uid than the container's own internal one —
+// never 0, and never the raw container uid unchanged. Under plain rootful
+// docker (or rootful podman with no remap configured), no user namespace
+// remapping occurs at all: the host sees the exact same uid the container
+// was launched with via --user (confirmed live in this repo's own CI: a
+// container run with --user 10001:10001 under plain docker shows host uid
+// 10001, not 0 — an earlier version of this file wrongly assumed rootful
+// engines always show host uid 0, which is not how Docker/Podman's default,
+// non-remapped user handling works). This uid-differs-from-declared check
+// is exactly the property engine-level "rootless" claims and in-container
 // non-root isolation does not, on its own, prove.
 //
 // This requires a genuine Linux host with /proc (there is no /proc on
@@ -142,6 +148,14 @@ func hostRealUID(t *testing.T, pid int) int {
 	return -1
 }
 
+// rootlessTestContainerUID is the --user this file's detached test
+// containers always run as. Both tests below compare the HOST-observed UID
+// against this known, injected value rather than against a guessed host
+// value (invoking user's own UID, or 0) — see the package-comment update
+// below for why: neither guess holds in general, but comparing against the
+// value we ourselves injected is unambiguous under both engines.
+const rootlessTestContainerUID = 10001
+
 // runDetached launches a long-lived container via engine and returns a
 // cleanup-registered name, so the caller can inspect its live PID before it
 // exits. Not routed through Runner/buildSandboxRunArgs: those launch
@@ -158,7 +172,8 @@ func runDetached(t *testing.T, engine string) string {
 		t.Fatalf("randomID: %v", err)
 	}
 	name := "foundry-rootless-test-" + id
-	args := []string{"run", "-d", "--rm", "--name", name, "--user", "10001:10001", rootlessTestImage(), "sleep", "300"}
+	userFlag := fmt.Sprintf("%d:%d", rootlessTestContainerUID, rootlessTestContainerUID)
+	args := []string{"run", "-d", "--rm", "--name", name, "--user", userFlag, rootlessTestImage(), "sleep", "300"}
 	// #nosec G204 -- engine and args are fixed/test-constructed, never
 	// derived from unsanitized external input.
 	out, err := exec.Command(engine, args...).CombinedOutput()
@@ -182,37 +197,57 @@ func runDetached(t *testing.T, engine string) string {
 func TestRootless_ContainerProcessRunsUnderUnprivilegedHostUID(t *testing.T) {
 	requireRootlessPodman(t)
 
-	hostUID := os.Getuid()
-	if hostUID == 0 {
-		t.Skip("skipping: this test's assertion (host-side UID != 0) is meaningless when the test process itself is root — CI runners for this job must run as a non-root user, matching rootless podman's own precondition")
+	if os.Getuid() == 0 {
+		t.Skip("skipping: this test's precondition (an unprivileged invoking user) doesn't hold when the test process itself is root — CI runners for this job must run as a non-root user, matching rootless podman's own precondition")
 	}
 
 	name := runDetached(t, "podman")
 	pid := containerHostPID(t, "podman", name)
 	gotUID := hostRealUID(t, pid)
 
+	// The container itself was launched with --user 10001:10001
+	// (rootlessTestContainerUID). Under rootless podman's user-namespace
+	// remapping (via /etc/subuid), the HOST sees a DIFFERENT UID than the
+	// container's own internal 10001 — the subordinate-UID range assigned
+	// to the invoking user, not 10001 itself and not (in general) the
+	// invoking user's own literal UID either (podman's subuid mapping for a
+	// non-zero container UID lands in the invoking user's subordinate
+	// range, e.g. observed 175536 for container UID 10001 in this repo's
+	// own CI run — never assume it equals os.Getuid()). The only property
+	// genuinely guaranteed by "engine-level rootless" is that the HOST UID
+	// is neither 0 (root) nor the raw container UID unchanged (which would
+	// mean no remapping occurred at all — see the negative control below).
 	if gotUID == 0 {
 		t.Fatalf("expected the container process's HOST-side UID to be non-root under rootless podman's user-namespace remapping, got 0 (root) — pid=%d, container=%s", pid, name)
 	}
-	if gotUID != hostUID {
-		t.Fatalf("expected the container process's HOST-side UID to equal the invoking unprivileged user's UID %d (rootless podman maps the container's namespace via /etc/subuid to the invoking user, not to a separate root daemon), got %d — pid=%d, container=%s", hostUID, gotUID, pid, name)
+	if gotUID == rootlessTestContainerUID {
+		t.Fatalf("expected the container process's HOST-side UID to differ from its own container-internal UID %d (rootless podman remaps a non-zero container UID through /etc/subuid to a distinct host UID) — got the same value unchanged, meaning no user-namespace remapping occurred; pid=%d, container=%s", rootlessTestContainerUID, pid, name)
 	}
-	t.Logf("confirmed: container %s's host-visible process (pid=%d) is owned by unprivileged host uid %d, not root — genuine engine-level user-namespace remapping, distinct from and stronger than in-container --user 10001:10001 non-root isolation (already proven by sandbox_test.go's escape tests)", name, pid, gotUID)
+	t.Logf("confirmed: container %s's host-visible process (pid=%d) is owned by host uid %d — distinct from both root (0) and the container's own internal uid %d, proving genuine engine-level user-namespace remapping, stronger than in-container --user 10001:10001 non-root isolation alone (already proven by sandbox_test.go's escape tests)", name, pid, gotUID, rootlessTestContainerUID)
 }
 
-// TestRootless_NegativeControl_RootfulEngineOwnsHostUIDZero is the negative
-// control docs/PLAN.md Task 97's Acceptance line explicitly requires:
-// "a negative control showing the same assertion would fail against plain
-// rootful docker/podman." Run against plain docker (guaranteed rootful,
-// root-daemon-owned, and already this package's own default reference
-// engine elsewhere in this test suite): a root daemon execs the container
-// process directly, so the host sees UID 0 regardless of the container's
-// own --user. If this test ever observes a non-zero host UID, the negative
-// control itself is broken (e.g. run against an unexpectedly rootless or
-// userns-remapped docker install), which would undermine confidence that
-// the positive test above is asserting something meaningful rather than a
-// tautology that would pass against any engine.
-func TestRootless_NegativeControl_RootfulEngineOwnsHostUIDZero(t *testing.T) {
+// TestRootless_NegativeControl_RootfulEngineShowsUnmappedContainerUID is the
+// negative control docs/PLAN.md Task 97's Acceptance line explicitly
+// requires: "a negative control showing the same assertion would fail
+// against plain rootful docker/podman." Run against plain docker (guaranteed
+// rootful, root-daemon-owned, and already this package's own default
+// reference engine elsewhere in this test suite).
+//
+// An earlier version of this test asserted the host-side UID must be
+// exactly 0 under rootful docker. That assumption is wrong and was
+// confirmed wrong live in this repo's own CI (`sandbox-tests` job, plain
+// docker, no user-namespace remapping configured): a container launched
+// with --user 10001:10001 shows host UID 10001, not 0 — a root-privileged
+// daemon execs the container process, but the process's own credentials
+// (and thus its host-visible UID, since no user namespace remap is in
+// effect) are whatever --user set, not root. "0" would only be observed if
+// the container itself ran as --user 0 (the default when unset) — a
+// property of the container's own configuration, not of engine rootfulness.
+// The actual distinguishing property (see the positive test above) is
+// whether the host UID differs from the container's own declared UID at
+// all: under rootful docker, it does not (this test); under rootless
+// podman's user-namespace remapping, it does.
+func TestRootless_NegativeControl_RootfulEngineShowsUnmappedContainerUID(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skipf("skipping: /proc-based UID inspection requires a real Linux host (got GOOS=%q)", runtime.GOOS)
 	}
@@ -228,8 +263,8 @@ func TestRootless_NegativeControl_RootfulEngineOwnsHostUIDZero(t *testing.T) {
 	pid := containerHostPID(t, engine, name)
 	gotUID := hostRealUID(t, pid)
 
-	if gotUID != 0 {
-		t.Fatalf("negative control failed: expected plain rootful docker's container process to be owned by host UID 0 (root daemon execs container processes directly), got %d — pid=%d, container=%s; this means the positive rootless assertion above is not being meaningfully distinguished from a rootful engine on this host", gotUID, pid, name)
+	if gotUID != rootlessTestContainerUID {
+		t.Fatalf("negative control failed: expected plain rootful docker's container process to show the SAME host-side UID as its own declared --user %d (no user-namespace remapping in effect), got %d — pid=%d, container=%s; this means the positive rootless assertion above is not being meaningfully distinguished from a rootful engine on this host", rootlessTestContainerUID, gotUID, pid, name)
 	}
-	t.Logf("negative control confirmed: plain rootful docker's container process (pid=%d) IS owned by host root (uid 0) — proving TestRootless_ContainerProcessRunsUnderUnprivilegedHostUID's assertion is a real, engine-dependent property, not a tautology that would pass against any engine", pid)
+	t.Logf("negative control confirmed: plain rootful docker's container process (pid=%d) shows host uid %d, identical to its own declared --user %d — no remapping occurred, proving TestRootless_ContainerProcessRunsUnderUnprivilegedHostUID's assertion (a DIFFERENT host uid under rootless podman) is a real, engine-dependent property, not a tautology that would pass against any engine", pid, gotUID, rootlessTestContainerUID)
 }

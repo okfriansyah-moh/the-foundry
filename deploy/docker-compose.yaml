@@ -15,7 +15,11 @@ services:
     volumes:
       - ..:/workspace
       - gomod-cache:/go/pkg/mod
-      - gobuild-cache:/root/.cache/go-build
+      # Matches Dockerfile.dev's GOCACHE (the non-root `foundry` user's own
+      # $HOME) — mounting this at /root/.cache/go-build would be silently
+      # unused, since `foundry` (not root) is the user that actually runs
+      # `go build`/`go test` in this container.
+      - gobuild-cache:/home/foundry/.cache/go-build
     working_dir: /workspace
     environment:
       PG_DSN: "${PG_DSN:-postgres://foundry:foundry@postgres:5432/foundry?sslmode=disable}"
