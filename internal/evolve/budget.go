@@ -49,14 +49,14 @@ func DefaultChangeBudgetLimits() ChangeBudgetLimits {
 // rolling window (Constitution C20). TimeSinceHumanCheckpoint measures the
 // elapsed wall time since the last human-approved checkpoint was recorded.
 type BudgetWindow struct {
-	Promotions                 int
-	FilesChanged               int
-	RoutingWeightDelta         float64
-	CostDeltaUSD               float64
-	QualityDelta               float64
-	RollbackChainDepth         int
-	SecurityClassChanged       bool
-	TimeSinceHumanCheckpoint   time.Duration // zero means checkpoint is current
+	Promotions               int
+	FilesChanged             int
+	RoutingWeightDelta       float64
+	CostDeltaUSD             float64
+	QualityDelta             float64
+	RollbackChainDepth       int
+	SecurityClassChanged     bool
+	TimeSinceHumanCheckpoint time.Duration // zero means checkpoint is current
 }
 
 var frozen atomic.Bool

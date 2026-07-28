@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/extops"
@@ -122,6 +120,3 @@ func bitbucketBranchURL(remoteIdentity, branch string) string {
 	}
 	return remoteIdentity + "@" + branch
 }
-
-var _ = time.Minute
-var _ = config.RefSpec("")

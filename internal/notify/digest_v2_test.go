@@ -27,8 +27,8 @@ func TestFormatDigestV2_FrozenState(t *testing.T) {
 	defer evolve.Unfreeze()
 
 	d := DigestV2{
-		Window:  evolve.BudgetWindow{CostDeltaUSD: 200},
-		Limits:  evolve.ChangeBudgetLimits{MaxCostDeltaUSD: 100},
+		Window:      evolve.BudgetWindow{CostDeltaUSD: 200},
+		Limits:      evolve.ChangeBudgetLimits{MaxCostDeltaUSD: 100},
 		Placeholder: false,
 	}
 	out := FormatDigestV2(d)
