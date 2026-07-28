@@ -149,6 +149,8 @@ type CommandRouter struct {
 	Chats      *ChatRegistry
 	Nonces     *NonceRegistry
 	Controller WorkflowController
+	// Veto handles /rollback <promo-id> <nonce> commands (Task 52 / VEN-13).
+	Veto VetoExecutor
 
 	// ResolvePlanContext and SecureSurfaceURL wire /approve to Task 25's
 	// existing C11 guard (internal/authn.TelegramApprove) rather than
@@ -184,6 +186,8 @@ func (r *CommandRouter) Handle(ctx context.Context, chatID, text string) string 
 		})
 	case "approve":
 		return r.handleApprove(ctx, args)
+	case "rollback":
+		return r.handleRollback(ctx, chatID, args)
 	default:
 		return fmt.Sprintf("unknown command: /%s", name)
 	}

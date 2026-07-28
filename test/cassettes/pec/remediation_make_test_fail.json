@@ -1,0 +1,13 @@
+{
+  "description": "Cassette: make test failure — PEC suggests re-running validation",
+  "failed_task": {"plan_id": "plan-1", "task_id": "t1"},
+  "records": [
+    {"cmd": "make test", "exit_code": 1, "stdout_digest": "abc123", "duration_ms": 5000}
+  ],
+  "summaries": [],
+  "expected_remediation": {
+    "suggestion": "review failed commands and re-run validation; if a policy violation, update the validation allowlist",
+    "confidence_min": 0.5,
+    "evidence_contains": ["failed command: make test"]
+  }
+}
