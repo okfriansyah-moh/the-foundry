@@ -2,8 +2,8 @@
 // FND-11, Constitution C11): event classification, per-chat/global flood
 // control, P2/P3 digest batching, outbound delivery via the
 // `notifications` table (internal/db/migrations/00007_notifications.sql,
-// Task 20), and a command router for the three low-risk commands this
-// engine supports (/status, /pause, /resume).
+// Task 20), and a command router for the low-risk commands this
+// engine supports (/status, /pause, /resume, /freeze).
 //
 // Authority boundary (Constitution C4/C11): this package never decides or
 // performs a side effect on its own authority. Pause/resume/status are

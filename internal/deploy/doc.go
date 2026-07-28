@@ -1,3 +1,3 @@
-// Package deploy defines deployment adapter seams and deterministic profile
-// gates for product deployments.
+// Package deploy enforces deployment-time quotas and fairness safeguards.
+// docs/PLAN.md Task 65 (HRD-02).
 package deploy

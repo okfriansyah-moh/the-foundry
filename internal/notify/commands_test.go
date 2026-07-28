@@ -142,3 +142,11 @@ func TestCommandRouter_ApproveNeverPerformsASideEffect(t *testing.T) {
 		t.Fatalf("want authn.TelegramApprove's low-risk reply verbatim, got %q", reply)
 	}
 }
+
+func TestCommandRouter_Freeze(t *testing.T) {
+	router, _ := newTestRouter(t, &fakeController{})
+	reply := router.Handle(context.Background(), "chat-1", "/freeze")
+	if reply != "frozen" {
+		t.Fatalf("freeze reply=%q", reply)
+	}
+}

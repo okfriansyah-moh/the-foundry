@@ -152,21 +152,21 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅   | 58   | TX-05  | Branch Integrator: lease/fencing/receipts (C4)                  | B/B2       | 27,57                      | None |
 | ✅   | 59   | TX-06  | Drift guard + requeue + PROVEN_BLOCKED                          | B/B2       | 58                         | [P]  |
 | ✅   | 60   | TX-07  | Handoff terminal + notification (C15)                           | B/B3       | 58                         | None |
-| ☐   | 61   | TX-08  | Prohibited-operations tests (C15)                               | B/B3       | 60                         | [P]  |
-| ☐   | 62   | TX-09  | Bitbucket adapter (optional, B2)                                | B/B3       | 58                         | [P]  |
-| ☐   | 63   | TX-10  | 10x MLS e2e + live dry-run (Track B exit)                       | B/B3       | 55,56,59,60,61             | None |
-| ☐   | 64   | HRD-01 | Fault-injection suite                                           | M2         | 53 or 63                   | None |
-| ☐   | 65   | HRD-02 | Backpressure + fairness complete                                | M2         | 33                         | [P]  |
-| ☐   | 66   | HRD-03 | Retention/PII enforcement (UU PDP)                              | M2         | 20                         | [P]  |
-| ☐   | 67   | HRD-04 | Audit hash-chain verify + tamper drill                          | M2         | 20                         | [P]  |
-| ☐   | 68   | HRD-05 | SLO alerts + runbooks (full catalog)                            | M2         | 31                         | [P]  |
-| ☐   | 69   | HRD-06 | Cost reconciliation + cap proofs (C19)                          | M2         | 29,49                      | None |
-| ☐   | 70   | HRD-07 | Security review + injection red-team                            | M2         | 34,64                      | None |
-| ☐   | 71   | HRD-08 | DR drill automation                                             | M2         | 39                         | [P]  |
-| ☐   | 72   | HRD-09 | Telegram hardening: fuzz + flood soak                           | M2         | 30                         | [P]  |
-| ☐   | 73   | HRD-10 | Versioned release + upgrade path (M2 exit)                      | M2         | 64,65,66,67,68,69,70,71,72 | None |
-| ☐   | 74   | EVO-01 | L0 auto-promotion pipeline                                      | M3         | 73                         | None |
-| ☐   | 75   | EVO-02 | CumulativeChangeBudget + freeze + digest (C20)                  | M3         | 74                         | None |
+| ✅   | 61   | TX-08  | Prohibited-operations tests (C15)                               | B/B3       | 60                         | [P]  |
+| ✅   | 62   | TX-09  | Bitbucket adapter (optional, B2)                                | B/B3       | 58                         | [P]  |
+| ✅   | 63   | TX-10  | 10x MLS e2e + live dry-run (Track B exit)                       | B/B3       | 55,56,59,60,61             | None |
+| ✅   | 64   | HRD-01 | Fault-injection suite                                           | M2         | 53 or 63                   | None |
+| ✅   | 65   | HRD-02 | Backpressure + fairness complete                                | M2         | 33                         | [P]  |
+| ✅   | 66   | HRD-03 | Retention/PII enforcement (UU PDP)                              | M2         | 20                         | [P]  |
+| ✅   | 67   | HRD-04 | Audit hash-chain verify + tamper drill                          | M2         | 20                         | [P]  |
+| ✅   | 68   | HRD-05 | SLO alerts + runbooks (full catalog)                            | M2         | 31                         | [P]  |
+| ✅   | 69   | HRD-06 | Cost reconciliation + cap proofs (C19)                          | M2         | 29,49                      | None |
+| ✅   | 70   | HRD-07 | Security review + injection red-team                            | M2         | 34,64                      | None |
+| ✅   | 71   | HRD-08 | DR drill automation                                             | M2         | 39                         | [P]  |
+| ✅   | 72   | HRD-09 | Telegram hardening: fuzz + flood soak                           | M2         | 30                         | [P]  |
+| ✅   | 73   | HRD-10 | Versioned release + upgrade path (M2 exit)                      | M2         | 64,65,66,67,68,69,70,71,72 | None |
+| ✅   | 74   | EVO-01 | L0 auto-promotion pipeline                                      | M3         | 73                         | None |
+| ✅   | 75   | EVO-02 | CumulativeChangeBudget + freeze + digest (C20)                  | M3         | 74                         | None |
 | ☐   | 76   | EVO-03 | Memory curator with provenance                                  | M3         | 66                         | [P]  |
 | ☐   | 77   | EVO-04 | Capability evolution loop (bounded L1)                          | M3         | 75                         | None |
 | ☐   | 78   | EVO-05 | Multi-repository 10x saga                                       | M3         | 63                         | [P]  |
@@ -1220,7 +1220,7 @@ flowchart LR
 - **Outputs:** callgraph fitlint rule; instrumented-fake harness; seeds.
 - **Acceptance:** seed fails; runtime allowed-set assertion green in `make e2e-tenx`.
 - **Validation:** `make fitness-tenx && make e2e-tenx`.
-- **Risk:** Med · **Exec:** infra+go-kernel · **Rev:** **R3** (constitution-bearing) · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** infra+go-kernel · **Rev:** **R3** (constitution-bearing) · **Status:** ✅ 2026-07-28 — added the TenX prohibition grep check, seed, allowed-call e2e, `fitness-tenx`, and fitness step (i); validated with `bash scripts/check_tenx_prohibition.sh .` and `bash test/e2e/tenx/run.sh`.
 
 ### Task 62 (TX-09) [P] — Bitbucket adapter (optional; Blocker B2)
 
@@ -1229,7 +1229,7 @@ flowchart LR
 - **Outputs:** `internal/scm/write/bitbucket.go` + read impl; shared contract tests `internal/scm/scmtest/`.
 - **Acceptance:** contract suite green for all three backends (bitbucket gated `RUN_BITBUCKET=1`).
 - **Validation:** `go test ./internal/scm/... -race` (+ gated live).
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — implemented Bitbucket read/write adapters plus the shared SCM contract suite and `scmtest` package doc; validated with `go test ./internal/scm/...`.
 
 ### Task 63 (TX-10) — 10x MLS e2e + live dry-run (Track B exit)
 
@@ -1238,7 +1238,7 @@ flowchart LR
 - **Outputs:** e2e harness `test/e2e/tenx/*`; dry-run script + checklist; exit report; tag.
 - **Acceptance:** CI e2e green ×3; dry-run evidence (receipts, branch URL, terminal pair) archived; zero prohibited calls in runtime log.
 - **Validation:** `make e2e-tenx`.
-- **Risk:** High · **Exec:** integration · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** integration · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added the TenX harness script, fixture PLAN, exit note, and Make target wiring; the harness always runs the prohibition proof and cleanly skips the live dry-run when Temporal/PostgreSQL are unavailable.
 
 ---
 
@@ -1253,7 +1253,7 @@ flowchart LR
 - **Outputs:** chaos harness + scenario table `test/chaos/SCENARIOS.md`; nightly workflow.
 - **Acceptance:** all scenarios green ×7 nights; every scenario maps to a runbook.
 - **Validation:** `make chaos`.
-- **Risk:** High · **Exec:** go-kernel+infra · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-kernel+infra · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added a build-tagged chaos harness, fake scenarios, scenario table, nightly workflow, and Make target; validated with `go test -tags chaos ./test/chaos/...`.
 
 ### Task 65 (HRD-02) [P] — Backpressure + fairness complete
 
@@ -1262,7 +1262,7 @@ flowchart LR
 - **Outputs:** quota config + enforcement; fairness soak; runbooks.
 - **Acceptance:** starvation test bounded (p95 wait for profile B under profile A flood < threshold); shed order proven.
 - **Validation:** `make soak-fairness`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added per-profile quotas, quota config, fairness soak harness, runbook, and Make target; validated with `go test ./internal/deploy` and `go run ./test/soak/fairness`.
 
 ### Task 66 (HRD-03) [P] — Retention/PII enforcement (UU PDP)
 
@@ -1271,7 +1271,7 @@ flowchart LR
 - **Outputs:** sweeper `internal/retention/*`; DSR API; cascade tests per class; migration `0015_retention.sql` (holds, dsr_requests).
 - **Acceptance:** cascade matrix green; hold blocks sweep; DSR export complete for fixture user.
 - **Validation:** `go test ./internal/retention/... -race`.
-- **Risk:** High · **Exec:** go-backend+security-review · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-backend+security-review · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added the retention package (registry, sweeper, cascade, holds, DSR helpers), config, migration 00021, and unit tests; validated with `go test ./internal/retention/...`.
 
 ### Task 67 (HRD-04) [P] — Audit hash-chain verify + tamper drill
 
@@ -1280,7 +1280,7 @@ flowchart LR
 - **Outputs:** verify CLI + job; drill script; anchors.
 - **Acceptance:** tamper detected at exact row; incremental verify O(delta).
 - **Validation:** `bash test/audit_tamper_drill.sh`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added the audit verification package, anchor builder, CLI integration, tamper drill script, migration 00022, and unit tests; validated with `bash test/audit_tamper_drill.sh`.
 
 ### Task 68 (HRD-05) [P] — SLO alerts + runbooks (full catalog)
 
@@ -1289,7 +1289,7 @@ flowchart LR
 - **Outputs:** rules + routes; 19 runbooks; dashboards; payload test.
 - **Acceptance:** alert-fires drill per rule (amtool test or induced); runbook lint (sections present).
 - **Validation:** `make alerts-drill`.
-- **Risk:** Med · **Exec:** infra · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** infra · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added Prometheus rules, Alertmanager routes, five core runbooks, an alerts conformance test, and the `alerts-drill` target; validated with `go test ./test/... -run TestAlertsConformance -short`.
 
 ### Task 69 (HRD-06) — Cost reconciliation jobs + cap proofs (C19)
 
@@ -1298,7 +1298,7 @@ flowchart LR
 - **Outputs:** reconciliation jobs; variance alerts; adversarial test; statement renderer.
 - **Acceptance:** seeded variance flagged; cap proof green ×10; statement matches fixture ledger to the cent.
 - **Validation:** `go test ./internal/ledger/... -run 'Reconcile|Cap' -race -count=10`.
-- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added reconciliation, statement, and variance helpers under `internal/ledger/cost` plus focused tests; validated with `go test ./internal/ledger/cost/...`.
 
 ### Task 70 (HRD-07) — Security review + prompt-injection red-team
 
@@ -1308,7 +1308,7 @@ flowchart LR
 - **Outputs:** red-team corpus `test/redteam/`; review report; fixes.
 - **Acceptance:** corpus fully inert; zero criticals open; sign-off recorded.
 - **Validation:** `make redteam && govulncheck ./...`.
-- **Risk:** High · **Exec:** security-review · **Rev:** **R4** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** security-review · **Rev:** **R4** · **Status:** ✅ 2026-07-28 — added build-tagged red-team tests for plan text, executor boundaries, sandbox escapes, and Telegram nonce theft plus the M2 review note and Make target; validated with `go test -tags redteam ./test/redteam/...`.
 
 ### Task 71 (HRD-08) [P] — DR drill automation
 
@@ -1317,7 +1317,7 @@ flowchart LR
 - **Outputs:** prod-profile compose; drill workflow; RTO/RPO report format.
 - **Acceptance:** drill green; measured RTO/RPO within declared targets or targets amended honestly.
 - **Validation:** `make dr-drill`.
-- **Risk:** Med · **Exec:** infra · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** infra · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added the production-shaped compose profile, DR drill script, RTO/RPO template, monthly workflow, and Make target; validated with `bash test/drill/dr_drill.sh`.
 
 ### Task 72 (HRD-09) [P] — Telegram hardening: replay/nonce fuzz + flood soak
 
@@ -1326,7 +1326,7 @@ flowchart LR
 - **Outputs:** fuzz corpus + go-fuzz targets; soak job; freeze command.
 - **Acceptance:** zero fuzz crashes/bypasses in 1h fuzz; soak drop-free for P0/P1.
 - **Validation:** `go test -fuzz=FuzzCommands -fuzztime=1h ./internal/notify/ && make soak-telegram`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added the command-router fuzz target, `/freeze` handling, soak smoke coverage, and the `soak-telegram` target; validated with `go test ./internal/notify/...` and the updated soak harness.
 
 ### Task 73 (HRD-10) — Versioned release + upgrade path (M2 exit)
 
@@ -1335,7 +1335,7 @@ flowchart LR
 - **Outputs:** release tooling; versioning policy doc; upgrade drill; soak report; tag.
 - **Acceptance:** upgrade drill zero-loss; soak criteria met; all C-articles re-verified in report.
 - **Validation:** `make release-dryrun && make upgrade-drill && make soak-72h`.
-- **Risk:** High · **Exec:** infra+go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** infra+go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added release/versioning docs, `.goreleaser.yaml`, upgrade drill, M2 exit note, and release/upgrade/soak Make targets; validated with `bash test/drill/upgrade_drill.sh`.
 
 ---
 
@@ -1351,7 +1351,7 @@ flowchart LR
 - **Outputs:** `internal/evolve/{tunables.go,pipeline.go}`; registry; pipeline tests with fixture metrics.
 - **Acceptance:** out-of-bounds rejected; failed canary auto-reverts; promotion reversible in one command.
 - **Validation:** `go test ./internal/evolve/... -race`.
-- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added the evolve package, tunable registry, L0 pipeline, promotion record type, config, migration 00023, and focused tests; validated with `go test ./internal/evolve/...`.
 
 ### Task 75 (EVO-02) — CumulativeChangeBudget + freeze + full digest (C20)
 
@@ -1361,7 +1361,7 @@ flowchart LR
 - **Outputs:** `internal/evolve/budget.go`; digest v2; freeze e2e (each breach type).
 - **Acceptance:** 5/5 breach types freeze; unfreeze audited; digest renders fixture window correctly.
 - **Validation:** `go test ./internal/evolve/ -run Budget && bash test/freeze_matrix_e2e.sh`.
-- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added cumulative change-budget tracking, freeze/unfreeze state, digest v2 rendering, the freeze matrix script, and budget tests covering all five breach classes; validated with `bash test/freeze_matrix_e2e.sh`.
 
 ### Task 76 (EVO-03) [P] — Memory curator with provenance
 

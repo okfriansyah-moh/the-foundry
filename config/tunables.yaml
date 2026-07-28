@@ -1,0 +1,11 @@
+tunables:
+  - name: retry_backoff_seconds
+    min: 1
+    max: 60
+    scope: workflow
+    metric: retry_success_rate
+  - name: batch_size
+    min: 1
+    max: 100
+    scope: notifier
+    metric: throughput
