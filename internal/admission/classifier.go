@@ -93,10 +93,10 @@ func Classify(doc *plan.Document, policy PolicyView) (Decision, error) {
 	}
 	sort.Strings(rulesEvaluated)
 
+	tier = applyDiscrepancyFloor(tier, discrepancies)
+
 	requiredControls := append([]string{}, policy.RequiredControls(tier)...)
 	sort.Strings(requiredControls)
-
-	tier = applyDiscrepancyFloor(tier, discrepancies)
 
 	return Decision{
 		ClassifierVersion: Version,

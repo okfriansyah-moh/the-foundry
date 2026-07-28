@@ -23,6 +23,11 @@ func Ingest(name, mediaType string, content []byte, now time.Time) (Artifact, er
 	if strings.TrimSpace(name) == "" {
 		return Artifact{}, fmt.Errorf("mockup ingest: name is required")
 	}
+	// Sanitize name to prevent path traversal (OWASP A03 / CWE-22).
+	safeName := filepath.Base(filepath.Clean(name))
+	if safeName == "" || safeName == "." || safeName == ".." {
+		return Artifact{}, fmt.Errorf("mockup ingest: invalid name %q", name)
+	}
 	if err := os.MkdirAll(RetentionRoot, 0o755); err != nil {
 		return Artifact{}, fmt.Errorf("mockup ingest: mkdir retention root: %w", err)
 	}
@@ -31,13 +36,13 @@ func Ingest(name, mediaType string, content []byte, now time.Time) (Artifact, er
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Artifact{}, fmt.Errorf("mockup ingest: mkdir artifact dir: %w", err)
 	}
-	path := filepath.Join(dir, name)
+	path := filepath.Join(dir, safeName)
 	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return Artifact{}, fmt.Errorf("mockup ingest: write content: %w", err)
 	}
 	artifact := Artifact{
 		ID:        id,
-		Name:      name,
+		Name:      safeName,
 		MediaType: mediaType,
 		Path:      path,
 		CreatedAt: now.UTC(),

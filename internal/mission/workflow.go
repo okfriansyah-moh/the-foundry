@@ -304,7 +304,9 @@ func EnterHumanGate(ctx workflow.Context, noRetryOpts workflow.ActivityOptions, 
 	workflow.GetLogger(ctx).Warn("mission: unforeseen human gate", "workflow_id", workflowID, "action", action)
 	recCtx := workflow.WithActivityOptions(ctx, noRetryOpts)
 	var gateID string
-	_ = workflow.ExecuteActivity(recCtx, ActivityRecordGateEvent, gateEventInput{MissionID: missionID, Action: action}).Get(recCtx, &gateID)
+	if err := workflow.ExecuteActivity(recCtx, ActivityRecordGateEvent, gateEventInput{MissionID: missionID, Action: action}).Get(recCtx, &gateID); err != nil {
+		workflow.GetLogger(ctx).Error("mission: failed to record gate event", "workflow_id", workflowID, "error", err)
+	}
 	appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonUnforeseenHumanGate, "")
 	killed, killReq := pauseAndWait(ctx, noRetryOpts, workflowID, state.ReasonUnforeseenHumanGate, killCh, resumeCh)
 	if killed {
@@ -312,10 +314,12 @@ func EnterHumanGate(ctx workflow.Context, noRetryOpts workflow.ActivityOptions, 
 	}
 	if gateID != "" {
 		resolveCtx := workflow.WithActivityOptions(ctx, noRetryOpts)
-		_ = workflow.ExecuteActivity(resolveCtx, ActivityResolveGateEvent, resolveGateInput{
+		if err := workflow.ExecuteActivity(resolveCtx, ActivityResolveGateEvent, resolveGateInput{
 			GateEventID: gateID,
 			Resolution:  "resumed via mission-resume signal",
-		}).Get(resolveCtx, nil)
+		}).Get(resolveCtx, nil); err != nil {
+			workflow.GetLogger(ctx).Error("mission: failed to resolve gate event", "gate_id", gateID, "error", err)
+		}
 	}
 	return false, KillRequest{}
 }
