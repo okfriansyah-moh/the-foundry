@@ -67,4 +67,7 @@ echo "== fitness (f): secrets leak scan (Task 35 / FND-16) =="
 echo "== fitness (g): mission loop contract (Task 40 / VEN-01) =="
 "${fitlint_bin}" missionloop internal cmd tools
 
+echo "== fitness (h): PEC import boundary (Task 56 / TX-03, Constitution C5) =="
+bash scripts/check_pec_boundary.sh .
+
 echo "fitness OK"

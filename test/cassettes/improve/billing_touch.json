@@ -1,0 +1,18 @@
+{
+  "description": "Cassette: billing-touch improvement (H tier — halts pre-build)",
+  "plan": {
+    "id": "improve-mission1-billing-touch",
+    "title": "Improvement: add usage-based billing tier",
+    "declared_effects": [
+      {"kind": "billing", "target": "stripe-subscription"}
+    ],
+    "tasks": [
+      {
+        "id": "t1",
+        "goal": "Add metered billing via Stripe usage records",
+        "files": ["products/product1/internal/billing/**"],
+        "commands": ["make test"]
+      }
+    ]
+  }
+}

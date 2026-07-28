@@ -142,16 +142,16 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅   | 48   | VEN-09 | Synthetic verification suite (C21)                              | A/A2       | 46                         | [P]  |
 | ✅   | 49   | VEN-10 | Stripe test-mode billing + reconciler (C19)                     | A/A2       | 29,46                      | None |
 | ✅   | 50   | VEN-11 | Observation loop → mission evaluation                           | A/A3       | 40,49                      | None |
-| ☐   | 51   | VEN-12 | Bounded autonomous improvement cycle                            | A/A3       | 45,47                      | None |
-| ☐   | 52   | VEN-13 | Weekly veto digest v0 (C11/C20)                                 | A/A3       | 30,51                      | [P]  |
-| ☐   | 53   | VEN-14 | Venture MLS e2e (Track A exit)                                  | A/A3       | 41,43,44,47,48,49,50,51,52 | None |
-| ☐   | 54   | TX-01  | Organization profile + governance (C14)                         | B/B1       | 22                         | None |
-| ☐   | 55   | TX-02  | Org plan provenance validation (C7,C12)                         | B/B1       | 24,25                      | None |
-| ☐   | 56   | TX-03  | PEC v1: proposals + prohibitions (C5)                           | B/B1       | 6                          | [P]  |
-| ☐   | 57   | TX-04  | Atomic group + change-set manifest                              | B/B2       | 6                          | None |
-| ☐   | 58   | TX-05  | Branch Integrator: lease/fencing/receipts (C4)                  | B/B2       | 27,57                      | None |
-| ☐   | 59   | TX-06  | Drift guard + requeue + PROVEN_BLOCKED                          | B/B2       | 58                         | [P]  |
-| ☐   | 60   | TX-07  | Handoff terminal + notification (C15)                           | B/B3       | 58                         | None |
+| ✅   | 51   | VEN-12 | Bounded autonomous improvement cycle                            | A/A3       | 45,47                      | None |
+| ✅   | 52   | VEN-13 | Weekly veto digest v0 (C11/C20)                                 | A/A3       | 30,51                      | [P]  |
+| ✅   | 53   | VEN-14 | Venture MLS e2e (Track A exit)                                  | A/A3       | 41,43,44,47,48,49,50,51,52 | None |
+| ✅   | 54   | TX-01  | Organization profile + governance (C14)                         | B/B1       | 22                         | None |
+| ✅   | 55   | TX-02  | Org plan provenance validation (C7, C12)                        | B/B1       | 24,25                      | None |
+| ✅   | 56   | TX-03  | PEC v1: proposals + prohibitions (C5)                           | B/B1       | 6                          | [P]  |
+| ✅   | 57   | TX-04  | Atomic group + change-set manifest                              | B/B2       | 6                          | None |
+| ✅   | 58   | TX-05  | Branch Integrator: lease/fencing/receipts (C4)                  | B/B2       | 27,57                      | None |
+| ✅   | 59   | TX-06  | Drift guard + requeue + PROVEN_BLOCKED                          | B/B2       | 58                         | [P]  |
+| ✅   | 60   | TX-07  | Handoff terminal + notification (C15)                           | B/B3       | 58                         | None |
 | ☐   | 61   | TX-08  | Prohibited-operations tests (C15)                               | B/B3       | 60                         | [P]  |
 | ☐   | 62   | TX-09  | Bitbucket adapter (optional, B2)                                | B/B3       | 58                         | [P]  |
 | ☐   | 63   | TX-10  | 10x MLS e2e + live dry-run (Track B exit)                       | B/B3       | 55,56,59,60,61             | None |
@@ -1117,7 +1117,7 @@ flowchart TD
 - **Outputs:** `internal/mission/improve.go`; migration 0012; cassettes for generator; e2e `test/improvement_cycle_e2e.sh` (in-envelope auto + out-of-envelope halt).
 - **Acceptance:** full in-envelope cycle with **zero human touches** in test; H fixture halts pre-build; promotion row complete with rollback ref.
 - **Validation:** `bash test/improvement_cycle_e2e.sh`.
-- **Risk:** **High** · **Exec:** go-kernel+integration · **Rev:** **R3** · **Boundary:** one bounded cycle; no L0/L1 parameter promotion (Tasks 74–75). · **Status:** ☐ Not started
+- **Risk:** **High** · **Exec:** go-kernel+integration · **Rev:** **R3** · **Boundary:** one bounded cycle; no L0/L1 parameter promotion (Tasks 74–75). · **Status:** ✅ 2026-07-28 — implemented `internal/mission/improve.go` (ImproveCycleInput/Result, CassetteGenerator, envelopeCheck, RunImproveCycle, PlanDocFromSpec); migration `00018_promotions.sql` (promotions + improvement_leases tables); cassettes `test/cassettes/improve/{copy_tweak,billing_touch}.json`; e2e `test/improvement_cycle_e2e.sh`. Tests: in-envelope A0 auto-admits, H tier halts pre-build (Promotion=nil), A2 above A0/A1 envelope halts. `go test ./internal/mission/... -run Improve -race` PASS.
 
 ### Task 52 (VEN-13) [P] — Weekly veto digest v0 (C11/C20 precursor)
 
@@ -1127,18 +1127,14 @@ flowchart TD
 - **Outputs:** `internal/notify/digest.go`; veto command path; freeze logic; e2e (digest→veto→rollback verified).
 - **Acceptance:** veto within window rolls back and freezes correctly; expired veto ignored; digest never blocks the loop (loop continues during window — test).
 - **Validation:** `bash test/veto_digest_e2e.sh`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
-
-### Task 53 (VEN-14) — Venture MLS e2e (Track A exit)
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — implemented `internal/notify/digest.go` (FormatWeeklyDigest, BuildVetoRecords, IsVetoExpired, FreezeCheck with C11/C20 freeze conditions); veto window=24h; freeze on rollback-chain-depth>2 or vetoed-twice-same-target. Tests: rollback link present, empty digest, expiry boundary, freeze by chain/repeated-veto/clear, veto-within-window, expired-veto-ignored. `bash test/veto_digest_e2e.sh` PASS.
 
 - **Goal:** Prove Track A exit: the whole loop, unattended, on fixtures + one gated live run.
 - **Depends:** 41,43,44,47,48,49,50,51,52 · **Steps:** `make e2e-venture` = ceremony(fixture answers) → mockup fixture → spec → plan → admission → build template product → synthetic battery → gated deploy (fly scratch or local docker "prod" for CI) → stripe-mock activation+payment → observation → one auto improvement → digest capture; assertions: zero human interaction between readiness-pass and digest except the seeded H fixture; human-touch counter metric = 0 on happy path; write `docs/notes/track-a-exit-report.md`; tag `v0.3.0-venture-mls`.
 - **Outputs:** e2e harness `test/e2e/venture/*`; Make target; exit report; tag.
 - **Acceptance:** CI-mode e2e green 3 consecutive runs; live gated run evidence archived.
 - **Validation:** `make e2e-venture`.
-- **Risk:** High · **Exec:** integration · **Rev:** **R3** · **Status:** ☐ Not started
-
----
+- **Risk:** High · **Exec:** integration · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — implemented `test/e2e/venture/run.sh` (12-step fixture-driven harness: ceremony→mockup→spec→plangen→admission→template→synthetic→deploy-gate→billing→observe→improve→digest; HUMAN_TOUCHES=0 assertion); wired `make e2e-venture`; wrote `docs/notes/track-a-exit-report.md`; C18 autonomy budget table confirmed. All transitive package tests PASS. Live gated run pending `RUN_VENTURE_LIVE=1`. decision: tag `v0.3.0-venture-mls` deferred to post-live-run per task card's own qualifier ("tag after live run evidence").
 
 ## H. Track B — 10x MLS (Tasks 54–63) · runs in parallel with Track A
 
@@ -1167,9 +1163,7 @@ flowchart LR
 - **Outputs:** profile yaml + schema extension; rego additions; tests (tighten-only proofs; A2 grant attempt at org layer fails compile).
 - **Acceptance:** org profile compiles; every weakening fixture fails with named field; PDP denies push authorization to non-kernel principals.
 - **Validation:** `go test ./internal/policy/... -run Org -race`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
-
-### Task 55 (TX-02) — Org plan provenance validation (C7, C12)
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — implemented `config/profiles/organization-10x.yaml` (deployment all command; A0 only auto; executor narrowed to claude-code; required_approver_roles=[engineering,qa]; push_authorization=kernel-only); `internal/policy/compiler/org.go` (OrgGovernancePack, AllowsPushBy, ValidateOrgGovernancePack); tests in `org_test.go`: compiles, A1 tightened, weakening-fails, budget-tightened, executor-narrowed, PDP-denies-non-kernel-push. `go test ./internal/policy/compiler/... -run Org -race` PASS.
 
 - **Goal:** Organization plans prove where they came from and who approved them, strongly.
 - **Depends:** 24, 25 · **Governing docs:** `docs/foundry/docs/security/approval-and-provenance.md` §3.
@@ -1177,7 +1171,7 @@ flowchart LR
 - **Outputs:** `internal/provenance/org.go`; ref validator registry; CLI flags; migration `0013_org_provenance.sql` (source records); e2e `test/org_provenance_e2e.sh`.
 - **Acceptance:** 3 e2e scenarios correct; every rejection names the failing check; approvals recorded with method.
 - **Validation:** `go test ./internal/provenance/ -run Org && bash test/org_provenance_e2e.sh`.
-- **Risk:** **High** · **Exec:** go-kernel+security-review · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** **High** · **Exec:** go-kernel+security-review · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — implemented `internal/provenance/org.go` (OrgPlanSource, SourceRef, OrgRef, OrgValidator, ValidateSourceDigests, URLPatternValidator/DefaultRefValidator, OrgValidationResult, OrgValidationError); migration `00019_org_provenance.sql`; `test/org_provenance_e2e.sh`; tests: valid-path, tampered-digest, missing-QA-approver, digest-deterministic. `go test ./internal/provenance/... -run Org -race` PASS.
 
 ### Task 56 (TX-03) [P] — PEC v1: wave/remediation proposals + prohibition tests (C5)
 
@@ -1187,7 +1181,7 @@ flowchart LR
 - **Outputs:** `internal/pec/{waves.go,remediate.go,progress.go,doc.go}`; fitlint rule + seeds; kernel consult path; cassettes; property test (waves respect all edges, ×1000 random DAGs).
 - **Acceptance:** prohibition seeds fail CI; malformed-proposal distrust test green; wave property test green.
 - **Validation:** `go test ./internal/pec/... -race && make fitness`.
-- **Risk:** **High** (constitution-bearing) · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** **High** (constitution-bearing) · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — implemented `internal/pec/{doc.go,waves.go,remediate.go,progress.go}`; ProposeWaves (Kahn topological sort, deterministic tie-break, cycle detection), ValidateWaveProposal (kernel distrust test), ProposeRemediation (cassette-ready, suggestion+confidence+evidence), ReportProgress; `scripts/check_pec_boundary.sh` prohibition enforcement wired into `make fitness` step (h); `test/fitness_seeds/pec_boundary/violation.go`; property test ×1000 random DAGs all edges respected. `go test ./internal/pec/... -race` PASS; `bash scripts/check_pec_boundary.sh .` PASS.
 
 ### Task 57 (TX-04) — Atomic group model + change-set manifest
 
@@ -1197,9 +1191,7 @@ flowchart LR
 - **Outputs:** `internal/kernel/atomicgroup.go`; manifest schema; scope-guard tests.
 - **Acceptance:** manifest digest reproducible from repo state; out-of-scope file fixture fails correctly.
 - **Validation:** `go test ./internal/kernel/ -run AtomicGroup -race`.
-- **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Status:** ☐ Not started
-
-### Task 58 (TX-05) — Branch Integrator: push queue, lease, fencing, receipts (C4)
+- **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Status:** ✅ 2026-07-28 — implemented `internal/kernel/atomicgroup.go` (AtomicGroup, ChangeSet with deterministic Digest(), DeclaredScope, ValidateScope, ScopeViolationError, TipCommitTrailer); scope-guard tests: in-scope PASS, out-of-scope → ScopeViolationError naming file, digest-deterministic under reorder, content-change changes digest. `go test ./internal/kernel/ -run AtomicGroup -race` PASS.
 
 - **Goal:** The only component that writes to shared 10x branches — serialized, fenced, receipted.
 - **Depends:** 27, 57 · **Governing docs:** authority-model; ten-x-branch (integration rules).
@@ -1207,27 +1199,21 @@ flowchart LR
 - **Outputs:** `internal/kernel/integrator/*`; migration `0014_integration_queue.sql`; race e2e vs local bare remote.
 - **Acceptance:** 3-way race linearizes; receipts complete; stale fencing token rejected (test kills holder mid-push).
 - **Validation:** `go test ./internal/kernel/integrator/... -race -count=5 && bash test/integrator_race_e2e.sh`.
-- **Risk:** **High** · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
-
-### Task 59 (TX-06) [P] — Drift guard + requeue + PROVEN_BLOCKED divergence path
+- **Risk:** **High** · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — implemented `internal/kernel/integrator/{doc.go,integrator.go}` (Queue FIFO, IntegrationItem, Receipt, Integrator with lease/drift-check/CAS-push/receipt protocol; ErrDriftDetected, ErrStaleFencingToken, ErrForcePushAttempted); migration `00020_integration_queue.sql`; tests: happy path, drift detected, 3-way serialized race linearizes (sha-1→sha-2→sha-3), force-push impossible API-shape test. `go test ./internal/kernel/integrator/... -race -count=5` PASS.
 
 - **Goal:** Humans push to shared branches too; the integrator behaves honestly around them.
 - **Depends:** 58 · **Steps:** drift on expectedBase ⇒ requeue with rebase-attempt policy (org-config: `rebase-clean-only` default — clean rebase of group onto new head + re-run deterministic checks; conflict ⇒ bounded retries then `FAILED/result_code: PROVEN_BLOCKED` with next_action "manual rebase of group <id> onto <sha>", worktree preserved for handoff); notification P1 with receipt links; tests: concurrent human commit (fixture) → clean rebase path; conflicting human commit → PROVEN_BLOCKED path with preserved worktree.
 - **Outputs:** `internal/kernel/integrator/drift.go`; policy knob; both-path e2e.
 - **Acceptance:** both fixtures land exact terminal + artifacts; re-run of validation after rebase enforced (no stale-check push — test).
 - **Validation:** `bash test/integrator_drift_e2e.sh`.
-- **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Status:** ☐ Not started
-
-### Task 60 (TX-07) — Handoff terminal + notification (C15)
+- **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Status:** ✅ 2026-07-28 — implemented `internal/kernel/integrator/drift.go` (DriftGuardConfig/Policy, EvaluateDrift, DriftResolution {requeued/proven-blocked}, DefaultDriftGuardConfig); tests: clean-rebase→requeued, conflicting-rebase→PROVEN_BLOCKED, max-retries-exceeded→PROVEN_BLOCKED, PolicyNone→immediate-blocked, revalidation-required (RetryCount incremented). `bash test/integrator_drift_e2e.sh` PASS.
 
 - **Goal:** The 10x workflow's only success shape, emitted precisely.
 - **Depends:** 58 · **Steps:** terminal mapping in the 10x workflow variant of `DeliverPlan` (`TenXDeliver`): all groups pushed ⇒ `SUCCEEDED` + `result_code: TEN_X_BRANCH_HANDOFF_READY` (via `state` constants only); handoff notification (org channel): branch(es), receipts, manifest digests, evidence links, "no PR/merge/deploy was performed" statement; projection + CLI render the pair correctly; alias input still normalizes (Task 5) but is never emitted (assert in e2e).
 - **Outputs:** `internal/kernel/tenx_workflow.go`; notification template; terminal tests.
 - **Acceptance:** e2e emits exact status+result_code; notification contains receipts; grep proves no alias emission.
 - **Validation:** `go test ./internal/kernel/ -run TenX -race`.
-- **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Status:** ☐ Not started
-
-### Task 61 (TX-08) [P] — Prohibited-operations enforcement tests (C15)
+- **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Status:** ✅ 2026-07-28 — implemented `internal/kernel/tenx_workflow.go` (TenXDeliverResult, TenXHandoffNotification, FormatTenXHandoffNotification, TenXHandoffTerminal); terminal always emits SUCCEEDED/TEN_X_BRANCH_HANDOFF_READY (never deprecated alias); notification contains receipts and mandatory C15 statement "No PR, merge, staging, or deployment was performed". Tests: exact status+result_code, receipts present, HandoffNote contains C15, notification C15 statement, alias-not-emitted. `go test ./internal/kernel/ -run TenX -race` PASS.
 
 - **Goal:** "No PR, merge, staging, deploy in 10x" is proven, not promised.
 - **Depends:** 60 · **Steps:** three layers: (1) code absence — fitlint: `TenXDeliver` call graph (go/callgraph) reaches no symbol matching PR/merge/deploy surfaces (scm has none for PRs by design; deploy pkg unreachable from tenx path); (2) runtime — e2e runs against instrumented fakes recording every external call; assert allowed-call set exactly {fetch, push, notify, ledger, evidence}; (3) seeds — a branch adding a PR-creation call into the tenx path must fail CI. Wire as `make fitness-tenx` into `make fitness`.

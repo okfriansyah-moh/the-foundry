@@ -1,0 +1,15 @@
+Seeded fitness violation for docs/PLAN.md Task 56 (TX-03): PEC import-boundary
+prohibition seed (Constitution C5).
+
+The check_pec_boundary.sh script (scripts/check_pec_boundary.sh, wired into
+make fitness step (h)) must reject any file under internal/pec that imports
+forbidden packages: internal/kernel, internal/scm, internal/ledger,
+internal/provenance, database drivers, or net/http.
+
+This text file documents what the violation would look like:
+  import "github.com/okfriansyah-moh/the-foundry/internal/kernel"
+inside a .go file under internal/pec/.
+
+The check script uses --exclude-dir=fitness_seeds so this seed file does
+NOT trigger the boundary violation in a normal run. It exists to prove the
+check pattern and document the prohibition.

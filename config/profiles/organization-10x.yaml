@@ -1,0 +1,59 @@
+# Organization profile — 10x MLS (docs/PLAN.md Task 54 / TX-01)
+# Constitution C14: org profile is a STRICTER policy layer that only
+# tightens platform defaults. Any attempt to widen a field fails compilation.
+#
+# This profile is the Layer "org" in the compile precedence chain:
+#   platform → org → profile → workflow
+# Fields not set here inherit unchanged from the platform layer.
+
+# Permissions: tighten to read + write only; ci-trigger removed for org
+# workflows since 10x Branch Integrator handles CI orchestration.
+permissions_allowlist:
+  - repo-read
+  - repo-write
+
+# Deployment: org workflows push to branches only (no deploy surfaces
+# in 10x — C15 test-enforced). All modes set to command for explicit
+# human-authorized gates.
+deployment_modes:
+  preview: command
+  staging: command
+  production: command
+
+# Budget: tighter ceiling for automated org workflows.
+budget_ceilings_usd:
+  workflow_usd: 50
+  task_usd: 2
+
+# Executor: only approved executors (org-level cannot add new ones).
+executor_allowlist:
+  - claude-code
+
+# Notification: org channel for all org-scoped events.
+notification_classes:
+  - telegram-veto-digest
+  - email
+
+# Risk tier controls: org auto-execution restricted to A0 only (C14).
+# A1, A2, H require explicit approval by [engineering, qa].
+risk_tier_controls:
+  A0:
+    auto_allowed: true
+    require_review: false
+  A1:
+    auto_allowed: false
+    require_review: true
+  A2:
+    auto_allowed: false
+    require_review: true
+  H:
+    auto_allowed: false
+    require_review: true
+
+# Org-layer governance extension fields (Task 54 schema extension).
+# These are read by internal/policy/compiler for org-specific checks.
+org_governance:
+  required_approver_roles:
+    - engineering
+    - qa
+  push_authorization: kernel-only   # only go-kernel may write to shared branches (C4)
