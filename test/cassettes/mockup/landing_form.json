@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "stage": "screen-components",
+      "text": "Landing headline and signup form are visible",
+      "section": "responsive",
+      "label": "Observed",
+      "confidence": 0.97
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "Auth may be required for account dashboard",
+      "section": "authentication",
+      "label": "Observed",
+      "confidence": 0.78
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "Billing plan checkout might be needed",
+      "section": "billing",
+      "label": "Unresolved",
+      "confidence": 0.62
+    }
+  ]
+}

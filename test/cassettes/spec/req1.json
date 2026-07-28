@@ -1,0 +1,20 @@
+{
+  "requirements": [
+    {
+      "id": "hero-title",
+      "section": "responsive",
+      "text": "Landing page hero title is visible on first load",
+      "label": "Observed",
+      "basis": "visible in source requirement",
+      "impact": "low"
+    },
+    {
+      "id": "email-capture",
+      "section": "apis",
+      "text": "Newsletter signup endpoint is needed",
+      "label": "Inferred",
+      "basis": "common landing-page pattern",
+      "impact": "medium"
+    }
+  ]
+}

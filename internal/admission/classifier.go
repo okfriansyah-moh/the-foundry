@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/okfriansyah-moh/the-foundry/internal/admission/detect"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
 )
 
@@ -65,8 +66,8 @@ func Classify(doc *plan.Document, policy PolicyView) (Decision, error) {
 	}
 
 	declared := append([]plan.Effect{}, doc.DeclaredEffects...)
-	detected := []plan.Effect{}      // Task 45: deterministic effect detection.
-	discrepancies := []plan.Effect{} // Task 45: declared-vs-detected diff.
+	detected := detect.FromDocument(doc)
+	discrepancies := discrepancyEffects(declared, detected)
 
 	union := make([]plan.Effect, 0, len(declared)+len(detected))
 	union = append(union, declared...)
@@ -74,7 +75,7 @@ func Classify(doc *plan.Document, policy PolicyView) (Decision, error) {
 
 	fired := make(map[string]struct{})
 	tier := TierA0
-	for _, rule := range RulesV1 {
+	for _, rule := range RulesV1_1 {
 		for _, e := range union {
 			if rule.Match(e) {
 				fired[rule.ID] = struct{}{}
@@ -95,6 +96,8 @@ func Classify(doc *plan.Document, policy PolicyView) (Decision, error) {
 	requiredControls := append([]string{}, policy.RequiredControls(tier)...)
 	sort.Strings(requiredControls)
 
+	tier = applyDiscrepancyFloor(tier, discrepancies)
+
 	return Decision{
 		ClassifierVersion: Version,
 		PolicyDigest:      policy.Digest(),
@@ -107,6 +110,49 @@ func Classify(doc *plan.Document, policy PolicyView) (Decision, error) {
 		RequiredControls:  requiredControls,
 		Explanation:       explanationFor(tier, rulesEvaluated),
 	}, nil
+}
+
+func discrepancyEffects(declared, detected []plan.Effect) []plan.Effect {
+	declaredSet := map[string]struct{}{}
+	for _, e := range declared {
+		declaredSet[string(e.Kind)+"|"+e.Target] = struct{}{}
+	}
+	out := make([]plan.Effect, 0)
+	for _, e := range detected {
+		key := string(e.Kind) + "|" + e.Target
+		if _, ok := declaredSet[key]; ok {
+			continue
+		}
+		out = append(out, e)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Kind == out[j].Kind {
+			return out[i].Target < out[j].Target
+		}
+		return out[i].Kind < out[j].Kind
+	})
+	return out
+}
+
+func applyDiscrepancyFloor(base Tier, discrepancies []plan.Effect) Tier {
+	if len(discrepancies) == 0 {
+		return base
+	}
+	for _, e := range discrepancies {
+		if e.Kind == plan.EffectBilling || e.Kind == plan.EffectSecret || e.Kind == plan.EffectDestructive {
+			return TierH
+		}
+	}
+	switch base {
+	case TierA0:
+		return TierA1
+	case TierA1:
+		return TierA2
+	case TierA2:
+		return TierH
+	default:
+		return TierH
+	}
 }
 
 // explanationFor renders a deterministic, human-readable summary of why a

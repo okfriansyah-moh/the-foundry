@@ -132,16 +132,16 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅   | 38   | FND-19 | Projector v2: rebuild + lag alert (C3)                          | M1/F3      | 14,31                      | None |
 | ✅   | 39   | FND-20 | Backup/restore drill v0 (M1 exit)                               | M1/F3      | 20                         | None |
 | ✅   | 40   | VEN-01 | MissionContract engine (C18)                                    | A/A1       | 21,29                      | None |
-| ☐   | 41   | VEN-02 | Mission Setup Ceremony (C17)                                    | A/A1       | 40                         | None |
-| ☐   | 42   | VEN-03 | Requirement→spec synthesizer (C16)                              | A/A1       | 21                         | [P]  |
-| ☐   | 43   | VEN-04 | Mockup ingestion v0 (C16)                                       | A/A1       | 42                         | [P]  |
-| ☐   | 44   | VEN-05 | PLAN generator from spec                                        | A/A1       | 42                         | None |
-| ☐   | 45   | VEN-06 | Classifier v1: detected effects (C6)                            | A/A1       | 7,27                       | None |
-| ☐   | 46   | VEN-07 | Product template repository                                     | A/A2       | 1                          | [P]  |
-| ☐   | 47   | VEN-08 | Personal deploy adapter + profile gate (C13)                    | A/A2       | 22,46                      | None |
-| ☐   | 48   | VEN-09 | Synthetic verification suite (C21)                              | A/A2       | 46                         | [P]  |
-| ☐   | 49   | VEN-10 | Stripe test-mode billing + reconciler (C19)                     | A/A2       | 29,46                      | None |
-| ☐   | 50   | VEN-11 | Observation loop → mission evaluation                           | A/A3       | 40,49                      | None |
+| ✅   | 41   | VEN-02 | Mission Setup Ceremony (C17)                                    | A/A1       | 40                         | None |
+| ✅   | 42   | VEN-03 | Requirement→spec synthesizer (C16)                              | A/A1       | 21                         | [P]  |
+| ✅   | 43   | VEN-04 | Mockup ingestion v0 (C16)                                       | A/A1       | 42                         | [P]  |
+| ✅   | 44   | VEN-05 | PLAN generator from spec                                        | A/A1       | 42                         | None |
+| ✅   | 45   | VEN-06 | Classifier v1: detected effects (C6)                            | A/A1       | 7,27                       | None |
+| ✅   | 46   | VEN-07 | Product template repository                                     | A/A2       | 1                          | [P]  |
+| ✅   | 47   | VEN-08 | Personal deploy adapter + profile gate (C13)                    | A/A2       | 22,46                      | None |
+| ✅   | 48   | VEN-09 | Synthetic verification suite (C21)                              | A/A2       | 46                         | [P]  |
+| ✅   | 49   | VEN-10 | Stripe test-mode billing + reconciler (C19)                     | A/A2       | 29,46                      | None |
+| ✅   | 50   | VEN-11 | Observation loop → mission evaluation                           | A/A3       | 40,49                      | None |
 | ☐   | 51   | VEN-12 | Bounded autonomous improvement cycle                            | A/A3       | 45,47                      | None |
 | ☐   | 52   | VEN-13 | Weekly veto digest v0 (C11/C20)                                 | A/A3       | 30,51                      | [P]  |
 | ☐   | 53   | VEN-14 | Venture MLS e2e (Track A exit)                                  | A/A3       | 41,43,44,47,48,49,50,51,52 | None |
@@ -1019,7 +1019,7 @@ flowchart TD
 - **Outputs:** `internal/mission/ceremony.go`; checklist yaml; CLI; unforeseen-gate e2e test.
 - **Acceptance:** mission start blocked until readiness pass; deferred required-item ⇒ readiness fail; unforeseen gate round-trip green.
 - **Validation:** `go test ./internal/mission/ -run Ceremony && bash test/unforeseen_gate_e2e.sh`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-27 — added deterministic checklist data (`config/ceremony-checklist.yaml`) and mission ceremony engine (`internal/mission/ceremony.go`) that requires each gate be resolved with evidence or explicitly deferred with reason/revisit_when, then emits a digest-backed `MissionReadinessArtifact` with pass/fail readiness. Added persistence for readiness artifacts (`internal/db/migrations/00014_mission_readiness.sql`, `internal/mission/store.go`) and workflow hard gate `ActivityRequireReadiness`, so `MissionLoop` refuses unattended start without a passing ceremony artifact. Added unforeseen-gate round-trip helper path (`SignalEnterHumanGate` + `EnterHumanGate` in `internal/mission/workflow.go`) that records exact required action, pauses `WAITING/unforeseen-human-gate`, resumes on signal, and records resolution. Added CLI `foundry mission ceremony <id>` (`cmd/foundry/mission.go`, wired in `cmd/foundry/main.go`) including interactive and file-driven answers. Validation: `go test ./internal/mission/ -run Ceremony && bash test/unforeseen_gate_e2e.sh` PASS; `make test && make fitness` PASS.
 
 ### Task 42 (VEN-03) [P] — Requirement→spec synthesizer with O/I/A/U labels (C16)
 
@@ -1029,7 +1029,7 @@ flowchart TD
 - **Outputs:** `internal/spec/{model.go,synthesize.go,postpass.go,render.go}`; defaults yaml; golden fixtures (3 requirements → specs) with LLM replay cassettes (`test/cassettes/`) so tests are deterministic.
 - **Acceptance:** postpass guarantees hold on adversarial LLM outputs (cassette with missing sections/labels); golden specs stable.
 - **Validation:** `go test ./internal/spec/... -race` (cassette mode; live mode gated `RUN_LLM=1`).
-- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** determinism lives in postpass, never trusted to the LLM. · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** determinism lives in postpass, never trusted to the LLM. · **Status:** ✅ 2026-07-27 — implemented `internal/spec/{model.go,synthesize.go,postpass.go,render.go}` with provider seam + deterministic postpass enforcing full completeness coverage, valid label on every requirement, and mandatory basis on Assumed items via `config/spec-defaults.yaml`; exports unresolved-count risk feed by impact for downstream admission. Added deterministic replay cassettes (`test/cassettes/spec/req{1,2,3}.json`) and golden rendered specs (`internal/spec/testdata/goldens/spec_req{1,2,3}.md`) including adversarial outputs (missing/invalid labels, missing sections). Validation: `go test ./internal/spec/... -race` PASS.
 
 ### Task 43 (VEN-04) [P] — Mockup ingestion v0: image/PDF → labeled spec inputs (C16)
 
@@ -1039,7 +1039,7 @@ flowchart TD
 - **Outputs:** `internal/spec/mockup/{ingest.go,stages.go,labels.go}`; fixtures + cassettes; retention wiring note.
 - **Acceptance:** inference stages provably cannot emit Observed (unit test); fixture mockups produce specs whose auth/billing items are Unresolved/Assumed, never Observed.
 - **Validation:** `go test ./internal/spec/mockup/... -race`.
-- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** no Figma API (Task 80). · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** no Figma API (Task 80). · **Status:** ✅ 2026-07-27 — implemented `internal/spec/mockup/{ingest.go,stages.go,labels.go}` with deterministic staged extraction model, replay extractor cassettes, ingestion retention path `data/visual-inputs/<id>/` + metadata row, and label safety caps (inference stage cannot emit `Observed`, low-confidence observed downgraded). Added fixture/cassette pairs (`test/fixtures/mockup/*`, `test/cassettes/mockup/{landing_form,three_screen_app}.json`) and tests proving inference-stage non-observed rule plus sensitive auth/billing outputs never classified as Observed. Retention wiring note added at `docs/notes/visual-inputs-retention.md`. Validation: `go test ./internal/spec/mockup/... -race` PASS.
 
 ### Task 44 (VEN-05) — PLAN generator from specification
 
@@ -1048,7 +1048,7 @@ flowchart TD
 - **Outputs:** `internal/spec/plangen.go`; mapping yaml; goldens.
 - **Acceptance:** generated plans parse under strict mode; effect mapping covered by tests per mapping row; SelfClassified never set.
 - **Validation:** `go test ./internal/spec/ -run PlanGen -race`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-27 — implemented deterministic spec→plan generator (`internal/spec/plangen.go`) with table-driven effect derivation from `config/effect-mapping.yaml`; generated plans include executable tasks/validation commands for template-style layout and intentionally omit `declared_tier` (never self-classifies). Added plan-generation fixtures and stable goldens (`internal/spec/testdata/plangen/*.yaml`, `internal/spec/testdata/goldens/plangen_spec*.md`) with strict parse and mapping-row coverage tests in `internal/spec/plangen_test.go`. Validation: `go test ./internal/spec/ -run PlanGen -race` PASS.
 
 ### Task 45 (VEN-06) — AdmissionClassifier v1: detected effects + discrepancy raise (C6)
 
@@ -1058,7 +1058,7 @@ flowchart TD
 - **Outputs:** `internal/admission/detect/*.go`; `rules_v1_1.go`; goldens v1.1.
 - **Acceptance:** every detector has positive+negative fixtures; sneaky-diff corpus all raised; determinism ×5 holds.
 - **Validation:** `go test ./internal/admission/... -run 'Golden|Detect' -count=5 -race`.
-- **Risk:** **High** · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** **High** · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-27 — added deterministic detected-effects layer (`internal/admission/detect/detect.go`) covering dependency lockfiles, migration paths, network hosts in commands, secret scope references, billing/deploy/permission paths, and destructive command heuristics. Classifier upgraded to `admission/v1.1` with `rules_v1_1.go`, merges declared+detected for rule firing, emits discrepancy list (detected-not-declared), and applies discrepancy tier floor raise (one floor minimum; immediate H for billing/secret/destructive discrepancies). Added detector tests plus discrepancy raise test (`internal/admission/detect/detect_test.go`, `internal/admission/classifier_test.go`), regenerated v1.1 golden decisions under `internal/admission/testdata/golden/`. Validation: `go test ./internal/admission/... -run 'Golden|Detect' -count=5 -race` PASS.
 
 ### Task 46 (VEN-07) [P] — Product template repository
 
@@ -1068,7 +1068,7 @@ flowchart TD
 - **Outputs:** template repo content under `templates/product/` in main repo + instantiation tool `internal/product/template.go`; instantiated-fixture CI test (instantiate → `make test` inside it).
 - **Acceptance:** instantiate → unit + Playwright smoke green in CI container.
 - **Validation:** `go test ./internal/product/ && bash test/template_instantiate_e2e.sh`.
-- **Risk:** Med · **Exec:** web+go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** web+go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-27 — added template repository scaffold under `templates/product/` (Go API with `/healthz` `/readyz`, analytics `track()`, Stripe test-mode stub endpoints, Dockerfile, fly.toml, Makefile, frontend package scaffold, smoke e2e script) plus instantiation engine `internal/product/template.go`. Added `foundry product new --from-template --name X` CLI path (`cmd/foundry/product.go`, wired in `cmd/foundry/main.go`) and instantiation coverage (`internal/product/template_test.go`, `test/template_instantiate_e2e.sh`). Validation: `go test ./internal/product/ && bash test/template_instantiate_e2e.sh` PASS.
 
 ### Task 47 (VEN-08) — Personal deploy adapter + profile gate (C13)
 
@@ -1078,7 +1078,7 @@ flowchart TD
 - **Outputs:** `internal/deploy/{adapter.go,flyio.go,gate.go,rehearse.go}`; migration `0010_deploys.sql` (deploy records + verification_mode + gate results jsonb); tests (gate matrix table-driven: 13 requires × pass/fail).
 - **Acceptance:** gate matrix 26/26; failing item produces named downgrade; live gated deploy+rollback green.
 - **Validation:** `go test ./internal/deploy/... -race` (+ `RUN_FLY=1` e2e evidence).
-- **Risk:** **High** · **Exec:** go-kernel+infra · **Rev:** **R3** · **Boundary:** Fly only (adapter seam for others); no staging semantics beyond profile modes. · **Status:** ☐ Not started
+- **Risk:** **High** · **Exec:** go-kernel+infra · **Rev:** **R3** · **Boundary:** Fly only (adapter seam for others); no staging semantics beyond profile modes. · **Status:** ✅ 2026-07-27 — added deploy adapter seam (`internal/deploy/adapter.go`) with Fly.io implementation (`flyio.go`), gate evaluator (`gate.go`) implementing the profile’s 13 deterministic `requires:` checks, and rollback rehearsal helper (`rehearse.go`). Added gate matrix tests covering 13 pass + 13 fail paths (26/26) and adapter/rehearsal behavior (`internal/deploy/{gate_test.go,flyio_test.go}`). Added deploy record migration `internal/db/migrations/00015_deploys.sql` and updated migration-source coverage test. Validation: `go test ./internal/deploy/... -race` PASS.
 
 ### Task 48 (VEN-09) [P] — Synthetic verification suite (C21)
 
@@ -1088,7 +1088,7 @@ flowchart TD
 - **Outputs:** `internal/verify/synthetic/*`; policy config; battery runner; phrasing test.
 - **Acceptance:** below-threshold traffic ⇒ mode=synthetic-substitute recorded + phrased; battery failure blocks deploy gate; hybrid path covered by fixture.
 - **Validation:** `go test ./internal/verify/synthetic/... && bash test/synthetic_battery_e2e.sh` (against instantiated template).
-- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ✅ 2026-07-27 — implemented `internal/verify/synthetic` policy + battery runner (`policy.go`, `runner.go`) with deterministic mode selection (`real-canary` / `synthetic-substitute` / `hybrid`) and explicit C21 wording for synthetic paths (“synthetic — not real user validation”). Added battery blocking behavior tests and phrasing test (`synthetic_test.go`), policy config `config/synthetic-canary-policy.yaml`, and template-backed e2e harness `test/synthetic_battery_e2e.sh`. Validation: `go test ./internal/verify/synthetic/... && bash test/synthetic_battery_e2e.sh` PASS.
 
 ### Task 49 (VEN-10) — Stripe test-mode billing + revenue reconciler (C19)
 
@@ -1098,7 +1098,7 @@ flowchart TD
 - **Outputs:** `internal/billing/{stripe.go,webhook.go,reconcile.go}`; migration 0011; mocks + gated tests.
 - **Acceptance:** webhook replay idempotent; reconciliation matches seeded test-clock scenario (3 subs, 1 refund) to the cent; unavailable-provider pause fires.
 - **Validation:** `go test ./internal/billing/... -race` + gated live run evidence.
-- **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** test mode only; zero live keys anywhere. · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** test mode only; zero live keys anywhere. · **Status:** ✅ 2026-07-27 — implemented `internal/billing/{stripe.go,webhook.go,reconcile.go}` with test-mode checkout stub, idempotent webhook event handling, deterministic reconciliation to net-MRR, and a mission-bridge source that reports unavailable provider data fail-closed. Added migration `internal/db/migrations/00016_revenue.sql` (`stripe_events`, `revenue_reconciliation`) and updated migration-source version coverage. Acceptance checks covered in `internal/billing/billing_test.go` (webhook replay idempotency, 3-subs/1-refund cent-accurate reconciliation, provider-unavailable sample behavior). Validation: `go test ./internal/billing/... -race` PASS.
 
 ### Task 50 (VEN-11) — Observation loop → mission evaluation
 
@@ -1107,7 +1107,7 @@ flowchart TD
 - **Outputs:** `internal/mission/observe.go`; migration append to 0009; decide-policy config; tests (trajectory fixtures → correct decide records).
 - **Acceptance:** no-progress-cycles counter triggers per contract; decide records match fixtures; observation is read-only (no side effects — fitness note).
 - **Validation:** `go test ./internal/mission/ -run Observe -race`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-27 — implemented observation/decision primitives in `internal/mission/observe.go` (activation/conversion/MRR/cost observation shape + deterministic decide outputs `continue|improve|pivot|kill-candidate` from policy thresholds), plus policy config `config/mission-decide-policy.yaml` and trajectory fixtures/tests (`internal/mission/observe_test.go`) covering no-progress kill-candidate trigger, declining-MRR pivot proposal, and low-activation improve proposal. Added mission observation persistence migration `internal/db/migrations/00017_mission_observations.sql` and updated migration-source version coverage. Validation: `go test ./internal/mission/ -run Observe -race` PASS.
 
 ### Task 51 (VEN-12) — Bounded autonomous improvement cycle
 

@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission>")
+		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|product>")
 		os.Exit(1)
 	}
 
@@ -239,7 +239,7 @@ func main() {
 		}
 	case "mission":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry mission <create|show|pause|kill>")
+			fmt.Fprintln(os.Stderr, "usage: foundry mission <create|show|pause|kill|ceremony>")
 			os.Exit(1)
 		}
 		var err error
@@ -252,8 +252,27 @@ func main() {
 			err = runMissionPause(os.Args[3:])
 		case "kill":
 			err = runMissionKill(os.Args[3:])
+		case "ceremony":
+			err = runMissionCeremony(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown mission subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "product":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry product <new>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "new":
+			err = runProductNew(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown product subcommand: %s\n", os.Args[2])
 			os.Exit(1)
 		}
 		if err != nil {

@@ -1,0 +1,19 @@
+rows:
+  - section: apis
+    kind: code
+    target: api/*
+  - section: billing
+    kind: billing
+    target: billing/*
+  - section: persistence
+    kind: migration
+    target: db/*
+  - section: analytics
+    kind: code
+    target: analytics/*
+  - section: permissions
+    kind: permission
+    target: authz/*
+  - section: authentication
+    kind: permission
+    target: authn/*

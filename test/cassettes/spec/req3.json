@@ -1,0 +1,20 @@
+{
+  "requirements": [
+    {
+      "id": "bad-label",
+      "section": "permissions",
+      "text": "Only admins can delete a project",
+      "label": "UnknownLabel",
+      "basis": "",
+      "impact": "high"
+    },
+    {
+      "id": "a11y-focus",
+      "section": "accessibility",
+      "text": "Keyboard focus is visible on interactive elements",
+      "label": "Inferred",
+      "basis": "a11y baseline",
+      "impact": "low"
+    }
+  ]
+}

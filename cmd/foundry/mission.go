@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -10,10 +11,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.temporal.io/sdk/client"
+	"gopkg.in/yaml.v3"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/mission"
 )
@@ -164,6 +167,124 @@ func runMissionKill(args []string) error {
 	return signalMission(args, "mission kill", mission.SignalKillMission, func(requestedBy, reason string) any {
 		return mission.KillRequest{RequestedBy: requestedBy, Reason: reason}
 	})
+}
+
+// runMissionCeremony implements `foundry mission ceremony <id>`:
+// checklist walkthrough + MissionReadinessArtifact persistence.
+func runMissionCeremony(args []string) error {
+	fs := flag.NewFlagSet("mission ceremony", flag.ContinueOnError)
+	pgDSN := fs.String("pg-dsn", pgDSNFromEnv(), "Postgres DSN")
+	approvedBy := fs.String("approved-by", os.Getenv("FOUNDRY_PRINCIPAL"), "principal approving this ceremony")
+	checklistPath := fs.String("checklist", "config/ceremony-checklist.yaml", "ceremony checklist yaml")
+	answersPath := fs.String("answers", "", "optional YAML answers file for non-interactive runs")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return errors.New("mission ceremony: usage: foundry mission ceremony <id> [-approved-by=<principal>] [-answers=<path>]")
+	}
+	if strings.TrimSpace(*approvedBy) == "" {
+		return errors.New("mission ceremony: -approved-by (or FOUNDRY_PRINCIPAL) is required")
+	}
+	missionID := fs.Arg(0)
+
+	db, err := sql.Open("pgx", *pgDSN)
+	if err != nil {
+		return fmt.Errorf("mission ceremony: open postgres: %w", err)
+	}
+	defer func() { _ = db.Close() }()
+	store := mission.NewStore(db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), missionCmdTimeout)
+	defer cancel()
+	if _, err := store.GetMission(ctx, missionID); err != nil {
+		return fmt.Errorf("mission ceremony: %w", err)
+	}
+
+	checklist, err := mission.LoadCeremonyChecklist(*checklistPath)
+	if err != nil {
+		return err
+	}
+	answers, err := loadCeremonyAnswers(*answersPath, checklist)
+	if err != nil {
+		return err
+	}
+	gates, err := store.ListGateEvents(ctx, missionID)
+	if err != nil {
+		return fmt.Errorf("mission ceremony: list gate events: %w", err)
+	}
+	artifact, err := mission.BuildMissionReadinessArtifact(missionID, *approvedBy, checklist, answers, gates, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if err := store.SaveReadinessArtifact(ctx, artifact); err != nil {
+		return fmt.Errorf("mission ceremony: save artifact: %w", err)
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(struct {
+		MissionReadiness mission.MissionReadinessArtifact `json:"mission_readiness"`
+	}{MissionReadiness: artifact})
+}
+
+func loadCeremonyAnswers(path string, checklist mission.CeremonyChecklist) (map[string]mission.CeremonyAnswer, error) {
+	if strings.TrimSpace(path) != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("mission ceremony: read answers %s: %w", path, err)
+		}
+		var doc struct {
+			Answers map[string]mission.CeremonyAnswer `yaml:"answers" json:"answers"`
+		}
+		if err := json.Unmarshal(raw, &doc); err == nil && len(doc.Answers) > 0 {
+			return doc.Answers, nil
+		}
+		if err := yaml.Unmarshal(raw, &doc); err != nil {
+			return nil, fmt.Errorf("mission ceremony: decode answers %s: %w", path, err)
+		}
+		return doc.Answers, nil
+	}
+	reader := bufio.NewReader(os.Stdin)
+	answers := make(map[string]mission.CeremonyAnswer, 16)
+	for _, group := range checklist.Groups {
+		fmt.Printf("== %s ==\n", group.Name)
+		for _, item := range group.Items {
+			fmt.Printf("%s [%s] (resolved/deferred): ", item.Prompt, item.Key)
+			mode, err := reader.ReadString('\n')
+			if err != nil {
+				return nil, fmt.Errorf("mission ceremony: read answer for %s: %w", item.Key, err)
+			}
+			mode = strings.TrimSpace(strings.ToLower(mode))
+			switch mode {
+			case "resolved":
+				fmt.Print("  evidence: ")
+				evidence, err := reader.ReadString('\n')
+				if err != nil {
+					return nil, fmt.Errorf("mission ceremony: read evidence for %s: %w", item.Key, err)
+				}
+				answers[item.Key] = mission.CeremonyAnswer{Resolved: true, Evidence: strings.TrimSpace(evidence)}
+			case "deferred":
+				fmt.Print("  reason: ")
+				reason, err := reader.ReadString('\n')
+				if err != nil {
+					return nil, fmt.Errorf("mission ceremony: read reason for %s: %w", item.Key, err)
+				}
+				fmt.Print("  revisit_when: ")
+				revisit, err := reader.ReadString('\n')
+				if err != nil {
+					return nil, fmt.Errorf("mission ceremony: read revisit_when for %s: %w", item.Key, err)
+				}
+				answers[item.Key] = mission.CeremonyAnswer{
+					Deferred:    true,
+					Reason:      strings.TrimSpace(reason),
+					RevisitWhen: strings.TrimSpace(revisit),
+				}
+			default:
+				return nil, fmt.Errorf("mission ceremony: invalid mode for %s: %q (expected resolved|deferred)", item.Key, mode)
+			}
+		}
+	}
+	return answers, nil
 }
 
 // signalMission is the shared implementation behind runMissionPause and

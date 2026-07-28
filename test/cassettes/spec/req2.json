@@ -1,0 +1,20 @@
+{
+  "requirements": [
+    {
+      "id": "checkout-flow",
+      "section": "billing",
+      "text": "Users can complete checkout",
+      "label": "Assumed",
+      "basis": "",
+      "impact": "high"
+    },
+    {
+      "id": "auth-guard",
+      "section": "authentication",
+      "text": "Authenticated users can access dashboard",
+      "label": "Observed",
+      "basis": "explicitly requested",
+      "impact": "high"
+    }
+  ]
+}

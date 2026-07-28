@@ -10,7 +10,7 @@ import (
 // It changes only when the ruleset itself changes (docs/PLAN.md Task 7
 // Step 4): bump to "admission/v2.0" etc. when RulesV1 is superseded, never
 // in place.
-const Version = "admission/v1.0"
+const Version = "admission/v1.1"
 
 // ErrSelfClassification is returned when a plan declares its own admission
 // tier. Constitution C6 / the hard gate in Classify: a plan-authored tier is

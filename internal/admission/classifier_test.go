@@ -172,6 +172,30 @@ func TestDeterministicAcrossPolicyOrdering(t *testing.T) {
 	}
 }
 
+func TestDetectDiscrepancyRaisesTier(t *testing.T) {
+	doc := &plan.Document{
+		ID:      "p1",
+		Version: "1.0",
+		Tasks: []plan.Task{
+			{
+				ID:    "t1",
+				Goal:  "add dependency",
+				Files: []string{"go.mod"},
+			},
+		},
+	}
+	decision, err := admission.Classify(doc, admission.NoopPolicyView{})
+	if err != nil {
+		t.Fatalf("Classify: %v", err)
+	}
+	if decision.Tier < admission.TierA1 {
+		t.Fatalf("tier = %v, want at least A1 with discrepancy raise", decision.Tier)
+	}
+	if len(decision.Discrepancies) == 0 {
+		t.Fatal("expected discrepancy for undeclared dependency effect")
+	}
+}
+
 type fakePolicy struct {
 	digest   string
 	controls []string
