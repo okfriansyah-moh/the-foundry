@@ -13,12 +13,19 @@ type ProfileQuota struct {
 	MaxWorkflows  int `yaml:"max_workflows"`
 	MaxRunners    int `yaml:"max_runners"`
 	MaxAdmissions int `yaml:"max_admissions"`
+	// MaxActiveMissions caps how many missions a profile may run concurrently
+	// in a portfolio (docs/PLAN.md Task 81 / EVO-08 — the per-profile
+	// extension of Task 65's quotas that bounds multi-mission fairness at the
+	// control-plane level, complementing each mission contract's own
+	// maximum_active_products). 0 means unlimited.
+	MaxActiveMissions int `yaml:"max_active_missions"`
 }
 
 type Usage struct {
 	Workflows  int
 	Runners    int
 	Admissions int
+	Missions   int
 }
 
 type QuotaFile struct {
@@ -72,6 +79,9 @@ func (q *QuotaEnforcer) CanAcquire(profile string, delta Usage) error {
 	if quota.MaxAdmissions > 0 && used.Admissions+delta.Admissions > quota.MaxAdmissions {
 		return fmt.Errorf("deploy: profile %s exceeds admission quota", profile)
 	}
+	if quota.MaxActiveMissions > 0 && used.Missions+delta.Missions > quota.MaxActiveMissions {
+		return fmt.Errorf("deploy: profile %s exceeds active-mission quota", profile)
+	}
 	return nil
 }
 
@@ -92,9 +102,13 @@ func (q *QuotaEnforcer) Acquire(profile string, delta Usage) error {
 	if quota.MaxAdmissions > 0 && used.Admissions+delta.Admissions > quota.MaxAdmissions {
 		return fmt.Errorf("deploy: profile %s exceeds admission quota", profile)
 	}
+	if quota.MaxActiveMissions > 0 && used.Missions+delta.Missions > quota.MaxActiveMissions {
+		return fmt.Errorf("deploy: profile %s exceeds active-mission quota", profile)
+	}
 	used.Workflows += delta.Workflows
 	used.Runners += delta.Runners
 	used.Admissions += delta.Admissions
+	used.Missions += delta.Missions
 	q.usage[profile] = used
 	return nil
 }
@@ -106,6 +120,10 @@ func (q *QuotaEnforcer) Release(profile string, delta Usage) {
 	used.Workflows -= delta.Workflows
 	used.Runners -= delta.Runners
 	used.Admissions -= delta.Admissions
+	used.Missions -= delta.Missions
+	if used.Missions < 0 {
+		used.Missions = 0
+	}
 	if used.Workflows < 0 {
 		used.Workflows = 0
 	}

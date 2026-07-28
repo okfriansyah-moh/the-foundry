@@ -63,6 +63,10 @@ expect_fail "container-inventory lint: untracked Dockerfile on test/fitness_seed
 expect_fail "tenx prohibition: PR-creation symbol in tenx path" \
   bash scripts/check_tenx_prohibition.sh test/fitness_seeds/tenx_prohibition
 
+# docs/PLAN.md Task 84 (PRV-01) — stale capability-record seed.
+expect_fail "executor-capability staleness on test/fitness_seeds/capability" \
+  "${fitlint_bin}" capability test/fitness_seeds/capability/executor-capabilities.yaml
+
 # The composed-file-reproducibility check operates on the repo's real root
 # AGENTS.md/CLAUDE.md (there is no path-scoped fixture for it), so this seed
 # temporarily hand-edits AGENTS.md, proves the check fails, then restores it

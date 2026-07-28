@@ -40,6 +40,25 @@ const (
 // behavior for plans that don't set it).
 const defaultTaskTimeout = 10 * time.Minute
 
+// Venture-loop phase letters (docs/foundry/docs/workflows/venture-loop.md).
+// PhaseHint reuses this repo's own existing lettering — no new
+// discuss/plan/build/verify/ship taxonomy is introduced (docs/PLAN.md Task
+// 92 / PRV-09).
+const (
+	phaseExecution = "I" // venture-loop phase I: task execution
+)
+
+// phaseHintFor is the kernel's pure, non-authoritative derivation of a
+// task's PhaseHint (docs/PLAN.md Task 92 / PRV-09). ExecuteTask is, by
+// definition, the execution phase (venture-loop I), so that is the hint the
+// kernel forwards. It introduces no new decision point: the value is never
+// read back by any kernel decision path (ExecutorSelector, ValidateTask,
+// admission) — TestPhaseHintNeverRead enforces that. Deterministic (no
+// time/rand), safe in workflow code.
+func phaseHintFor(_ plan.Task) string {
+	return phaseExecution
+}
+
 // defaultLeaseTTL bounds how long a worktree fencing token is valid before
 // it can be reclaimed by a new holder.
 const defaultLeaseTTL = 15 * time.Minute
@@ -50,6 +69,12 @@ type DeliverPlanInput struct {
 	PlanFilePath string
 	RepoPath     string
 	ExecutorName string
+	// ExecutorAllowlist is the resolved policy's executor_allowlist. When
+	// non-nil, the kernel runs policy-checked, capability-registry-gated
+	// executor selection for every task (docs/PLAN.md Task 85 / PRV-02,
+	// Constitution C4). When nil, ExecuteTask keeps the historical unchecked
+	// lookup of ExecutorName (used by callers that don't resolve policy).
+	ExecutorAllowlist []string
 }
 
 // TaskResult reports one task's outcome within the plan.
@@ -307,11 +332,14 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 	execCtx := workflow.WithActivityOptions(ctx, opts.retry)
 	var execOut ExecuteTaskOutput
 	if err := workflow.ExecuteActivity(execCtx, ActivityExecuteTask, ExecuteTaskInput{
-		WorkflowID:    workflowID,
-		TaskID:        task.ID,
-		Attempt:       1,
-		ExecutorName:  executorName,
-		WorkspacePath: ws.Path,
+		WorkflowID:        workflowID,
+		TaskID:            task.ID,
+		Attempt:           1,
+		ExecutorName:      executorName,
+		ExplicitExecutor:  task.Executor,
+		TaskClass:         task.Class,
+		ExecutorAllowlist: in.ExecutorAllowlist,
+		WorkspacePath:     ws.Path,
 		Packet: executor.TaskPacket{
 			PlanID:             in.PlanID,
 			TaskID:             task.ID,
@@ -319,6 +347,8 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 			Commands:           task.Commands,
 			ValidationCommands: task.ValidationCommands,
 			TimeoutSec:         int(defaultTaskTimeout.Seconds()),
+			Class:              task.Class,
+			PhaseHint:          phaseHintFor(task),
 		},
 	}).Get(execCtx, &execOut); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
@@ -331,6 +361,7 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		WorkspacePath:      ws.Path,
 		ValidationCommands: task.ValidationCommands,
 		Attempt:            budgetAttempt,
+		PreClassification:  execOut.Classification,
 	}).Get(validateCtx, &validated); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
 	}
@@ -344,6 +375,7 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		WorkspacePath: ws.Path,
 		ArtifactPaths: execOut.ArtifactPaths,
 		ExecuteFailed: execOut.Failed,
+		ExecutorUsed:  execOut.ExecutorUsed,
 	}).Get(evidenceCtx, &evidenced); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
 	}

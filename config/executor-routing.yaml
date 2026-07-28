@@ -1,0 +1,19 @@
+# Executor task-class routing table (docs/PLAN.md Task 90 / PRV-07).
+#
+# Turns venture-loop.md Phase J and provider-execution-classes.md §18's
+# prose routing description into config the kernel's ExecutorSelector
+# (Task 85) reads as the DEFAULT-selection source when a plan task declares
+# a `class:` but names no explicit `executor:`. For each class, the first
+# preference that is BOTH in the capability registry's Eligible set (Task 84)
+# AND in the policy's executor_allowlist (Task 22) wins — deterministic
+# tie-break by list order. No per-request LLM judgment enters this path.
+#
+# §18's "→ 9Router API fallback" is explicitly out of scope: there is no
+# 9Router integration in this milestone. The chain stops at
+# "no eligible executor → fail closed".
+routes:
+  architecture: [claude-code, opencode]
+  backend: [opencode, claude-code]
+  frontend: [cursor, opencode]
+  review: [copilot, claude-code]
+  docs: [copilot, claude-code]

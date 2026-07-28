@@ -26,8 +26,16 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/api"
 	"github.com/okfriansyah-moh/the-foundry/internal/authn"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/claudecode"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/copilot"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/cursor"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/geminicli"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/local"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/openai"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/opencode"
+	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/windsurf"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
@@ -185,6 +193,28 @@ func run() error {
 		costDefaults,
 		verify.NewRunner(validationAllowlist),
 	)
+
+	// docs/PLAN.md Tasks 84/85/90 (PRV-01/02/07): wire the kernel-owned
+	// executor selector so that when a DeliverPlanInput carries a resolved
+	// executor_allowlist, ExecuteTask selects (and policy-checks) the adapter
+	// inside internal/kernel instead of using an unchecked name (Constitution
+	// C4). Loaded from the same config the fitness lint validates; a nil
+	// allowlist still uses the pre-Task-85 legacy path, so this is
+	// backward-compatible for callers that don't resolve policy.
+	capRegistry, err := capability.Load(envOr("FOUNDRY_EXECUTOR_CAPABILITIES", "config/executor-capabilities.yaml"))
+	if err != nil {
+		return fmt.Errorf("load executor capability registry: %w", err)
+	}
+	routingTable, err := kernel.LoadRoutingTable(envOr("FOUNDRY_EXECUTOR_ROUTING", "config/executor-routing.yaml"))
+	if err != nil {
+		return fmt.Errorf("load executor routing table: %w", err)
+	}
+	activities.CapabilityRegistry = capRegistry
+	activities.ExecutorSelector = kernel.ExecutorSelector{
+		Default: envOr("FOUNDRY_EXECUTOR", "claude-code"),
+		Routing: routingTable,
+		Profile: envOr("FOUNDRY_PROFILE", "personal"),
+	}
 
 	// docs/PLAN.md Task 36 (FND-17): foundryd's HTTP API, served
 	// alongside the Temporal worker for this process's lifetime, bound

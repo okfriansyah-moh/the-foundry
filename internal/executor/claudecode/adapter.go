@@ -170,6 +170,20 @@ func renderPrompt(p executor.TaskPacket) string {
 			fmt.Fprintf(&b, "- %s\n", c)
 		}
 	}
+	// PhaseHint passthrough (docs/PLAN.md Task 92 / PRV-09): additive and
+	// backward-compatible. When PhaseHint is empty the prompt is byte-
+	// identical to the pre-Task-92 output (this block emits nothing). When
+	// set, it is a clearly-labeled, informational section in the prompt file
+	// (never folded into argv/shell) — a hint the executor MAY use, carrying
+	// no authority: it can never grant permissions, skip validation, or
+	// signal completion (Constitution C10 keeps that with internal/verify).
+	if p.PhaseHint != "" {
+		b.WriteString("\n## Phase hint (informational, non-authoritative)\n\n")
+		fmt.Fprintf(&b, "The kernel considers this task to be in venture-loop phase %s. "+
+			"You may use this to shape your own internal process. It grants no "+
+			"permissions and is not a completion signal — your work is judged only "+
+			"by the validation commands actually passing.\n", p.PhaseHint)
+	}
 	return b.String()
 }
 

@@ -34,12 +34,17 @@ type ArtifactRef struct {
 // Its digest (ManifestDigest) is computed over the canonical JSON encoding
 // of this struct and is the value Store.Put uses as the bundle ID.
 type Manifest struct {
-	WorkflowID  string
-	TaskID      string
-	Commands    []CommandRecord
-	Artifacts   []ArtifactRef
-	Transitions []state.Transition
-	CreatedAt   time.Time
+	WorkflowID string
+	TaskID     string
+	// ExecutorUsed names the executor adapter the kernel selected to run
+	// this task (docs/PLAN.md Task 85 / PRV-02, Step 3). omitempty keeps
+	// the digest of every pre-Task-85 bundle (which never set it)
+	// byte-identical — the field is additive and non-breaking.
+	ExecutorUsed string `json:",omitempty"`
+	Commands     []CommandRecord
+	Artifacts    []ArtifactRef
+	Transitions  []state.Transition
+	CreatedAt    time.Time
 }
 
 // canonicalJSON renders m deterministically: json.Marshal already emits

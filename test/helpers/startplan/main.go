@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"go.temporal.io/sdk/client"
 
@@ -45,10 +46,20 @@ func run() error {
 	planFile := flag.String("plan-file", "", "path to the plan.md file (required)")
 	repoPath := flag.String("repo-path", "", "path to the repo DeliverPlan operates on (required)")
 	executorName := flag.String("executor", "fake", "executor adapter name")
+	executorAllowlist := flag.String("executor-allowlist", "", "comma-separated resolved executor_allowlist; when set, the kernel runs policy-checked selection (docs/PLAN.md Task 85)")
 	flag.Parse()
 
 	if *workflowID == "" || *planID == "" || *planFile == "" || *repoPath == "" {
-		return fmt.Errorf("usage: startplan --workflow-id ID --plan-id ID --plan-file PATH --repo-path PATH [--executor NAME] [--temporal-hostport HOST:PORT]")
+		return fmt.Errorf("usage: startplan --workflow-id ID --plan-id ID --plan-file PATH --repo-path PATH [--executor NAME] [--executor-allowlist a,b] [--temporal-hostport HOST:PORT]")
+	}
+
+	var allowlist []string
+	if strings.TrimSpace(*executorAllowlist) != "" {
+		for _, e := range strings.Split(*executorAllowlist, ",") {
+			if e = strings.TrimSpace(e); e != "" {
+				allowlist = append(allowlist, e)
+			}
+		}
 	}
 
 	c, err := client.Dial(client.Options{HostPort: *hostPort})
@@ -61,10 +72,11 @@ func run() error {
 		ID:        *workflowID,
 		TaskQueue: taskQueue,
 	}, kernel.DeliverPlan, kernel.DeliverPlanInput{
-		PlanID:       *planID,
-		PlanFilePath: *planFile,
-		RepoPath:     *repoPath,
-		ExecutorName: *executorName,
+		PlanID:            *planID,
+		PlanFilePath:      *planFile,
+		RepoPath:          *repoPath,
+		ExecutorName:      *executorName,
+		ExecutorAllowlist: allowlist,
 	})
 	if err != nil {
 		return fmt.Errorf("start workflow %s: %w", *workflowID, err)

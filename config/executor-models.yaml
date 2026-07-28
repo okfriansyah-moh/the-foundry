@@ -1,0 +1,16 @@
+# Model-per-task-class routing policy for API-class executors
+# (docs/PLAN.md Task 79 / EVO-06). Per provider, map a task class to a model,
+# with a `default` fallback. The kernel resolves the model for a task's class
+# (internal/executor/apiexec.ModelPolicy.Resolve) and configures the adapter
+# with it — no code change needed to retune model selection. Distinct from the
+# blunt FOUNDRY_{OPENAI,LOCAL}_MODEL per-provider env overrides.
+models:
+  openai:
+    default: gpt-5.4
+    architecture: gpt-5.4
+    backend: gpt-5.4
+    frontend: gpt-5.4-mini
+    review: gpt-5.4
+    docs: gpt-5.4-mini
+  local:
+    default: llama3.1
