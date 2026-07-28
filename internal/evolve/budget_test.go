@@ -1,6 +1,9 @@
 package evolve
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestBudgetWindow_BreachesAndFreeze(t *testing.T) {
 	limits := ChangeBudgetLimits{MaxPromotions: 1, MaxFilesChanged: 10, MaxRoutingWeightDelta: 0.5, MaxCostDeltaUSD: 50, MaxQualityRegression: 0.1, MaxRollbackDepth: 2}
@@ -34,5 +37,35 @@ func TestBudgetWindow_BreachesAndFreeze(t *testing.T) {
 			}
 			Unfreeze()
 		})
+	}
+}
+
+func TestBudgetWindow_CheckpointIntervalBreaches(t *testing.T) {
+	limits := ChangeBudgetLimits{
+		MaxHumanCheckpointInterval: 7 * 24 * time.Hour,
+	}
+	w := BudgetWindow{TimeSinceHumanCheckpoint: 8 * 24 * time.Hour}
+	breaches := w.Breaches(limits)
+	if len(breaches) == 0 {
+		t.Fatal("expected FreezeBudgetExceeded for stale human checkpoint, got none")
+	}
+	found := false
+	for _, b := range breaches {
+		if b == FreezeBudgetExceeded {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected FreezeBudgetExceeded, got %v", breaches)
+	}
+}
+
+func TestDefaultChangeBudgetLimits_Placeholder(t *testing.T) {
+	limits := DefaultChangeBudgetLimits()
+	if !limits.Placeholder {
+		t.Fatal("default limits must be flagged placeholder: true until Blocker B7 is resolved")
+	}
+	if limits.MaxPromotions <= 0 {
+		t.Fatal("default limits must have a positive MaxPromotions conservative value")
 	}
 }
