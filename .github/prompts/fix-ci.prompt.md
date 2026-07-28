@@ -1,5 +1,4 @@
 ---
-mode: agent
 description: "Fix failing CI checks with local CI-parity validation and minimal scoped changes."
 ---
 
@@ -17,12 +16,15 @@ Goal: make all failing CI checks pass with the smallest safe diff.
 
 1. Identify failing jobs and failing steps from CI logs.
 2. Reproduce locally with CI-parity commands:
-   - `make bootstrap test lint fitness`
-   - `make bootstrap doclint` when docs, `.ai/`, compose, Docker, or workflow files changed.
+   - Run each target separately in sequence: `make bootstrap`, then `make test`, then `make lint`, then `make fitness`, stopping if any fails.
+   - If local commands pass but CI still fails, inspect environment differences (OS, Node/Python version, secrets, cache) and document the discrepancy under Remaining blockers.
 3. Apply minimal fixes in root-cause files only.
-4. If `.ai/` files changed, recompose and rerun doclint/fitness:
-   - `ars compose --target codex`
-   - `ars compose --target claude`
+   - After applying fixes, confirm that previously passing checks still pass. If a regression is detected, revert the change and document it as a Remaining blocker.
+4. If `.ai/` files changed:
+   - Run `make bootstrap doclint`.
+   - Run `ars compose --target codex`.
+   - Run `ars compose --target claude`.
+   - Rerun `make fitness`.
 5. Re-run validations until clean.
 6. If a PR exists, verify required checks are green before done:
    - `gh pr checks <number> --required`

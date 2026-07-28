@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
@@ -25,6 +26,12 @@ type LoopContractChecker interface {
 	HasLoopContract(ctx context.Context, loopName string) (bool, error)
 }
 
+// ReadinessChecker is the subset of *Store's behavior RequireReadiness
+// depends on.
+type ReadinessChecker interface {
+	HasPassingReadinessArtifact(ctx context.Context, missionID string) (bool, error)
+}
+
 // MissionStateRecorder is the subset of *Store's behavior
 // RecordMissionState depends on.
 type MissionStateRecorder interface {
@@ -35,6 +42,12 @@ type MissionStateRecorder interface {
 // depends on.
 type GateEventRecorder interface {
 	RecordGateEvent(ctx context.Context, missionID, action string, occurredAt time.Time) (string, error)
+}
+
+// GateEventResolver is the subset of *Store's behavior ResolveGateEvent
+// depends on.
+type GateEventResolver interface {
+	ResolveGateEvent(ctx context.Context, id, resolution string, resolvedAt time.Time) error
 }
 
 // experimentBudgetPeriod is the fixed budgets.period key a mission's
@@ -54,8 +67,10 @@ func currentPeriod(t time.Time) string { return t.Format("2006-01") }
 // separation).
 type Activities struct {
 	LoopContracts LoopContractChecker
+	Readiness     ReadinessChecker
 	MissionState  MissionStateRecorder
 	GateEvents    GateEventRecorder
+	ResolveGates  GateEventResolver
 	Transitions   kernel.TransitionStore
 	Budgets       BudgetStore
 	NetMRRSource  NetMRRSource
@@ -65,11 +80,13 @@ type Activities struct {
 // *Store satisfies LoopContractChecker, MissionStateRecorder, and
 // GateEventRecorder simultaneously, so production wiring (cmd/foundryd)
 // passes the same *Store for all three.
-func NewActivities(loopContracts LoopContractChecker, missionState MissionStateRecorder, gateEvents GateEventRecorder, transitions kernel.TransitionStore, budgets BudgetStore, netMRRSource NetMRRSource) *Activities {
+func NewActivities(loopContracts LoopContractChecker, readiness ReadinessChecker, missionState MissionStateRecorder, gateEvents GateEventRecorder, resolveGates GateEventResolver, transitions kernel.TransitionStore, budgets BudgetStore, netMRRSource NetMRRSource) *Activities {
 	return &Activities{
 		LoopContracts: loopContracts,
+		Readiness:     readiness,
 		MissionState:  missionState,
 		GateEvents:    gateEvents,
+		ResolveGates:  resolveGates,
 		Transitions:   transitions,
 		Budgets:       budgets,
 		NetMRRSource:  netMRRSource,
@@ -86,6 +103,19 @@ func (a *Activities) RequireLoopContract(ctx context.Context, missionID string) 
 	}
 	if !ok {
 		return fmt.Errorf("mission: %s has no registered loop_contracts row -- refusing to start (mission-contract.md §3)", missionID)
+	}
+	return nil
+}
+
+// RequireReadiness implements ActivityRequireReadiness. MissionLoop may not
+// start unattended execution until ceremony readiness is passing.
+func (a *Activities) RequireReadiness(ctx context.Context, missionID string) error {
+	ok, err := a.Readiness.HasPassingReadinessArtifact(ctx, missionID)
+	if err != nil {
+		return fmt.Errorf("mission: require readiness for %s: %w", missionID, err)
+	}
+	if !ok {
+		return fmt.Errorf("mission: %s has no passing readiness artifact -- refusing to start unattended runtime", missionID)
 	}
 	return nil
 }
@@ -161,9 +191,21 @@ func (a *Activities) RecordMissionState(ctx context.Context, in missionStateInpu
 // RecordGateEvent implements ActivityRecordGateEvent: mirrors Task 32's
 // internal/recovery human-gate escalation pattern, applied to a mission's
 // own unforeseen-human-gate pause.
-func (a *Activities) RecordGateEvent(ctx context.Context, missionID string) error {
-	if _, err := a.GateEvents.RecordGateEvent(ctx, missionID, PauseUnforeseenHumanGate, time.Now().UTC()); err != nil {
-		return fmt.Errorf("mission: record gate event for %s: %w", missionID, err)
+func (a *Activities) RecordGateEvent(ctx context.Context, in gateEventInput) (string, error) {
+	if strings.TrimSpace(in.Action) == "" {
+		in.Action = PauseUnforeseenHumanGate
+	}
+	id, err := a.GateEvents.RecordGateEvent(ctx, in.MissionID, in.Action, time.Now().UTC())
+	if err != nil {
+		return "", fmt.Errorf("mission: record gate event for %s: %w", in.MissionID, err)
+	}
+	return id, nil
+}
+
+// ResolveGateEvent implements ActivityResolveGateEvent.
+func (a *Activities) ResolveGateEvent(ctx context.Context, in resolveGateInput) error {
+	if err := a.ResolveGates.ResolveGateEvent(ctx, in.GateEventID, in.Resolution, time.Now().UTC()); err != nil {
+		return fmt.Errorf("mission: resolve gate event %s: %w", in.GateEventID, err)
 	}
 	return nil
 }

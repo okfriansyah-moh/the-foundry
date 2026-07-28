@@ -68,3 +68,6 @@ node_modules/
 
 # GitHub Copilot / workspace noise
 *.orig
+
+# mockup retention root — runtime-generated, never committed
+internal/spec/mockup/data/

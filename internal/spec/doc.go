@@ -1,3 +1,5 @@
-// Package spec is a placeholder scaffolded by Task 1 (HAR-01).
-// Authority: not yet implemented; no runtime logic exists in this package.
+// Package spec implements requirement -> specification synthesis primitives.
+//
+// The LLM/provider seam only proposes candidate requirements; deterministic
+// post-pass rules enforce completeness and labeling before any output is used.
 package spec

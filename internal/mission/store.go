@@ -52,6 +52,14 @@ type GateEvent struct {
 	Resolution *string
 }
 
+// ReadinessArtifactRecord is one persisted mission-readiness artifact.
+type ReadinessArtifactRecord struct {
+	ID        string
+	MissionID string
+	Artifact  MissionReadinessArtifact
+	CreatedAt time.Time
+}
+
 // LoopContract is one loop_contracts row: mission-contract.md §3's
 // universal loop-contract fields
 // ({trigger,cadence,authority,budget,metrics,exit}). Budget/Metrics are
@@ -195,4 +203,88 @@ func (s *Store) ResolveGateEvent(ctx context.Context, id, resolution string, res
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ListGateEvents returns a mission's gate events ordered by occurrence time.
+func (s *Store) ListGateEvents(ctx context.Context, missionID string) ([]GateEvent, error) {
+	const q = `
+SELECT id, mission_id, action, occurred_at, resolved_at, resolution
+FROM gate_events
+WHERE mission_id = $1
+ORDER BY occurred_at ASC`
+	rows, err := s.db.QueryContext(ctx, q, missionID)
+	if err != nil {
+		return nil, fmt.Errorf("mission: list gate events for %s: %w", missionID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := make([]GateEvent, 0)
+	for rows.Next() {
+		var ev GateEvent
+		if err := rows.Scan(&ev.ID, &ev.MissionID, &ev.Action, &ev.OccurredAt, &ev.ResolvedAt, &ev.Resolution); err != nil {
+			return nil, fmt.Errorf("mission: scan gate event for %s: %w", missionID, err)
+		}
+		out = append(out, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("mission: iterate gate events for %s: %w", missionID, err)
+	}
+	return out, nil
+}
+
+// SaveReadinessArtifact persists one mission-readiness artifact.
+func (s *Store) SaveReadinessArtifact(ctx context.Context, artifact MissionReadinessArtifact) error {
+	id, err := newID("mready")
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(artifact)
+	if err != nil {
+		return fmt.Errorf("mission: encode readiness artifact for %s: %w", artifact.MissionID, err)
+	}
+	const q = `
+INSERT INTO mission_readiness_artifacts (id, mission_id, readiness, approved_by, digest, artifact)
+VALUES ($1, $2, $3, $4, $5, $6)`
+	if _, err := s.db.ExecContext(ctx, q, id, artifact.MissionID, artifact.Readiness, artifact.ApprovedBy, artifact.Digest, payload); err != nil {
+		return fmt.Errorf("mission: save readiness artifact for %s: %w", artifact.MissionID, err)
+	}
+	return nil
+}
+
+// LatestReadinessArtifact returns the latest readiness artifact for missionID.
+func (s *Store) LatestReadinessArtifact(ctx context.Context, missionID string) (ReadinessArtifactRecord, error) {
+	const q = `
+SELECT id, mission_id, artifact, created_at
+FROM mission_readiness_artifacts
+WHERE mission_id = $1
+ORDER BY created_at DESC
+LIMIT 1`
+	var rec ReadinessArtifactRecord
+	var payload []byte
+	err := s.db.QueryRowContext(ctx, q, missionID).Scan(&rec.ID, &rec.MissionID, &payload, &rec.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ReadinessArtifactRecord{}, ErrNotFound
+	}
+	if err != nil {
+		return ReadinessArtifactRecord{}, fmt.Errorf("mission: latest readiness artifact for %s: %w", missionID, err)
+	}
+	if err := json.Unmarshal(payload, &rec.Artifact); err != nil {
+		return ReadinessArtifactRecord{}, fmt.Errorf("mission: decode readiness artifact for %s: %w", missionID, err)
+	}
+	return rec, nil
+}
+
+// HasPassingReadinessArtifact reports whether missionID has at least one
+// readiness artifact with readiness=pass.
+func (s *Store) HasPassingReadinessArtifact(ctx context.Context, missionID string) (bool, error) {
+	const q = `
+SELECT EXISTS(
+  SELECT 1 FROM mission_readiness_artifacts
+  WHERE mission_id = $1 AND readiness = $2
+)`
+	var ok bool
+	if err := s.db.QueryRowContext(ctx, q, missionID, ReadinessPass).Scan(&ok); err != nil {
+		return false, fmt.Errorf("mission: check readiness artifact for %s: %w", missionID, err)
+	}
+	return ok, nil
 }

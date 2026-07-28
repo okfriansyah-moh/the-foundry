@@ -39,6 +39,12 @@ type fakeMissionState struct {
 	rows []StateSnapshot
 }
 
+type fakeReadiness struct{ pass bool }
+
+func (f *fakeReadiness) HasPassingReadinessArtifact(_ context.Context, _ string) (bool, error) {
+	return f.pass, nil
+}
+
 func (f *fakeMissionState) RecordState(_ context.Context, snap StateSnapshot) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -64,6 +70,10 @@ func (f *fakeGateEvents) RecordGateEvent(_ context.Context, _, _ string, _ time.
 	defer f.mu.Unlock()
 	f.count++
 	return fmt.Sprintf("gate-%d", f.count), nil
+}
+
+func (f *fakeGateEvents) ResolveGateEvent(_ context.Context, _ string, _ string, _ time.Time) error {
+	return nil
 }
 
 // fakeBudgetStore always reports cost.ErrBudgetNotFound (unmetered)
@@ -122,6 +132,7 @@ func (f *fakeNetMRRSource) Observe(_ context.Context, _ string, _ time.Time) (Le
 type missionFixture struct {
 	Activities    *Activities
 	LoopContracts *fakeLoopContracts
+	Readiness     *fakeReadiness
 	MissionState  *fakeMissionState
 	GateEvents    *fakeGateEvents
 	Budgets       *fakeBudgetStore
@@ -131,6 +142,7 @@ type missionFixture struct {
 
 func newMissionFixture(samples []LedgerSample) *missionFixture {
 	lc := &fakeLoopContracts{registered: true}
+	ready := &fakeReadiness{pass: true}
 	ms := &fakeMissionState{}
 	ge := &fakeGateEvents{}
 	budgets := newFakeBudgetStore()
@@ -138,8 +150,9 @@ func newMissionFixture(samples []LedgerSample) *missionFixture {
 	transitions := kernel.NewMemTransitionStore()
 
 	return &missionFixture{
-		Activities:    NewActivities(lc, ms, ge, transitions, budgets, netmrr),
+		Activities:    NewActivities(lc, ready, ms, ge, ge, transitions, budgets, netmrr),
 		LoopContracts: lc,
+		Readiness:     ready,
 		MissionState:  ms,
 		GateEvents:    ge,
 		Budgets:       budgets,
@@ -150,11 +163,13 @@ func newMissionFixture(samples []LedgerSample) *missionFixture {
 
 func registerMissionActivities(env *testsuite.TestWorkflowEnvironment, a *Activities) {
 	env.RegisterActivityWithOptions(a.RequireLoopContract, activity.RegisterOptions{Name: ActivityRequireLoopContract})
+	env.RegisterActivityWithOptions(a.RequireReadiness, activity.RegisterOptions{Name: ActivityRequireReadiness})
 	env.RegisterActivityWithOptions(a.ObserveLedger, activity.RegisterOptions{Name: ActivityObserveLedger})
 	env.RegisterActivityWithOptions(a.CheckBudget, activity.RegisterOptions{Name: ActivityCheckBudget})
 	env.RegisterActivityWithOptions(a.AppendMissionTransition, activity.RegisterOptions{Name: ActivityAppendMissionTransition})
 	env.RegisterActivityWithOptions(a.RecordMissionState, activity.RegisterOptions{Name: ActivityRecordMissionState})
 	env.RegisterActivityWithOptions(a.RecordGateEvent, activity.RegisterOptions{Name: ActivityRecordGateEvent})
+	env.RegisterActivityWithOptions(a.ResolveGateEvent, activity.RegisterOptions{Name: ActivityResolveGateEvent})
 }
 
 // meetingSampleAt is meetingSample (evaluator_test.go) with an explicit day
@@ -177,6 +192,25 @@ func TestMissionLoop_RefusesWithoutLoopContract(t *testing.T) {
 	}
 	if err := env.GetWorkflowError(); err == nil {
 		t.Fatal("want a workflow error (refuses to start without a loop contract), got nil")
+	}
+}
+
+func TestMissionLoop_CeremonyReadinessRequired(t *testing.T) {
+	fx := newMissionFixture(nil)
+	fx.Readiness.pass = false
+
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	registerMissionActivities(env, fx.Activities)
+	env.RegisterWorkflow(MissionLoop)
+
+	env.ExecuteWorkflow(MissionLoop, MissionLoopInput{MissionID: "m1", Contract: testContract()})
+
+	if !env.IsWorkflowCompleted() {
+		t.Fatal("workflow did not complete")
+	}
+	if err := env.GetWorkflowError(); err == nil {
+		t.Fatal("want a workflow error (missing readiness pass), got nil")
 	}
 }
 
@@ -359,6 +393,54 @@ func TestMissionLoop_ManualPauseThenResume(t *testing.T) {
 	}
 	if !sawResume {
 		t.Fatal("want a WAITING->RUNNING transition after the resume signal")
+	}
+}
+
+func TestMissionLoop_UnforeseenGateRoundTrip(t *testing.T) {
+	fx := newMissionFixture(nil)
+
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	registerMissionActivities(env, fx.Activities)
+	env.RegisterWorkflow(MissionLoop)
+
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalEnterHumanGate, HumanGateRequest{
+			RequestedBy: "ops",
+			Action:      "accept-invite-to-payment-provider",
+		})
+	}, time.Millisecond)
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalResumeMission, nil)
+	}, 2*time.Millisecond)
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalKillMission, KillRequest{RequestedBy: "ops", Reason: "test done"})
+	}, 3*time.Millisecond)
+
+	env.ExecuteWorkflow(MissionLoop, MissionLoopInput{MissionID: "m1", Contract: testContract()})
+
+	if !env.IsWorkflowCompleted() {
+		t.Fatal("workflow did not complete")
+	}
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatalf("workflow error: %v", err)
+	}
+	if fx.GateEvents.count == 0 {
+		t.Fatal("want a recorded gate event for unforeseen human action")
+	}
+	transitions := fx.Transitions.All("default-test-workflow-id")
+	sawWait := false
+	sawResume := false
+	for i, tr := range transitions {
+		if tr.Status == state.StatusWaiting && tr.Reason == state.ReasonUnforeseenHumanGate {
+			sawWait = true
+		}
+		if sawWait && i > 0 && transitions[i-1].Status == state.StatusWaiting && tr.Status == state.StatusRunning {
+			sawResume = true
+		}
+	}
+	if !sawWait || !sawResume {
+		t.Fatalf("unforeseen gate round trip not observed (sawWait=%v sawResume=%v)", sawWait, sawResume)
 	}
 }
 

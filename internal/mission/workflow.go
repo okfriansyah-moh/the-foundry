@@ -17,11 +17,13 @@ import (
 // activity implementations).
 const (
 	ActivityRequireLoopContract     = "MissionRequireLoopContract"
+	ActivityRequireReadiness        = "MissionRequireReadiness"
 	ActivityObserveLedger           = "MissionObserveLedger"
 	ActivityCheckBudget             = "MissionCheckBudget"
 	ActivityAppendMissionTransition = "MissionAppendTransition"
 	ActivityRecordMissionState      = "MissionRecordState"
 	ActivityRecordGateEvent         = "MissionRecordGateEvent"
+	ActivityResolveGateEvent        = "MissionResolveGateEvent"
 )
 
 // Signal names MissionLoop listens on.
@@ -48,6 +50,10 @@ const (
 	// SignalResumeMission or terminable via SignalKillMission, same as any
 	// other WAITING state.
 	SignalManualPause = "mission-manual-pause"
+	// SignalEnterHumanGate escalates an unforeseen human action while a
+	// mission is running; MissionLoop must pause WAITING/unforeseen-human-gate
+	// and carry the exact action through its gate event record.
+	SignalEnterHumanGate = "mission-enter-human-gate"
 )
 
 // loopName is the loop_contracts.loop_name a mission's MissionLoop
@@ -65,6 +71,12 @@ type KillRequest struct {
 type PauseRequest struct {
 	RequestedBy string
 	Reason      string
+}
+
+// HumanGateRequest is SignalEnterHumanGate's payload.
+type HumanGateRequest struct {
+	RequestedBy string
+	Action      string
 }
 
 // MissionLoopInput is MissionLoop's workflow input.
@@ -139,6 +151,9 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 	if err := workflow.ExecuteActivity(reqCtx, ActivityRequireLoopContract, in.MissionID).Get(reqCtx, nil); err != nil {
 		return MissionLoopResult{}, fmt.Errorf("mission: MissionLoop refuses to start without a registered loop contract: %w", err)
 	}
+	if err := workflow.ExecuteActivity(reqCtx, ActivityRequireReadiness, in.MissionID).Get(reqCtx, nil); err != nil {
+		return MissionLoopResult{}, fmt.Errorf("mission: MissionLoop refuses to start without readiness pass: %w", err)
+	}
 
 	interval, err := parseCadence(in.Contract.Cadence.Observe)
 	if err != nil {
@@ -151,6 +166,7 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 	deliverCh := workflow.GetSignalChannel(ctx, SignalTriggerDelivery)
 	resumeCh := workflow.GetSignalChannel(ctx, SignalResumeMission)
 	pauseCh := workflow.GetSignalChannel(ctx, SignalManualPause)
+	humanGateCh := workflow.GetSignalChannel(ctx, SignalEnterHumanGate)
 
 	evalState := EvalState{}
 	deliverySeq := 0
@@ -180,6 +196,12 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 			c.Receive(ctx, &pauseReq)
 			pauseRequested = true
 		})
+		var humanGateReq HumanGateRequest
+		humanGateRequested := false
+		sel.AddReceive(humanGateCh, func(c workflow.ReceiveChannel, _ bool) {
+			c.Receive(ctx, &humanGateReq)
+			humanGateRequested = true
+		})
 
 		sel.AddFuture(timer, func(workflow.Future) {})
 
@@ -194,6 +216,13 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 			workflow.GetLogger(ctx).Warn("mission: manual pause requested", "requested_by", pauseReq.RequestedBy, "reason", pauseReq.Reason)
 			appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonHumanCommand, "")
 			killedWhilePaused, waitKillReq := pauseAndWait(ctx, noRetryOpts, workflowID, state.ReasonHumanCommand, killCh, resumeCh)
+			if killedWhilePaused {
+				return finishKilled(ctx, noRetryOpts, workflowID, state.StatusWaiting, waitKillReq, evalState), nil
+			}
+			continue
+		}
+		if humanGateRequested {
+			killedWhilePaused, waitKillReq := EnterHumanGate(ctx, noRetryOpts, workflowID, in.MissionID, humanGateReq.Action, killCh, resumeCh)
 			if killedWhilePaused {
 				return finishKilled(ctx, noRetryOpts, workflowID, state.StatusWaiting, waitKillReq, evalState), nil
 			}
@@ -245,8 +274,11 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 			continue
 		case outcome.Status == state.StatusWaiting:
 			if outcome.Reason == state.ReasonUnforeseenHumanGate {
-				gateCtx := workflow.WithActivityOptions(ctx, retryOpts)
-				_ = workflow.ExecuteActivity(gateCtx, ActivityRecordGateEvent, in.MissionID).Get(gateCtx, nil)
+				killedWhilePaused, waitKillReq := EnterHumanGate(ctx, noRetryOpts, workflowID, in.MissionID, PauseUnforeseenHumanGate, killCh, resumeCh)
+				if killedWhilePaused {
+					return finishKilled(ctx, noRetryOpts, workflowID, state.StatusWaiting, waitKillReq, evalState), nil
+				}
+				continue
 			}
 			appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusWaiting, outcome.Reason, "")
 
@@ -260,6 +292,36 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 			return MissionLoopResult{Status: string(outcome.Status), ResultCode: string(outcome.ResultCode)}, nil
 		}
 	}
+}
+
+// EnterHumanGate handles an unforeseen human gate round-trip:
+// RUNNING->WAITING/unforeseen-human-gate with exact action recorded, then
+// resumes on SignalResumeMission.
+func EnterHumanGate(ctx workflow.Context, noRetryOpts workflow.ActivityOptions, workflowID, missionID, action string, killCh, resumeCh workflow.ReceiveChannel) (bool, KillRequest) {
+	if action == "" {
+		action = PauseUnforeseenHumanGate
+	}
+	workflow.GetLogger(ctx).Warn("mission: unforeseen human gate", "workflow_id", workflowID, "action", action)
+	recCtx := workflow.WithActivityOptions(ctx, noRetryOpts)
+	var gateID string
+	if err := workflow.ExecuteActivity(recCtx, ActivityRecordGateEvent, gateEventInput{MissionID: missionID, Action: action}).Get(recCtx, &gateID); err != nil {
+		workflow.GetLogger(ctx).Error("mission: failed to record gate event", "workflow_id", workflowID, "error", err)
+	}
+	appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonUnforeseenHumanGate, "")
+	killed, killReq := pauseAndWait(ctx, noRetryOpts, workflowID, state.ReasonUnforeseenHumanGate, killCh, resumeCh)
+	if killed {
+		return true, killReq
+	}
+	if gateID != "" {
+		resolveCtx := workflow.WithActivityOptions(ctx, noRetryOpts)
+		if err := workflow.ExecuteActivity(resolveCtx, ActivityResolveGateEvent, resolveGateInput{
+			GateEventID: gateID,
+			Resolution:  "resumed via mission-resume signal",
+		}).Get(resolveCtx, nil); err != nil {
+			workflow.GetLogger(ctx).Error("mission: failed to resolve gate event", "gate_id", gateID, "error", err)
+		}
+	}
+	return false, KillRequest{}
 }
 
 // finishKilled builds the CANCELLED/MISSION_KILLED terminal result for a
@@ -346,4 +408,14 @@ type missionStateInput struct {
 	Sample    LedgerSample
 	Outcome   Outcome
 	At        time.Time
+}
+
+type gateEventInput struct {
+	MissionID string
+	Action    string
+}
+
+type resolveGateInput struct {
+	GateEventID string
+	Resolution  string
 }

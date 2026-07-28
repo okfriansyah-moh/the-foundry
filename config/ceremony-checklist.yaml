@@ -1,0 +1,84 @@
+groups:
+  - name: identity-legal
+    items:
+      - key: identity-verification
+        prompt: "Identity verification is complete"
+        required: true
+      - key: legal-entity
+        prompt: "Legal entity or sole-proprietor decision is recorded"
+        required: true
+      - key: contracts-posture
+        prompt: "Contracts and agreements posture is defined"
+        required: true
+      - key: privacy-constraints
+        prompt: "Privacy constraints are documented"
+        required: true
+      - key: allowed-markets
+        prompt: "Allowed markets are documented"
+        required: true
+      - key: prohibited-markets
+        prompt: "Prohibited markets are documented"
+        required: true
+      - key: legal-constraints
+        prompt: "Legal constraints are documented"
+        required: true
+  - name: money
+    items:
+      - key: payment-account-ownership
+        prompt: "Payment account ownership is confirmed"
+        required: true
+      - key: kyc
+        prompt: "KYC readiness is confirmed"
+        required: true
+      - key: payout-destination
+        prompt: "Bank or payout destination is configured"
+        required: true
+      - key: spend-sources
+        prompt: "Spend sources are configured"
+        required: true
+      - key: budget-ceilings
+        prompt: "Budget ceilings are configured"
+        required: true
+      - key: support-refund-reserve
+        prompt: "Support and refund reserve is in place"
+        required: true
+      - key: refund-policy
+        prompt: "Refund policy is documented"
+        required: true
+  - name: infra-access
+    items:
+      - key: domain-ownership
+        prompt: "Domain ownership is confirmed"
+        required: true
+      - key: dns
+        prompt: "DNS configuration access is confirmed"
+        required: true
+      - key: email-sender-domain
+        prompt: "Email sender/domain ownership is confirmed"
+        required: true
+      - key: hosting-account
+        prompt: "Hosting account access is confirmed"
+        required: true
+      - key: provider-accounts
+        prompt: "Provider account access is confirmed"
+        required: true
+      - key: approved-secret-scopes
+        prompt: "Approved secret scopes are confirmed"
+        required: true
+  - name: authority
+    items:
+      - key: production-deploy-permission
+        prompt: "Production deployment authority is explicitly granted"
+        required: true
+      - key: billing-permission
+        prompt: "Billing authority is explicitly granted"
+        required: true
+      - key: support-expectations
+        prompt: "Customer support expectations are documented"
+        required: true
+      - key: incident-escalation
+        prompt: "Incident escalation path is documented"
+        required: true
+      - key: shutdown-authority
+        prompt: "Shutdown authority is explicitly granted"
+        required: true

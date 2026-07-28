@@ -819,6 +819,7 @@ var containerFileAllowlist = map[string]string{
 	"deploy/Dockerfile.dev":             "`dev`",
 	"deploy/docker-compose.yaml":        "`postgres`, `temporal`",
 	"deploy/images/executor.Dockerfile": "`foundry-executor-sandbox`",
+	"templates/product/Dockerfile":      "product template's own image",
 }
 
 // containerFilePattern matches a Dockerfile*/docker-compose*.y*ml basename

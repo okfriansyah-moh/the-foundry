@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "stage": "screen-components",
+      "text": "Three screens show list, details, and settings",
+      "section": "responsive",
+      "label": "Observed",
+      "confidence": 0.94
+    },
+    {
+      "stage": "user-flow",
+      "text": "Navigation from list to detail is implied",
+      "section": "apis",
+      "label": "Inferred",
+      "confidence": 0.87
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "Payment history API is unresolved",
+      "section": "billing",
+      "label": "Unresolved",
+      "confidence": 0.71
+    }
+  ]
+}

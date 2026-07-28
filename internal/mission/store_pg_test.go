@@ -97,6 +97,15 @@ CREATE TABLE IF NOT EXISTS loop_contracts (
     exit_condition TEXT NOT NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS mission_readiness_artifacts (
+    id          TEXT PRIMARY KEY,
+    mission_id  TEXT NOT NULL REFERENCES missions (id),
+    readiness   TEXT NOT NULL CHECK (readiness IN ('pass', 'fail')),
+    approved_by TEXT NOT NULL,
+    digest      TEXT NOT NULL,
+    artifact    JSONB NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `
 	if _, err := db.ExecContext(context.Background(), ddl); err != nil {
 		t.Fatalf("create schema: %v", err)
@@ -327,5 +336,50 @@ func TestStore_GateEvent_RecordAndResolve_RealPostgres(t *testing.T) {
 
 	if err := store.ResolveGateEvent(ctx, "no-such-id-"+suffix, "x", time.Now().UTC()); err != mission.ErrNotFound {
 		t.Errorf("ResolveGateEvent(missing) error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestStore_CeremonyReadiness_SaveAndRequire_RealPostgres(t *testing.T) {
+	db := openTestDB(t)
+	store := mission.NewStore(db)
+	ctx := context.Background()
+	suffix := randSuffix(t)
+	principalID := "principal-" + suffix
+	insertTestPrincipal(t, db, principalID)
+
+	m := mission.Mission{ID: "mission-" + suffix, PrincipalID: principalID, WorkflowID: "wf-" + suffix, Contract: minimalContract(suffix)}
+	if err := store.CreateMission(ctx, m); err != nil {
+		t.Fatalf("CreateMission: %v", err)
+	}
+	ok, err := store.HasPassingReadinessArtifact(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("HasPassingReadinessArtifact(before): %v", err)
+	}
+	if ok {
+		t.Fatal("HasPassingReadinessArtifact(before) = true, want false")
+	}
+
+	artifact := mission.MissionReadinessArtifact{
+		MissionID:  m.ID,
+		Readiness:  mission.ReadinessPass,
+		ApprovedBy: principalID,
+		Digest:     "sha256:test",
+	}
+	if err := store.SaveReadinessArtifact(ctx, artifact); err != nil {
+		t.Fatalf("SaveReadinessArtifact: %v", err)
+	}
+	ok, err = store.HasPassingReadinessArtifact(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("HasPassingReadinessArtifact(after): %v", err)
+	}
+	if !ok {
+		t.Fatal("HasPassingReadinessArtifact(after) = false, want true")
+	}
+	rec, err := store.LatestReadinessArtifact(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("LatestReadinessArtifact: %v", err)
+	}
+	if rec.Artifact.ApprovedBy != principalID {
+		t.Fatalf("LatestReadinessArtifact.ApprovedBy = %q, want %q", rec.Artifact.ApprovedBy, principalID)
 	}
 }

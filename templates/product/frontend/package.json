@@ -1,0 +1,7 @@
+{
+  "name": "{{PRODUCT_NAME}}-frontend",
+  "private": true,
+  "scripts": {
+    "test": "echo frontend smoke"
+  }
+}
