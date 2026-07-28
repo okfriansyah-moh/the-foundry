@@ -1,0 +1,13 @@
+name: dr-drill
+
+on:
+  schedule:
+    - cron: '0 4 1 * *'
+  workflow_dispatch:
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash test/drill/dr_drill.sh

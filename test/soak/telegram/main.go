@@ -148,5 +148,18 @@ func run() error {
 	if os.Getenv("SOAK_VERBOSE") != "" {
 		fmt.Printf("total rows: %d\n", len(rows))
 	}
+	// freeze smoke: the command surface can halt improvement lanes without dropping P0/P1 traffic.
+	chats := notify.NewChatRegistry()
+	chats.Register("ops", "principal")
+	router := &notify.CommandRouter{Chats: chats, Nonces: notify.NewNonceRegistry(), Controller: soakController{}}
+	if reply := router.Handle(ctx, "ops", "/freeze"); reply != "frozen" {
+		return fmt.Errorf("freeze smoke failed: %s", reply)
+	}
 	return nil
 }
+
+type soakController struct{}
+
+func (soakController) Status(context.Context, string) (string, error) { return "ok", nil }
+func (soakController) Pause(context.Context, string) error            { return nil }
+func (soakController) Resume(context.Context, string) error           { return nil }

@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
+	auditpkg "github.com/okfriansyah-moh/the-foundry/internal/audit"
 )
 
 const auditVerifyTimeout = 30 * time.Second
@@ -44,16 +44,18 @@ func runAuditVerify(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), auditVerifyTimeout)
 	defer cancel()
 
-	result, err := provenance.VerifyAuditChain(ctx, db)
+	rows, err := auditpkg.LoadRows(ctx, db)
 	if err != nil {
 		return fmt.Errorf("audit verify: %w", err)
 	}
+	result := auditpkg.VerifyRows(rows)
 	if !result.OK {
 		if result.BadSeq != 0 {
 			return fmt.Errorf("audit verify: FAIL — audit_log row seq=%d does not match its own recomputed hash (payload or hash tampered)", result.BadSeq)
 		}
 		return fmt.Errorf("audit verify: FAIL — audit_log row seq=%d does not chain to its predecessor's stored hash (row deleted, reordered, or inserted out of band)", result.BrokenLinkSeq)
 	}
-	fmt.Printf("PASS: audit_log hash chain verified (%d rows)\n", result.RowCount)
+	anchors := auditpkg.BuildAnchors(rows, 10000, time.Now().UTC())
+	fmt.Printf("PASS: audit_log hash chain verified (%d rows, %d anchors)\n", result.RowCount, len(anchors))
 	return nil
 }

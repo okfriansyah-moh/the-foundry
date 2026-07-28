@@ -59,6 +59,10 @@ expect_fail "single-source contract heuristic on test/fitness_seeds/contract" \
 expect_fail "container-inventory lint: untracked Dockerfile on test/fitness_seeds/containers" \
   "${fitlint_bin}" containers test/fitness_seeds/containers
 
+# docs/PLAN.md Task 61 (TX-08) — TenX prohibition seed.
+expect_fail "tenx prohibition: PR-creation symbol in tenx path" \
+  bash scripts/check_tenx_prohibition.sh test/fitness_seeds/tenx_prohibition
+
 # The composed-file-reproducibility check operates on the repo's real root
 # AGENTS.md/CLAUDE.md (there is no path-scoped fixture for it), so this seed
 # temporarily hand-edits AGENTS.md, proves the check fails, then restores it

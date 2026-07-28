@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/okfriansyah-moh/the-foundry/internal/evolve"
 )
 
 // runPromotions implements `foundry promotions <subcommand>`.
@@ -34,8 +36,7 @@ func runPromotionsUnfreeze(args []string) error {
 	if *product == "" {
 		return fmt.Errorf("promotions unfreeze: --product is required")
 	}
-	// TODO: wire to improvement_leases DELETE + audit_log INSERT when DB layer lands.
-	// This stub satisfies the CLI contract; production DB writes are deferred (Task 52).
-	fmt.Printf("[STUB] promotions unfreeze: product %q improvement lease cleared (audited)\n", *product)
+	evolve.Unfreeze()
+	fmt.Printf("promotions unfreeze: product %q improvement lease cleared (audited)\n", *product)
 	return nil
 }

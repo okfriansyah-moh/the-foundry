@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/authn"
+	"github.com/okfriansyah-moh/the-foundry/internal/evolve"
 )
 
 // NonceTTL is the fixed lifetime of a command nonce (docs/PLAN.md Task 30
@@ -208,6 +209,8 @@ func (r *CommandRouter) Handle(ctx context.Context, chatID, text string) string 
 		return r.handleNonced(ctx, chatID, args, func(ctx context.Context, wf string) (string, error) {
 			return "resumed", r.Controller.Resume(ctx, wf)
 		})
+	case "freeze":
+		return r.handleFreeze(args)
 	case "approve":
 		return r.handleApprove(ctx, args)
 	case "rollback":
@@ -258,4 +261,12 @@ func (r *CommandRouter) handleApprove(ctx context.Context, args []string) string
 	}
 	result := authn.TelegramApprove(planID, planCtx, r.SecureSurfaceURL)
 	return result.Reply
+}
+
+func (r *CommandRouter) handleFreeze(args []string) string {
+	if len(args) != 0 {
+		return "usage: /freeze"
+	}
+	evolve.Freeze(evolve.FreezeBudgetExceeded)
+	return "frozen"
 }

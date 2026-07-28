@@ -1,0 +1,11 @@
+route:
+  receiver: telegram-default
+  routes:
+    - matchers: [severity="page"]
+      receiver: telegram-p1
+    - matchers: [severity="ticket"]
+      receiver: telegram-p2
+receivers:
+  - name: telegram-default
+  - name: telegram-p1
+  - name: telegram-p2

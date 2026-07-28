@@ -1,0 +1,22 @@
+version: 2
+project_name: foundry
+builds:
+  - id: foundry
+    main: ./cmd/foundry
+    binary: foundry
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+  - id: foundryd
+    main: ./cmd/foundryd
+    binary: foundryd
+    goos: [linux]
+    goarch: [amd64, arm64]
+archives:
+  - id: binaries
+    builds: [foundry, foundryd]
+checksum:
+  name_template: checksums.txt
+sboms:
+  - artifacts: archive
+release:
+  disable: true

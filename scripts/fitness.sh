@@ -70,4 +70,7 @@ echo "== fitness (g): mission loop contract (Task 40 / VEN-01) =="
 echo "== fitness (h): PEC import boundary (Task 56 / TX-03, Constitution C5) =="
 bash scripts/check_pec_boundary.sh .
 
+echo "== fitness (i): TenX prohibition boundary (Task 61 / TX-08, Constitution C15) =="
+bash scripts/check_tenx_prohibition.sh .
+
 echo "fitness OK"

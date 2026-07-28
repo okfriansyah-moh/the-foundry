@@ -1,0 +1,13 @@
+classes:
+  - name: customer_data
+    ttl: 720h
+    cascade: [memory_rows, vector_entries, caches]
+    access_logging: true
+  - name: billing_data
+    ttl: 2160h
+    cascade: [billing_caches]
+    access_logging: true
+  - name: audit_data
+    ttl: 87600h
+    cascade: []
+    access_logging: true

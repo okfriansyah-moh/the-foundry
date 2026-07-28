@@ -1,0 +1,138 @@
+package deploy
+
+import (
+	"fmt"
+	"os"
+	"sort"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+)
+
+type ProfileQuota struct {
+	MaxWorkflows  int `yaml:"max_workflows"`
+	MaxRunners    int `yaml:"max_runners"`
+	MaxAdmissions int `yaml:"max_admissions"`
+}
+
+type Usage struct {
+	Workflows  int
+	Runners    int
+	Admissions int
+}
+
+type QuotaFile struct {
+	Profiles map[string]ProfileQuota `yaml:"profiles"`
+}
+
+type QuotaEnforcer struct {
+	mu     sync.Mutex
+	quotas map[string]ProfileQuota
+	usage  map[string]Usage
+}
+
+func LoadQuotas(path string) (map[string]ProfileQuota, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("deploy: read quotas %s: %w", path, err)
+	}
+	var file QuotaFile
+	if err := yaml.Unmarshal(raw, &file); err != nil {
+		return nil, fmt.Errorf("deploy: parse quotas %s: %w", path, err)
+	}
+	return file.Profiles, nil
+}
+
+func NewQuotaEnforcer(quotas map[string]ProfileQuota) *QuotaEnforcer {
+	return &QuotaEnforcer{quotas: quotas, usage: map[string]Usage{}}
+}
+
+func (q *QuotaEnforcer) profileQuota(profile string) (ProfileQuota, error) {
+	quota, ok := q.quotas[profile]
+	if !ok {
+		return ProfileQuota{}, fmt.Errorf("deploy: unknown profile %q", profile)
+	}
+	return quota, nil
+}
+
+func (q *QuotaEnforcer) CanAcquire(profile string, delta Usage) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	quota, err := q.profileQuota(profile)
+	if err != nil {
+		return err
+	}
+	used := q.usage[profile]
+	if quota.MaxWorkflows > 0 && used.Workflows+delta.Workflows > quota.MaxWorkflows {
+		return fmt.Errorf("deploy: profile %s exceeds workflow quota", profile)
+	}
+	if quota.MaxRunners > 0 && used.Runners+delta.Runners > quota.MaxRunners {
+		return fmt.Errorf("deploy: profile %s exceeds runner quota", profile)
+	}
+	if quota.MaxAdmissions > 0 && used.Admissions+delta.Admissions > quota.MaxAdmissions {
+		return fmt.Errorf("deploy: profile %s exceeds admission quota", profile)
+	}
+	return nil
+}
+
+func (q *QuotaEnforcer) Acquire(profile string, delta Usage) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	quota, err := q.profileQuota(profile)
+	if err != nil {
+		return err
+	}
+	used := q.usage[profile]
+	if quota.MaxWorkflows > 0 && used.Workflows+delta.Workflows > quota.MaxWorkflows {
+		return fmt.Errorf("deploy: profile %s exceeds workflow quota", profile)
+	}
+	if quota.MaxRunners > 0 && used.Runners+delta.Runners > quota.MaxRunners {
+		return fmt.Errorf("deploy: profile %s exceeds runner quota", profile)
+	}
+	if quota.MaxAdmissions > 0 && used.Admissions+delta.Admissions > quota.MaxAdmissions {
+		return fmt.Errorf("deploy: profile %s exceeds admission quota", profile)
+	}
+	used.Workflows += delta.Workflows
+	used.Runners += delta.Runners
+	used.Admissions += delta.Admissions
+	q.usage[profile] = used
+	return nil
+}
+
+func (q *QuotaEnforcer) Release(profile string, delta Usage) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	used := q.usage[profile]
+	used.Workflows -= delta.Workflows
+	used.Runners -= delta.Runners
+	used.Admissions -= delta.Admissions
+	if used.Workflows < 0 {
+		used.Workflows = 0
+	}
+	if used.Runners < 0 {
+		used.Runners = 0
+	}
+	if used.Admissions < 0 {
+		used.Admissions = 0
+	}
+	q.usage[profile] = used
+}
+
+func (q *QuotaEnforcer) Snapshot() map[string]Usage {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	out := make(map[string]Usage, len(q.usage))
+	for k, v := range q.usage {
+		out[k] = v
+	}
+	return out
+}
+
+func SortedProfiles(quotas map[string]ProfileQuota) []string {
+	profiles := make([]string, 0, len(quotas))
+	for profile := range quotas {
+		profiles = append(profiles, profile)
+	}
+	sort.Strings(profiles)
+	return profiles
+}

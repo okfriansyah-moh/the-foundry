@@ -1,0 +1,7 @@
+Seeded violation for docs/PLAN.md Task 61 (TX-08).
+
+A TenX call path must never create PRs, merge branches, or deploy.
+This seed should fail scripts/check_tenx_prohibition.sh when the script is
+pointed at this directory because it contains a prohibited symbol name:
+
+CreatePullRequest("10x/initiative-fixture")

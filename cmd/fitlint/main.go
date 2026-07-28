@@ -818,6 +818,7 @@ func checkContract(roots []string) ([]string, error) {
 var containerFileAllowlist = map[string]string{
 	"deploy/Dockerfile.dev":             "`dev`",
 	"deploy/docker-compose.yaml":        "`postgres`, `temporal`",
+	"deploy/docker-compose.prod.yaml":   "`foundry` (release)",
 	"deploy/images/executor.Dockerfile": "`foundry-executor-sandbox`",
 	"templates/product/Dockerfile":      "product template's own image",
 }

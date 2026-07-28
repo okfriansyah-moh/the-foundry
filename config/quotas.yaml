@@ -1,0 +1,9 @@
+profiles:
+  personal:
+    max_workflows: 2
+    max_runners: 2
+    max_admissions: 4
+  organization:
+    max_workflows: 4
+    max_runners: 4
+    max_admissions: 8

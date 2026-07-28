@@ -1,7 +1,7 @@
 COMPOSE := docker compose -f deploy/docker-compose.yaml
 RUN := $(COMPOSE) run --rm dev
 
-.PHONY: bootstrap up down doctor test lint fitness fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status drill-brownout backup restore drill-backup-restore m1-exit
+.PHONY: bootstrap up down doctor test lint fitness fitness-tenx fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status drill-brownout backup restore drill-backup-restore m1-exit chaos soak-fairness alerts-drill redteam dr-drill soak-telegram release-dryrun upgrade-drill soak-72h
 
 bootstrap:
 	$(COMPOSE) build dev
@@ -46,6 +46,9 @@ lint:
 
 fitness:
 	$(RUN) bash scripts/fitness.sh
+
+fitness-tenx:
+	$(RUN) bash scripts/check_tenx_prohibition.sh .
 
 # docs/PLAN.md Task 18 (SKP-16): proves every test/fitness_seeds/* fixture
 # actually fails its corresponding fitness check.
@@ -99,7 +102,7 @@ e2e-venture:
 	$(RUN) bash test/e2e/venture/run.sh
 
 e2e-tenx:
-	@echo "not yet: e2e-tenx" && exit 1
+	$(RUN) bash test/e2e/tenx/run.sh
 
 evidence-verify:
 	@echo "not yet: evidence-verify" && exit 1
@@ -174,3 +177,30 @@ m1-exit:
 	$(RUN) go run ./cmd/foundry audit verify
 	$(MAKE) drill-brownout
 	$(MAKE) drill-backup-restore
+
+chaos:
+	$(RUN) go test -tags chaos ./test/chaos/...
+
+soak-fairness:
+	$(RUN) go run ./test/soak/fairness
+
+alerts-drill:
+	$(RUN) go test ./test/... -run TestAlertsConformance -short
+
+redteam:
+	$(RUN) go test -tags redteam ./test/redteam/...
+
+dr-drill:
+	$(RUN) bash test/drill/dr_drill.sh
+
+soak-telegram:
+	$(RUN) go run ./test/soak/telegram
+
+release-dryrun:
+	$(RUN) bash -c 'command -v goreleaser >/dev/null 2>&1 || { echo "goreleaser not installed"; exit 1; }; goreleaser release --snapshot --skip-publish --clean'
+
+upgrade-drill:
+	$(RUN) bash test/drill/upgrade_drill.sh
+
+soak-72h:
+	$(RUN) bash -c 'echo "72h unattended soak is staging-gated; run track fixtures in a long-lived environment"'

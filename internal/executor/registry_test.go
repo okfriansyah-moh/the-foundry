@@ -11,7 +11,8 @@ type stubAdapter struct{}
 
 func (stubAdapter) Prepare(context.Context, worktree.Workspace, TaskPacket) error { return nil }
 func (stubAdapter) Run(context.Context) (Summary, error)                          { return Summary{}, nil }
-func (stubAdapter) Collect(context.Context) (Artifacts, error)                    { return Artifacts{}, nil }
+
+func (stubAdapter) Collect(context.Context) (Artifacts, error) { return Artifacts{}, nil }
 
 func TestRegisterAndGet(t *testing.T) {
 	Register("registry-test-stub", func() Adapter { return stubAdapter{} })
