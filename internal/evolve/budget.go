@@ -59,11 +59,13 @@ type BudgetWindow struct {
 	TimeSinceHumanCheckpoint time.Duration // zero means checkpoint is current
 }
 
-var frozen atomic.Bool
-var freezeState struct {
-	sync.Mutex
-	reason FreezeCondition
-}
+var (
+	frozen      atomic.Bool
+	freezeState struct {
+		sync.Mutex
+		reason FreezeCondition
+	}
+)
 
 func (w BudgetWindow) Breaches(limits ChangeBudgetLimits) []FreezeCondition {
 	var out []FreezeCondition

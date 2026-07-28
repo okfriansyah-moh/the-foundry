@@ -31,9 +31,11 @@ type githubBackend struct{ p *write.Pusher }
 func (b githubBackend) Mirror(ctx context.Context, repoURL, mirrorPath string) error {
 	return readpkg.Mirror(ctx, repoURL, mirrorPath)
 }
+
 func (b githubBackend) Fetch(ctx context.Context, mirrorPath string) error {
 	return readpkg.Fetch(ctx, mirrorPath)
 }
+
 func (b githubBackend) PushBranch(ctx context.Context, req write.PushRequest) (write.Receipt, error) {
 	return b.p.PushBranch(ctx, req)
 }
@@ -43,9 +45,11 @@ type bitbucketBackend struct{ p *write.BitbucketPusher }
 func (b bitbucketBackend) Mirror(ctx context.Context, repoURL, mirrorPath string) error {
 	return readpkg.BitbucketMirror(ctx, repoURL, mirrorPath)
 }
+
 func (b bitbucketBackend) Fetch(ctx context.Context, mirrorPath string) error {
 	return readpkg.BitbucketFetch(ctx, mirrorPath)
 }
+
 func (b bitbucketBackend) PushBranch(ctx context.Context, req write.PushRequest) (write.Receipt, error) {
 	return b.p.PushBranch(ctx, req)
 }
@@ -70,6 +74,7 @@ func (l *memoryLedger) Reserve(_ context.Context, workflowID, kind, target, idem
 	l.ops[idempotencyKey] = op
 	return op, nil
 }
+
 func (l *memoryLedger) MarkExecuted(_ context.Context, id extops.OpID, receipt any) (extops.Op, error) {
 	for key, op := range l.ops {
 		if op.ID == id {

@@ -13,11 +13,13 @@ func (h *HoldRegistry) Hold(key, reason string) {
 	defer h.mu.Unlock()
 	h.holds[key] = reason
 }
+
 func (h *HoldRegistry) Release(key string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.holds, key)
 }
+
 func (h *HoldRegistry) Active(key string) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
