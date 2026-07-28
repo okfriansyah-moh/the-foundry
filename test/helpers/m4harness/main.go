@@ -82,11 +82,19 @@ func run() error {
 	defer func() { _ = os.RemoveAll(stubDir) }()
 	claudeStub := writeStub(stubDir, "claude", `echo '{"result":"ok"}'`)
 	rawStub := writeStub(stubDir, "raw", `echo ok`)
-	os.Setenv("FOUNDRY_CLAUDE_CODE_BIN", claudeStub)
-	os.Setenv("FOUNDRY_OPENCODE_BIN", rawStub)
-	os.Setenv("FOUNDRY_GEMINI_CLI_BIN", rawStub)
-	os.Setenv("FOUNDRY_CURSOR_BIN", rawStub)
-	os.Setenv("FOUNDRY_COPILOT_BIN", rawStub)
+	if err := os.Setenv("FOUNDRY_CLAUDE_CODE_BIN", claudeStub); err != nil {
+		return fmt.Errorf("setenv FOUNDRY_CLAUDE_CODE_BIN: %w", err)
+	}
+	for _, kv := range [][2]string{
+		{"FOUNDRY_OPENCODE_BIN", rawStub},
+		{"FOUNDRY_GEMINI_CLI_BIN", rawStub},
+		{"FOUNDRY_CURSOR_BIN", rawStub},
+		{"FOUNDRY_COPILOT_BIN", rawStub},
+	} {
+		if err := os.Setenv(kv[0], kv[1]); err != nil {
+			return fmt.Errorf("setenv %s: %w", kv[0], err)
+		}
+	}
 
 	evidenceRoot := filepath.Join(repoRoot, "evidence", "m4-exit")
 	if err := os.RemoveAll(evidenceRoot); err != nil {

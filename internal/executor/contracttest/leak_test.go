@@ -32,9 +32,10 @@ type leakyAdapter struct{}
 
 func (a *leakyAdapter) Prepare(_ context.Context, ws worktree.Workspace, packet executor.TaskPacket) error {
 	p := filepath.Join(ws.Path, "leaky-prompt.md")
-	if leakySharedOutput.CompareAndSwap(nil, &p) {
-		// first instance fixes the shared path
-	}
+	// CompareAndSwap: only the first instance "wins" and fixes the shared path;
+	// subsequent calls ignore the return value intentionally — they still read the
+	// FIRST path below, which is what makes this adapter leak (intentional fixture).
+	_ = leakySharedOutput.CompareAndSwap(nil, &p)
 	target := *leakySharedOutput.Load()
 	return os.WriteFile(target, []byte(packet.Goal), 0o600)
 }
