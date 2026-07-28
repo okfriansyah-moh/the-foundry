@@ -34,9 +34,8 @@ func runPromotionsUnfreeze(args []string) error {
 	if *product == "" {
 		return fmt.Errorf("promotions unfreeze: --product is required")
 	}
-	// In production, this would DELETE FROM improvement_leases WHERE product_id=$1
-	// and INSERT INTO audit_log (action='promotions.unfreeze', target=$1, by=$operator).
-	// The stub below satisfies the CLI contract and prints the audit entry.
-	fmt.Printf("promotions unfreeze: product %q improvement lease cleared (audited)\n", *product)
+	// TODO: wire to improvement_leases DELETE + audit_log INSERT when DB layer lands.
+	// This stub satisfies the CLI contract; production DB writes are deferred (Task 52).
+	fmt.Printf("[STUB] promotions unfreeze: product %q improvement lease cleared (audited)\n", *product)
 	return nil
 }

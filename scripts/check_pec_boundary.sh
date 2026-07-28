@@ -22,12 +22,14 @@ forbidden=(
 
 found=0
 for pkg in "${forbidden[@]}"; do
-  matches="$(grep -rn --include='*.go' --exclude-dir=fitness_seeds -F "\"${pkg}" "$@/internal/pec" 2>/dev/null || true)"
-  if [ -n "${matches}" ]; then
-    echo "VIOLATION: internal/pec imports forbidden package ${pkg}:"
-    echo "${matches}"
-    found=1
-  fi
+  for dir in "$@"; do
+    matches="$(grep -rn --include='*.go' --exclude-dir=fitness_seeds -F "\"${pkg}" "${dir}/internal/pec" 2>/dev/null || true)"
+    if [ -n "${matches}" ]; then
+      echo "VIOLATION: internal/pec imports forbidden package ${pkg}:"
+      echo "${matches}"
+      found=1
+    fi
+  done
 done
 
 if [ "${found}" -ne 0 ]; then

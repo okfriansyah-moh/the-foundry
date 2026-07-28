@@ -81,8 +81,8 @@ func TestFreezeCheck_RollbackChain(t *testing.T) {
 // TestFreezeCheck_RepeatedVeto freezes on two vetoes.
 func TestFreezeCheck_RepeatedVeto(t *testing.T) {
 	history := []VetoRecord{
-		{PromotionID: "p1", Vetoed: true},
-		{PromotionID: "p2", Vetoed: true},
+		{PromotionID: "p1", ProductID: "prod1", Vetoed: true},
+		{PromotionID: "p2", ProductID: "prod1", Vetoed: true},
 	}
 	reason := FreezeCheck("prod1", history, 0)
 	if reason != FreezeReasonRepeatedVeto {
@@ -92,10 +92,23 @@ func TestFreezeCheck_RepeatedVeto(t *testing.T) {
 
 // TestFreezeCheck_Clear passes with shallow chain and zero vetoes.
 func TestFreezeCheck_Clear(t *testing.T) {
-	history := []VetoRecord{{PromotionID: "p1", Vetoed: false}}
+	history := []VetoRecord{{PromotionID: "p1", ProductID: "prod1", Vetoed: false}}
 	reason := FreezeCheck("prod1", history, 1)
 	if reason != "" {
 		t.Errorf("reason=%q, want empty (clear)", reason)
+	}
+}
+
+// TestFreezeCheck_CrossProductIsolation verifies vetoes for a different product
+// do not count toward the freeze threshold.
+func TestFreezeCheck_CrossProductIsolation(t *testing.T) {
+	history := []VetoRecord{
+		{PromotionID: "p1", ProductID: "other-product", Vetoed: true},
+		{PromotionID: "p2", ProductID: "other-product", Vetoed: true},
+	}
+	reason := FreezeCheck("prod1", history, 0)
+	if reason != "" {
+		t.Errorf("cross-product vetoes should not freeze prod1; got reason=%q", reason)
 	}
 }
 

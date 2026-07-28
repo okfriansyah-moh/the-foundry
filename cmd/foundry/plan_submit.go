@@ -76,8 +76,8 @@ func runPlanSubmit(args []string) error {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(struct {
-			Submission provenance.PlanSubmission
-			OrgSource  interface{}
+			Submission provenance.PlanSubmission `json:"submission"`
+			OrgSource  provenance.OrgPlanSource  `json:"org_source"`
 		}{submission, srcDigest})
 	}
 
@@ -90,21 +90,12 @@ func runPlanSubmit(args []string) error {
 // It produces a single SourceRef for the plan file itself (the source whose
 // digest the validator will verify). Additional source files can be added by
 // future org-workflow tooling.
-func computeOrgSourceDigests(planPath string, content []byte, repo, rev string) (interface{}, error) {
-	type srcRef struct {
-		Path   string `json:"path"`
-		Digest string `json:"digest"`
-	}
-	type orgSource struct {
-		Repo          string   `json:"repo"`
-		Revision      string   `json:"revision"`
-		SourceDigests []srcRef `json:"source_digests"`
-	}
+func computeOrgSourceDigests(planPath string, content []byte, repo, rev string) (provenance.OrgPlanSource, error) {
 	sum := sha256sumHex(content)
-	return orgSource{
+	return provenance.OrgPlanSource{
 		Repo:     repo,
 		Revision: rev,
-		SourceDigests: []srcRef{
+		SourceDigests: []provenance.SourceRef{
 			{Path: planPath, Digest: sum},
 		},
 	}, nil

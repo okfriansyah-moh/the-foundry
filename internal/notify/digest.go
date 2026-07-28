@@ -40,6 +40,7 @@ type DigestPromotion struct {
 // VetoRecord tracks the 24h veto window for one promotion.
 type VetoRecord struct {
 	PromotionID string
+	ProductID   string
 	ExpiresAt   time.Time
 	Vetoed      bool
 	VetoedAt    *time.Time
@@ -94,6 +95,7 @@ func BuildVetoRecords(promotions []DigestPromotion, now time.Time) []VetoRecord 
 	for i, p := range promotions {
 		records[i] = VetoRecord{
 			PromotionID: p.ID,
+			ProductID:   p.ProductID,
 			ExpiresAt:   now.Add(VetoWindow),
 		}
 	}
@@ -108,12 +110,17 @@ func IsVetoExpired(rec VetoRecord, now time.Time) bool {
 // FreezeCheck inspects the veto/rollback history for a product and returns
 // the FreezeReason if the improvement lease should be frozen, or "" if clear.
 // Constitution C11/C20 basis: rollback-chain depth >2 or vetoed-twice-same-target.
+// The caller must populate VetoRecord.ProductID (via BuildVetoRecords); records
+// with a different ProductID are ignored so mixed-product slices are safe.
 func FreezeCheck(productID string, history []VetoRecord, rollbackChainDepth int) FreezeReason {
 	if rollbackChainDepth > 2 {
 		return FreezeReasonRollbackChain
 	}
 	vetoCount := 0
 	for _, r := range history {
+		if r.ProductID != productID {
+			continue
+		}
 		if r.Vetoed {
 			vetoCount++
 		}

@@ -19,7 +19,7 @@
 // Importing kernel, scm, ledger, provenance, any database driver, or
 // net/http from this package is a fitness violation. This prohibition is
 // enforced by the fitlint import-boundary check (see
-// scripts/fitness.sh step (g), extended by Task 56).
+// scripts/fitness.sh step (h), added by Task 56).
 //
 // No exported function in this package returns a value that the kernel
 // executes without its own independent authorization — proposal types

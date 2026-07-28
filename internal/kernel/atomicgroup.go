@@ -55,7 +55,13 @@ func (cs ChangeSet) Digest() string {
 		ValidationRecords []string     `json:"validation_records"`
 	}{files, tests, valRecs}
 
-	raw, _ := json.Marshal(normalized)
+	raw, err := json.Marshal(normalized)
+	if err != nil {
+		// json.Marshal should never fail on this well-typed struct;
+		// panic loudly rather than silently hash nil (would produce a
+		// misleading but deterministic digest — Constitution C10).
+		panic(fmt.Sprintf("atomicgroup: ChangeSet.Digest marshal failed: %v", err))
+	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }

@@ -168,6 +168,9 @@ func RunImproveCycle(ctx context.Context, in ImproveCycleInput) (ImproveCycleRes
 	if err != nil {
 		return ImproveCycleResult{}, fmt.Errorf("improve: generate proposal: %w", err)
 	}
+	if proposal == nil || proposal.PlanDoc == nil {
+		return ImproveCycleResult{}, fmt.Errorf("improve: generator returned nil proposal or nil PlanDoc")
+	}
 
 	// Step 2: classify via admission (Task 45).
 	decision, err := in.Admitter.Classify(proposal.PlanDoc)
@@ -223,9 +226,9 @@ func RunImproveCycle(ctx context.Context, in ImproveCycleInput) (ImproveCycleRes
 }
 
 // PlanDocFromSpec builds a minimal single-task plan.Document from a spec
-// improvement description. The Document ID encodes the mission/cycle provenance
-// per the Task 51 requirement (creator_principal=service:mission-loop is carried
-// as the ID prefix so callers can filter by origin).
+// improvement description. The Document ID uses the format
+// "improve-<missionID>-<unix-nano>" so callers can filter by the "improve-"
+// prefix to identify documents created by the mission-loop (Task 51).
 func PlanDocFromSpec(missionID, productID, improvementDesc string, now time.Time) *plan.Document {
 	return &plan.Document{
 		ID:    fmt.Sprintf("improve-%s-%d", missionID, now.UTC().UnixNano()),

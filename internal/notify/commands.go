@@ -103,6 +103,30 @@ func (r *NonceRegistry) Consume(nonce, chatID, workflow string) error {
 	return nil
 }
 
+// Validate checks whether nonce is valid for chatID+workflow without consuming
+// it. Returns the same sentinel errors as Consume. Use Validate before
+// performing the side effect, then Consume after success to preserve the retry
+// path on side-effect failure.
+func (r *NonceRegistry) Validate(nonce, chatID, workflow string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	e, ok := r.entries[nonce]
+	if !ok {
+		return ErrUnknownNonce
+	}
+	if e.used {
+		return ErrNonceAlreadyUsed
+	}
+	if r.now().After(e.expiresAt) {
+		return ErrNonceExpired
+	}
+	if e.chatID != chatID || e.workflow != workflow {
+		return ErrNonceMismatch
+	}
+	return nil
+}
+
 // ChatRegistry binds chat ids to principals. An unregistered chat id
 // cannot issue any command (Task 30's Acceptance: "unknown chat
 // rejected").

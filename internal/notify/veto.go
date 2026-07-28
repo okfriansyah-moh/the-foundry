@@ -40,14 +40,24 @@ func (r *CommandRouter) handleRollback(ctx context.Context, chatID string, args 
 	}
 	promoID, nonce := args[0], args[1]
 
-	// Consume nonce (bound to this promo-id as the "workflow" identifier).
-	if err := r.Nonces.Consume(nonce, chatID, promoID); err != nil {
+	// Validate nonce first (without consuming) so the retry path is preserved
+	// if ExecuteVeto fails — OWASP A04: don't burn a single-use token before
+	// the side effect succeeds.
+	if err := r.Nonces.Validate(nonce, chatID, promoID); err != nil {
 		return err.Error()
 	}
 
 	rollbackRef, err := r.Veto.ExecuteVeto(ctx, promoID)
 	if err != nil {
 		return fmt.Sprintf("veto failed: %v", err)
+	}
+
+	// Consume nonce only after the veto has succeeded.
+	if err := r.Nonces.Consume(nonce, chatID, promoID); err != nil {
+		// Nonce was valid at Validate time; consumption failure here is
+		// unexpected (concurrent replay). Log and continue — the veto
+		// has already executed.
+		return fmt.Sprintf("rollback complete: promotion %s rolled back to %s (nonce consume warning: %v)", promoID, rollbackRef, err)
 	}
 	return fmt.Sprintf("rollback complete: promotion %s rolled back to %s", promoID, rollbackRef)
 }
