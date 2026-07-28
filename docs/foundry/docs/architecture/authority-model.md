@@ -140,6 +140,36 @@ Every plugin must prove:
 - supply-chain provenance;
 - prompt-injection resistance where LLM context is involved.
 
+### N7.5 Fresh-context-per-invocation policy (docs/PLAN.md Task 91 / PRV-08)
+
+**Policy (contract obligation on adapter authors, enforced by test — not
+merely documented):** every `executor.Get(name)` call returns an executor
+adapter whose state is isolated from every other call, for the lifetime of a
+single `TaskPacket`. No adapter may carry mutable state — a prompt, a
+workspace path, a credential, an accumulated result — across two invocations,
+whether those invocations run sequentially or concurrently.
+
+This holds today at the **task level** by construction: `executor.Register`
+stores a `Constructor` that returns a *fresh* `Adapter` on every `Get`, and
+the kernel hands each task a brand-new `worktree.Workspace`. This section
+elevates that accident of stateless registration into a standing rule so a
+future adapter cannot quietly regress it, and extends it to the **wave
+level**: when a wave dispatches multiple tasks concurrently, each task gets an
+independent adapter instance and an independent workspace, and no artifact or
+environment value crosses between them.
+
+**Enforcement.** The shared adapter contract suite
+(`internal/executor/contracttest`) runs a `ContractLeak` check against every
+shipped adapter (claude-code, opencode, gemini-cli, cursor, copilot,
+windsurf): it instantiates two adapters from the same constructor,
+concurrently prepares them in separate workspaces under the race detector,
+and asserts each workspace contains only its own task's content. A
+deliberately-planted leaky fixture adapter (shared output state) must fail
+this check — proving the check bites, mirroring Task 18's seeded-violation
+pattern. This does **not** change Task 10's `Adapter` interface and does
+**not** add session-resume/context-carry plumbing — it tests the *absence* of
+carried context, which is the opposite of a resume feature.
+
 ---
 
 

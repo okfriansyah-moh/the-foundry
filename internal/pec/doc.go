@@ -16,10 +16,12 @@
 //   - github.com/okfriansyah-moh/the-foundry/internal/verify (CommandRecord type only)
 //   - github.com/okfriansyah-moh/the-foundry/internal/executor (Summary type only)
 //
-// Importing kernel, scm, ledger, provenance, any database driver, or
-// net/http from this package is a fitness violation. This prohibition is
-// enforced by the fitlint import-boundary check (see
-// scripts/fitness.sh step (h), added by Task 56).
+// Importing kernel, scm, ledger, provenance, any database driver, net/http,
+// or internal/executor/capability (the executor-selection registry —
+// selection is kernel-only, docs/PLAN.md Task 85 / PRV-02) from this
+// package is a fitness violation. This prohibition is enforced by the
+// fitlint import-boundary check (see scripts/fitness.sh step (h), added by
+// Task 56; extended for internal/executor/capability by Task 85).
 //
 // No exported function in this package returns a value that the kernel
 // executes without its own independent authorization — proposal types

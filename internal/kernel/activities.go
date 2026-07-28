@@ -16,9 +16,11 @@ import (
 
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
+	compiler "github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
 	"github.com/okfriansyah-moh/the-foundry/internal/state"
 	"github.com/okfriansyah-moh/the-foundry/internal/verify"
@@ -48,6 +50,16 @@ type Activities struct {
 	// internal/verify). ValidateTask classifies pass/fail from this, never
 	// from ExecuteTaskOutput's executor-self-report (Constitution C10).
 	Validator verify.Runner
+
+	// ExecutorSelector and CapabilityRegistry are the kernel-owned executor
+	// selection inputs (docs/PLAN.md Task 85 / PRV-02, Constitution C4).
+	// When a task's ExecuteTaskInput carries a non-nil ExecutorAllowlist,
+	// ExecuteTask runs Select to decide (and policy-check) which adapter
+	// runs the task instead of using ExecutorName unchecked. Both are
+	// zero-valued by default; that preserves the pre-Task-85 unchecked
+	// lookup for callers (e.g. unit tests) that supply no allowlist.
+	ExecutorSelector   ExecutorSelector
+	CapabilityRegistry capability.Registry
 
 	mu         sync.Mutex
 	workspaces map[string]worktree.Workspace
@@ -368,6 +380,18 @@ type ExecuteTaskInput struct {
 	ExecutorName  string
 	WorkspacePath string
 	Packet        executor.TaskPacket
+	// ExplicitExecutor is the plan task's own named executor (plan.Task.
+	// Executor), or empty when the task names none. Consulted only when
+	// ExecutorAllowlist is non-nil (docs/PLAN.md Task 85 / PRV-02).
+	ExplicitExecutor string
+	// TaskClass is the plan task's routing class (plan.Task.Class), used by
+	// the selector's routing table (Task 90) when no executor is explicit.
+	TaskClass string
+	// ExecutorAllowlist is the resolved policy's executor_allowlist. When
+	// nil, ExecuteTask keeps the pre-Task-85 unchecked lookup of
+	// ExecutorName; when non-nil (even if empty), ExecuteTask runs
+	// kernel-owned, policy-checked selection and fails closed on violation.
+	ExecutorAllowlist []string
 }
 
 // ExecuteTaskOutput is ExecuteTask's output. Failed/ErrorMessage carry the
@@ -383,6 +407,14 @@ type ExecuteTaskOutput struct {
 	Failed        bool
 	ErrorMessage  string
 	ArtifactPaths []string
+	// ExecutorUsed is the executor name selection actually chose for this
+	// task (docs/PLAN.md Task 85 Step 3 — recorded on the evidence bundle).
+	ExecutorUsed string
+	// Classification, when set, is the deterministic verify.Classification
+	// of a pre-execution fail-closed outcome (today: an executor-selection
+	// policy violation). It is surfaced to ValidateTask as the task's real
+	// classification instead of the generic executor-failed default.
+	Classification string
 }
 
 // ExecuteTask runs packet inside the already-acquired worktree via the
@@ -393,7 +425,32 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 
 	key := IdempotencyKey{in.WorkflowID, in.TaskID, "ExecuteTask", in.Attempt}.String()
 	return withReceipt(ctx, a.ReceiptStore, key, func() (ExecuteTaskOutput, error) {
-		adapter, err := executor.Get(in.ExecutorName)
+		// Task 85 (PRV-02, Constitution C4): the kernel — not an unchecked
+		// env var, not PEC, not the executor itself — decides which adapter
+		// runs, and validates that decision against the policy allowlist and
+		// capability registry. When no allowlist is supplied (pre-Task-85
+		// callers), fall back to the historical unchecked lookup.
+		execName := in.ExecutorName
+		if in.ExecutorAllowlist != nil {
+			task := plan.Task{ID: in.TaskID, Executor: in.ExplicitExecutor, Class: in.TaskClass}
+			pol := compiler.Resolved{Effective: compiler.Policy{ExecutorAllowlist: in.ExecutorAllowlist}}
+			selected, selErr := a.ExecutorSelector.Select(ctx, task, pol, a.CapabilityRegistry)
+			if selErr != nil {
+				var se *SelectionError
+				if errors.As(selErr, &se) {
+					return ExecuteTaskOutput{
+						Failed:         true,
+						ErrorMessage:   se.Error(),
+						ExecutorUsed:   se.Executor,
+						Classification: string(se.Classification),
+					}, nil
+				}
+				return ExecuteTaskOutput{}, fmt.Errorf("kernel: select executor %s/%s: %w", in.WorkflowID, in.TaskID, selErr)
+			}
+			execName = selected
+		}
+
+		adapter, err := executor.Get(execName)
 		if err != nil {
 			return ExecuteTaskOutput{}, fmt.Errorf("kernel: execute task %s/%s: %w", in.WorkflowID, in.TaskID, err)
 		}
@@ -411,9 +468,9 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 		stopHeartbeat := startHeartbeat(ctx)
 		summary, runErr := adapter.Run(ctx)
 		stopHeartbeat()
-		observe.ObserveProviderWaitingTime(in.ExecutorName, time.Since(runStart).Seconds())
+		observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
 
-		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes}
+		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName}
 		if runErr != nil {
 			out.Failed = true
 			out.ErrorMessage = runErr.Error()
@@ -478,6 +535,13 @@ type ValidateTaskInput struct {
 	WorkspacePath      string
 	ValidationCommands []string
 	Attempt            int
+	// PreClassification, when set alongside ExecuteFailed, is a
+	// classification already decided before execution (today: an executor-
+	// selection policy violation, docs/PLAN.md Task 85). ValidateTask
+	// surfaces it verbatim instead of the generic executor-failed default,
+	// so a fail-closed selection reports "policy-violation", not
+	// "verification-failed".
+	PreClassification string
 }
 
 // ValidateTaskOutput is ValidateTask's output.
@@ -498,8 +562,12 @@ type ValidateTaskOutput struct {
 // wired into the kernel workflow by Task 99/SKP-11R).
 func (a *Activities) ValidateTask(ctx context.Context, in ValidateTaskInput) (ValidateTaskOutput, error) {
 	if in.ExecuteFailed {
-		observe.RecordEvidenceResult(false, "verification-failed")
-		return ValidateTaskOutput{Validated: false, Reason: "verification-failed"}, nil
+		classification := in.PreClassification
+		if classification == "" {
+			classification = "verification-failed"
+		}
+		observe.RecordEvidenceResult(false, classification)
+		return ValidateTaskOutput{Validated: false, Reason: classification}, nil
 	}
 
 	records, err := a.Validator.Run(ctx, worktree.Workspace{Path: in.WorkspacePath}, in.ValidationCommands)
@@ -524,6 +592,10 @@ type RecordEvidenceInput struct {
 	WorkspacePath string
 	ArtifactPaths []string
 	ExecuteFailed bool
+	// ExecutorUsed is the executor name selection chose for this task
+	// (docs/PLAN.md Task 85 Step 3), recorded on the evidence manifest so
+	// every task's bundle names which adapter actually ran.
+	ExecutorUsed string
 }
 
 // RecordEvidenceOutput is RecordEvidence's output.
@@ -555,8 +627,9 @@ func (a *Activities) RecordEvidence(ctx context.Context, in RecordEvidenceInput)
 			exitCode = 1
 		}
 		manifest := evidence.Manifest{
-			WorkflowID: in.WorkflowID,
-			TaskID:     in.TaskID,
+			WorkflowID:   in.WorkflowID,
+			TaskID:       in.TaskID,
+			ExecutorUsed: in.ExecutorUsed,
 			Commands: []evidence.CommandRecord{{
 				Cmd:      "executor.Run", // coarse record: Task 13's Runner replaces this with per-command records.
 				ExitCode: exitCode,

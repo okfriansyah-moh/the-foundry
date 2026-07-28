@@ -124,6 +124,8 @@ func main() {
 		violations, err = checkContainers(roots)
 	case "missionloop":
 		violations, err = checkMissionLoopContract(roots)
+	case "capability":
+		violations, err = checkCapabilityStaleness(roots)
 	default:
 		usage()
 		os.Exit(2)
@@ -142,7 +144,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop> <root>...")
+	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability> <root>...")
 }
 
 // walkFiles walks roots, invoking fn for every regular file whose name

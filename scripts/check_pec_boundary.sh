@@ -2,8 +2,10 @@
 # docs/PLAN.md Task 56 (TX-03): PEC import-boundary check (Constitution C5).
 #
 # internal/pec may import only: plan, state, verify, executor (Summary type).
-# Importing kernel, scm, ledger, provenance, database drivers, or net/http
-# from internal/pec is a fitness violation.
+# Importing kernel, scm, ledger, provenance, database drivers, net/http, or
+# internal/executor/capability (the executor-selection registry — selection
+# is kernel-only, docs/PLAN.md Task 85 / PRV-02, Constitution C4/C5) from
+# internal/pec is a fitness violation.
 #
 # Usage: check_pec_boundary.sh <root>...
 set -euo pipefail
@@ -14,6 +16,7 @@ forbidden=(
   "${module}/internal/scm"
   "${module}/internal/ledger"
   "${module}/internal/provenance"
+  "${module}/internal/executor/capability"
   "database/sql"
   "github.com/jackc/pgx"
   "go.temporal.io/sdk/client"

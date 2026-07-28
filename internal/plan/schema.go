@@ -17,6 +17,21 @@ type Task struct {
 	Commands           []string `yaml:"commands"`
 	ValidationCommands []string `yaml:"validation_commands"`
 	Files              []string `yaml:"files"`
+	// Executor, when set, names the executor adapter this task must run on
+	// (docs/PLAN.md Task 85 / PRV-02). Empty means "let the kernel choose"
+	// (routing or the configured default). It is never authoritative on its
+	// own: the kernel's ExecutorSelector still validates it against the
+	// policy allowlist and capability registry and fails closed if denied.
+	Executor string `yaml:"executor"`
+	// Class, when set, is the task-class label (e.g. "architecture",
+	// "frontend", "review") the kernel's routing table maps to an ordered
+	// executor preference list (docs/PLAN.md Task 90 / PRV-07). Empty means
+	// "unclassed" — an unclassed task with no explicit Executor uses the
+	// configured default. A task that DOES declare a class, when routing is
+	// active, must resolve to an eligible executor or selection fails closed
+	// (it never silently defaults). Purely a routing input; PEC may propose
+	// the label, but the kernel — never an LLM — makes the selection.
+	Class string `yaml:"class"`
 }
 
 // Section is one `## Heading` block of the Markdown body, preserved in

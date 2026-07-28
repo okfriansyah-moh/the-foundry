@@ -15,6 +15,12 @@ type ExtractedItem struct {
 	Section    string     `json:"section"`
 	Label      spec.Label `json:"label"`
 	Confidence float64    `json:"confidence"`
+	// NodeRef, when set, is the source reference for a structurally-present
+	// fact (docs/PLAN.md Task 80 / EVO-07) — e.g. a Figma node/component/edge
+	// ref. It becomes the requirement's Basis so a Figma-sourced Observed
+	// item points back at the exact node it came from. Empty for
+	// vision-extracted items (their Basis is the stage).
+	NodeRef string `json:"node_ref,omitempty"`
 }
 
 type Extraction struct {

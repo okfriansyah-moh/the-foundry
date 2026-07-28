@@ -16,4 +16,15 @@
 // injects it into the process environment for the duration of Run,
 // restoring whatever was there before — this is the "executor auth"
 // existing env usage Task 35's card names for migration.
+//
+// PhaseHint (docs/PLAN.md Task 92 / PRV-09): when a TaskPacket carries a
+// non-empty PhaseHint, renderPrompt includes it as a labeled, informational
+// section in the prompt file — never in argv, never in a shell string. The
+// hint is strictly ONE-DIRECTIONAL (kernel → executor) and carries NO
+// authority: an executor cannot use it to request elevated permissions, skip
+// validation, alter its EnvAllowlist or allowlisted commands, or signal
+// completion. Honest completion remains solely the job of Task 13's
+// verify.Runner (Constitution C10) — a lying Summary is judged identically
+// with or without any PhaseHint value. An empty PhaseHint produces a
+// byte-identical prompt to the pre-Task-92 behavior.
 package claudecode

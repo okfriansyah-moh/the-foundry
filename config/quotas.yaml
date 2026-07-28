@@ -3,7 +3,9 @@ profiles:
     max_workflows: 2
     max_runners: 2
     max_admissions: 4
+    max_active_missions: 2
   organization:
     max_workflows: 4
     max_runners: 4
     max_admissions: 8
+    max_active_missions: 4

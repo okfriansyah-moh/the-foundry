@@ -1,0 +1,12 @@
+# SEED (docs/PLAN.md Task 84 / PRV-01): this record is deliberately stale
+# (last_verified_at in the distant past) so `fitlint capability` MUST fail on
+# it. scripts/fitness_selftest.sh proves the staleness lint catches this.
+executors:
+  - provider: stale-seed-provider
+    execution_class: cli-agentic
+    features:
+      - reasoning.adaptive
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2000-01-01T00:00:00Z

@@ -1,0 +1,104 @@
+# Executor capability registry (docs/PLAN.md Task 84 / PRV-01).
+#
+# One record per executor adapter that exists in this repo. Routing
+# (Task 85 ExecutorSelector) reads this via internal/executor/capability;
+# it is NOT hardcoded in Go. Adding a provider or a capability string here
+# needs no code change (Features is an open set — see §6.7 of
+# docs/foundry/docs/providers/provider-execution-classes.md).
+#
+# availability: "supported" (working adapter, contract-suite green) or
+#   "unsupported" (registry row kept for the decision trail, no adapter).
+# last_verified_at: bump whenever you re-confirm a provider's capabilities
+#   against the real CLI/API. Records older than 180d fail `make fitness`.
+executors:
+  - provider: claude-code
+    execution_class: cli-agentic
+    features:
+      - reasoning.adaptive
+      - tools.strict
+      - context.prompt_cache
+      - output.json
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: opencode
+    execution_class: cli-agentic
+    features:
+      - tools.strict
+      - context.prompt_cache
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: gemini-cli
+    execution_class: cli-agentic
+    features:
+      - context.prompt_cache
+      - tools.strict
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: cursor
+    execution_class: cli-agentic
+    features:
+      - tools.strict
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: copilot
+    execution_class: cli-agentic
+    features:
+      - tools.strict
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: windsurf
+    execution_class: cli-agentic
+    features:
+      - tools.strict
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  # API-class providers (docs/PLAN.md Task 79 / EVO-06). No capability is
+  # assumed — features are declared here, not inferred in code.
+  - provider: openai
+    execution_class: api
+    features:
+      - reasoning.adaptive
+      - output.json
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: local
+    execution_class: api
+    features:
+      - context.local
+    availability: supported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  # Kimi & Kilo: deliberately deferred (docs/PLAN.md Task 89 / PRV-06,
+  # docs/notes/kimi-kilo-deferred.md). Registry rows kept for the decision
+  # trail; availability: unsupported => never Eligible, never routed to, and
+  # the kernel selector fails closed with "unsupported-executor" if named.
+  # No adapter code exists for these.
+  - provider: kimi
+    execution_class: cli-agentic
+    features: []
+    availability: unsupported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z
+  - provider: kilo
+    execution_class: cli-agentic
+    features: []
+    availability: unsupported
+    profile_allow: []
+    profile_deny: []
+    last_verified_at: 2026-07-28T00:00:00Z

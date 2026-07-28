@@ -73,4 +73,7 @@ bash scripts/check_pec_boundary.sh .
 echo "== fitness (i): TenX prohibition boundary (Task 61 / TX-08, Constitution C15) =="
 bash scripts/check_tenx_prohibition.sh .
 
+echo "== fitness (j): executor-capability staleness (Task 84 / PRV-01) =="
+"${fitlint_bin}" capability config/executor-capabilities.yaml
+
 echo "fitness OK"

@@ -31,6 +31,24 @@ type TaskPacket struct {
 	EnvAllowlist []string
 	// TimeoutSec bounds Run; exceeding it kills the entire process group.
 	TimeoutSec int
+	// Class is the OPTIONAL task-class label (plan.Task.Class, e.g.
+	// "frontend", "backend", "review"). It carries no authority — it is a
+	// routing hint an adapter may use to pick a per-class model from config
+	// (docs/PLAN.md Task 79 / EVO-06, internal/executor/apiexec.ModelPolicy).
+	// Empty means "unclassed".
+	Class string
+	// PhaseHint is an OPTIONAL, NON-AUTHORITATIVE label telling an executor
+	// which venture-loop.md phase the kernel considers this task in (H, I,
+	// J, K, or M — see internal/kernel's phase derivation). An executor CLI
+	// with its own internal phase discipline may use it to shape its own
+	// behavior; Foundry never defers any decision to it. Empty means "no
+	// hint" and MUST be byte-for-byte behavior-identical to a packet without
+	// it (docs/PLAN.md Task 92 / PRV-09). It is one-directional
+	// (kernel→executor) and carries no authority: an executor cannot use it
+	// to request elevated permissions, skip validation, or alter its
+	// EnvAllowlist. It is never a completion signal — Constitution C10 /
+	// internal/verify (Task 13) remains the sole judge of done.
+	PhaseHint string
 }
 
 // Summary is the executor's self-reported account of a Run. It is

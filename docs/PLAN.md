@@ -167,24 +167,24 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅   | 73   | HRD-10 | Versioned release + upgrade path (M2 exit)                      | M2         | 64,65,66,67,68,69,70,71,72 | None |
 | ✅   | 74   | EVO-01 | L0 auto-promotion pipeline                                      | M3         | 73                         | None |
 | ✅   | 75   | EVO-02 | CumulativeChangeBudget + freeze + digest (C20)                  | M3         | 74                         | None |
-| ☐   | 76   | EVO-03 | Memory curator with provenance                                  | M3         | 66                         | [P]  |
-| ☐   | 77   | EVO-04 | Capability evolution loop (bounded L1)                          | M3         | 75                         | None |
-| ☐   | 78   | EVO-05 | Multi-repository 10x saga                                       | M3         | 63                         | [P]  |
-| ☐   | 79   | EVO-06 | OpenAI + local-model providers                                  | M3         | 34                         | [P]  |
-| ☐   | 80   | EVO-07 | Figma API mockup ingestion                                      | M3         | 43                         | [P]  |
-| ☐   | 81   | EVO-08 | Portfolio scaling: multi-mission                                | M3         | 53                         | None |
-| ☐   | 82   | EVO-09 | Capacity-aware learning                                         | M3         | 74                         | [P]  |
-| ☐   | 83   | EVO-10 | BillingMaturity graduation → bounded A2 (C19)                   | M3         | 69                         | None |
-| ☐   | 84   | PRV-01 | Executor capability registry (non-hardcoded)                    | M4         | 10,22                      | None |
-| ☐   | 85   | PRV-02 | Kernel executor selection wired to policy (C4)                  | M4         | 10,12,17,22,84             | None |
-| ☐   | 86   | PRV-03 | OpenCode executor adapter                                       | M4         | 10,84,85                   | [P]  |
-| ☐   | 87   | PRV-04 | Gemini CLI executor adapter                                     | M4         | 10,84,85                   | [P]  |
-| ☐   | 88   | PRV-05 | Cursor + Copilot executor adapters (batched)                    | M4         | 10,84,85                   | [P]  |
-| ☐   | 89   | PRV-06 | Windsurf adapter + Kimi/Kilo capability stubs                   | M4         | 10,84,85                   | [P]  |
-| ☐   | 90   | PRV-07 | Task-class-aware routing policy (venture-loop Phase J → config) | M4         | 85,86,87,88                | None |
-| ☐   | 91   | PRV-08 | Wave-level fresh-context discipline, documented + tested        | M4         | 10,12,56                   | None |
-| ☐   | 92   | PRV-09 | Optional inner-loop phase hint on TaskPacket (additive, hint-only) | M4      | 10,17,85                   | None |
-| ☐   | 93   | PRV-10 | M4 e2e: multi-provider routed delivery (M4 exit)                | M4         | 84,85,86,87,88,89,90,91,92 | None |
+| ✅  | 76   | EVO-03 | Memory curator with provenance                                  | M3         | 66                         | [P]  |
+| ✅  | 77   | EVO-04 | Capability evolution loop (bounded L1)                          | M3         | 75                         | None |
+| ✅  | 78   | EVO-05 | Multi-repository 10x saga                                       | M3         | 63                         | [P]  |
+| ✅  | 79   | EVO-06 | OpenAI + local-model providers                                  | M3         | 34                         | [P]  |
+| ✅  | 80   | EVO-07 | Figma API mockup ingestion                                      | M3         | 43                         | [P]  |
+| ✅  | 81   | EVO-08 | Portfolio scaling: multi-mission                                | M3         | 53                         | None |
+| ✅  | 82   | EVO-09 | Capacity-aware learning                                         | M3         | 74                         | [P]  |
+| ✅  | 83   | EVO-10 | BillingMaturity graduation → bounded A2 (C19)                   | M3         | 69                         | None |
+| ✅  | 84   | PRV-01 | Executor capability registry (non-hardcoded)                    | M4         | 10,22                      | None |
+| ✅  | 85   | PRV-02 | Kernel executor selection wired to policy (C4)                  | M4         | 10,12,17,22,84             | None |
+| ✅  | 86   | PRV-03 | OpenCode executor adapter                                       | M4         | 10,84,85                   | [P]  |
+| ✅  | 87   | PRV-04 | Gemini CLI executor adapter                                     | M4         | 10,84,85                   | [P]  |
+| ✅  | 88   | PRV-05 | Cursor + Copilot executor adapters (batched)                    | M4         | 10,84,85                   | [P]  |
+| ✅  | 89   | PRV-06 | Windsurf adapter + Kimi/Kilo capability stubs                   | M4         | 10,84,85                   | [P]  |
+| ✅  | 90   | PRV-07 | Task-class-aware routing policy (venture-loop Phase J → config) | M4         | 85,86,87,88                | None |
+| ✅  | 91   | PRV-08 | Wave-level fresh-context discipline, documented + tested        | M4         | 10,12,56                   | None |
+| ✅  | 92   | PRV-09 | Optional inner-loop phase hint on TaskPacket (additive, hint-only) | M4      | 10,17,85                   | None |
+| ✅  | 93   | PRV-10 | M4 e2e: multi-provider routed delivery (M4 exit)                | M4         | 84,85,86,87,88,89,90,91,92 | None |
 | ✅  | 94   | FND-13R | Liveness supervisor: live PG+Temporal wiring, foundryd loop     | M1R        | 32,12,14,30                | None |
 | ✅  | 95   | FND-14R1 | Control-plane middleware wired into internal/api               | M1R        | 33,36                      | None |
 | ✅   | 96   | FND-14R2 | Kernel-owned per-lane Temporal task-queue routing               | M1R        | 33,12                      | None |
@@ -1371,7 +1371,7 @@ flowchart LR
 - **Outputs:** `internal/memory/*`; migration `0016_memory.sql`; cascade + isolation tests.
 - **Acceptance:** isolation test green; deleting source evidence deletes derived memory + vectors.
 - **Validation:** `go test ./internal/memory/... -race`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added `internal/memory/*` (Memory with provenance evidence refs/profile scope/confidence/ttl; `Store` + in-mem/`PGStore`; optional `VectorIndex` behind interface; `Curator` evidence→candidate→dedupe/merge→store via `Proposer` LLM seam) + migration `00024_memory.sql` (FK `ON DELETE CASCADE` to evidence+vectors). Cross-profile read/write impossible; `DeleteDerivedFrom` cascades source-evidence deletion to memories + vectors. Green: `go test ./internal/memory/... -race`. decision: migration numbered 00024 (card's 0016 collides with existing 00016_revenue).
 
 ### Task 77 (EVO-04) — Capability evolution loop (bounded L1)
 
@@ -1381,7 +1381,7 @@ flowchart LR
 - **Outputs:** `internal/evolve/skills.go`; eval harness; both-path e2e.
 - **Acceptance:** condition-gate matrix green; org proposal-only proven.
 - **Validation:** `bash test/skill_evolution_e2e.sh`.
-- **Risk:** High · **Exec:** go-kernel+integration · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-kernel+integration · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added `internal/evolve/skills.go` (versioned `SkillRegistry` retaining previous + one-command `Rollback`; deterministic `GoldenSuite` eval harness; `CheckL1Conditions` gates: no new permission/data-class/budget + reversibility; `L1Pipeline` generate→eval→quarantine→shadow→canary→drift-budget→promote). Personal auto-promotes (version bump inside drift budget), org proposal-only (H). Both-path e2e `test/skill_evolution_e2e.sh` + `test/helpers/skillevolve` + condition-gate matrix green.
 
 ### Task 78 (EVO-05) [P] — Multi-repository 10x change-set saga
 
@@ -1391,7 +1391,7 @@ flowchart LR
 - **Outputs:** `internal/kernel/changeset.go`; saga e2e.
 - **Acceptance:** parallel children isolated; ordered integration respected; partial-failure receipt map exact.
 - **Validation:** `bash test/changeset_e2e.sh`.
-- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ☐ Not started
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Status:** ✅ 2026-07-28 — added `internal/kernel/changeset.go`: `FreezeContracts` (order-independent frozen interface digests), deterministic `topoOrder` (cycle/unknown-dep detection), and `RunChangeSet` — parallel-isolated per-repo attempts integrated in dependency order with all-or-honest-partial semantics (pushed branches recorded, never auto-reverted; any failure ⇒ `PROVEN_BLOCKED` + exact per-repo receipt map + human next_action; env-revision provenance recorded, reuses C15 `TEN_X_BRANCH_HANDOFF_READY` success code). e2e `test/changeset_e2e.sh` over 3 fixture repos incl. seeded failure + unit suite green.
 
 ### Task 79 (EVO-06) [P] — OpenAI + local-model providers
 
@@ -1401,7 +1401,7 @@ flowchart LR
 - **Outputs:** `internal/executor/{openai,local}/`; capability files; routing config; gated contract tests.
 - **Acceptance:** shared executor contract suite green per provider; classification policy respected (customer data never to providers without grant — test).
 - **Validation:** `go test ./internal/executor/... -race` (+ gated live).
-- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added `internal/executor/{openai,local}` (API-class) via shared `internal/executor/apiexec` (OpenAI-compatible `/chat/completions`, request/response evidence artifacts, per-call cost + `pricing_version`; local=zero). No implicit features — declared in `config/executor-capabilities.yaml` (openai/local rows, execution_class `api`). `apiexec.GuardDataClass` enforces customer-data-never-to-ungranted-providers (tested); model-per-task-class hook via `FOUNDRY_{OPENAI,LOCAL}_MODEL`. Shared `apicontracttest` suite + gated live tests; registered in foundryd. Green: `go test ./internal/executor/{openai,local,apiexec}/... -race`. Gap-fill: config-driven model-per-task-class wired END-TO-END — added `executor.TaskPacket.Class` (set by the kernel from `plan.Task.Class`), `config/executor-models.yaml` + `apiexec.ModelPolicy` (strict loader + pure `Resolve`), openai/local adapters load the policy and `Prepare` resolves the per-class model into the outbound request (proven by `TestModelPerTaskClassReachesRequest`); corrected `ModelEnv`/policy comments.
 
 ### Task 80 (EVO-07) [P] — Figma API mockup ingestion
 
@@ -1410,7 +1410,7 @@ flowchart LR
 - **Outputs:** `internal/spec/mockup/figma.go`; cassettes; label-strength tests updated.
 - **Acceptance:** same spec pipeline output shape; Figma-sourced Observed items carry node refs as Basis.
 - **Validation:** `go test ./internal/spec/mockup/ -run Figma`.
-- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added `internal/spec/mockup/figma.go`: Figma REST ingestion (node tree → components/instances/frames, prototype flow edges + flow starts, a11y labels) mapped into the same `Extraction` shape; structurally-present facts labeled `Observed` and carry the Figma node ref as `Basis` (additive `ExtractedItem.NodeRef`); `FigmaClient` with read-only `RESTFigmaClient` (X-Figma-Token from secrets) + `ReplayFigmaClient` cassette. Recorded cassette `data/figma/checkout_flow.json`; inference stages never emitted. Green: `go test ./internal/spec/mockup/ -run Figma`.
 
 ### Task 81 (EVO-08) — Portfolio scaling: multi-mission scheduler
 
@@ -1419,7 +1419,7 @@ flowchart LR
 - **Outputs:** `internal/mission/portfolio.go`; quota extension; tests (2-mission fixture, one starving attempt).
 - **Acceptance:** budget bleed between missions impossible (ledger proof); fairness bound holds.
 - **Validation:** `go test ./internal/mission/ -run Portfolio -race`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added `internal/mission/portfolio.go`: `Portfolio` supervising N `PortfolioMission`s with per-mission isolated budget envelopes (`Charge` touches only its own mission — bleed impossible), fair scheduler (`NextScheduled`/`Schedule`, spread ≤1 so no mission starves), `maximum_active_products` cap enforced fail-closed, portfolio decide proposals (kill of revenue-bearing ⇒ `RequiresHumanApproval`), dashboard `Panel` + `FormatPortfolioDigest`. 2-mission fixture incl. starving attempt + isolation + cap + kill-gate tests green: `go test ./internal/mission/ -run Portfolio -race`. Gap-fill: extended Task 65 quotas — `internal/deploy/quota.go` `ProfileQuota.MaxActiveMissions` + `Usage.Missions` enforced, `config/quotas.yaml` `max_active_missions`, `NewPortfolioFromQuota`; quota tests green.
 
 ### Task 82 (EVO-09) [P] — Capacity-aware learning integration
 
@@ -1429,7 +1429,7 @@ flowchart LR
 - **Outputs:** `internal/evolve/capacity.go`; load test.
 - **Acceptance:** delivery p95 unchanged (±5%) with learning lane saturated.
 - **Validation:** `make soak-learning`.
-- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ☐ Not started
+- **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Status:** ✅ 2026-07-28 — added `internal/evolve/capacity.go`: `LearningLane.Admit` gates eval/shadow work on worker + provider-budget headroom and sheds first on brownout; deterministic `RunSoak` delivery-vs-learning simulator (learning uses only leftover idle worker-ticks, preemptible, never displaces delivery). Load test proves delivery p95 unchanged (±5%) and delivery never starved with learning saturated; saturated delivery starves learning (acceptable). `make soak-learning` target + `test/soak/learning` harness green.
 
 ### Task 83 (EVO-10) — BillingMaturity graduation → bounded A2 billing (C19)
 
@@ -1439,7 +1439,7 @@ flowchart LR
 - **Outputs:** `internal/billing/maturity.go`; classifier v1.2 rules + goldens; revocation path test.
 - **Acceptance:** graduation impossible on fixture missing any criterion; money-semantic list provably H post-graduation; incident revokes.
 - **Validation:** `go test ./internal/billing/ -run Maturity && go test ./internal/admission/... -run Golden -count=5`.
-- **Risk:** **High** · **Exec:** go-kernel · **Rev:** **R4** (first graduation) · **Status:** ☐ Not started
+- **Risk:** **High** · **Exec:** go-kernel · **Rev:** **R4** (first graduation) · **Status:** ✅ 2026-07-28 — added `internal/billing/maturity.go`: `MaturityCriteria.Evaluate` over real ledger/incident evidence (3 cycles, 10 charges, 0 unresolved/chargebacks, refund-rate, test/idempotency/recovery proofs — B6 placeholder numbers flagged); `Graduate` fails closed on any missing criterion and requires R4 human signer; `RevokeOnIncident` returns to H + raises P1; classifier v1.2 `ClassifyBillingChange` — bounded non-destructive changes → A2 post-graduation, money-semantic list hard-pinned H unless mission pre-auth. Green: `go test ./internal/billing/ -run Maturity && go test ./internal/admission/... -run Golden -count=5`.
 
 ---
 
@@ -1497,7 +1497,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** unknown top-level YAML key rejects at load; stale-record seed fails fitness; `Eligible` returns deterministic order for identical input.
 - **Validation:** `go test ./internal/executor/capability/... -race && bash scripts/fitness.sh`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** no network calls (no live provider API discovery); no routing decision made here — pure data + pure query function only.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — added `internal/executor/capability/{doc,model,load,eligible}.go` (open-set Features, strict `KnownFields` loader rejecting unknown keys, pure `Eligible`), `config/executor-capabilities.yaml` (claude-code row), `fitlint capability` staleness subcommand wired into `scripts/fitness.sh` (rule j) + `fitness_selftest.sh`, stale seed under `test/fitness_seeds/capability/`; validated with `go test ./internal/executor/capability/...` and the staleness lint against real config (clean) + seed (fails by name).
 
 ### Task 85 (PRV-02) — Kernel-owned executor selection wired to policy (C4)
 
@@ -1510,7 +1510,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** 5/5 golden cases correct; evidence bundle records the executor name for every task; PEC-cannot-import-executor proven by fitness.
 - **Validation:** `go test ./internal/kernel/... -run ExecutorSelect -race && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** this is the C4-adjacent decision point — no LLM output, no PEC proposal, and no inner-loop phase hint (Task 92) may ever change which name gets selected; selection is 100% deterministic over policy + plan data.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — added `internal/kernel/executor_select.go` (`ExecutorSelector.Select` per card signature: explicit→routing→default, allowlist + capability-registry gates, `SelectionError` with distinguishable reason codes classified `policy-violation`), additive `plan.Task.Executor`/`Class`, wired into `ExecuteTask` (allowlist-gated; nil allowlist preserves legacy unchecked lookup), threaded `ExecutorUsed` onto `evidence.Manifest` (omitempty → non-breaking digest) and `PreClassification` through `ValidateTask`; extended `scripts/check_pec_boundary.sh` to forbid `internal/executor/capability`. 7-case golden corpus + determinism test green (`go test ./internal/kernel/... -run ExecutorSelect`); authority + pec-boundary fitness clean. decision: routing/Profile fields are additive Task-90 extension points, empty here. Gap-fill: wired `cmd/foundryd` to load the capability registry + routing table and set `Activities.ExecutorSelector`/`CapabilityRegistry` so selection is live in the daemon (was harness-only); `startplan --executor-allowlist` exercises the real DeliverPlan→ExecuteTask path.
 
 ### Task 86 (PRV-03) [P] — OpenCode executor adapter
 
@@ -1521,7 +1521,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** shared executor contract suite (Task 10) green; no secret leak; gated test green locally; registered under `"opencode"`.
 - **Validation:** `go test ./internal/executor/opencode/... -race` (+ `RUN_REAL_EXECUTOR=1 -run Integration`).
 - **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** identical to Task 17's Boundary — subscription/quota handling deferred, log only.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — `internal/executor/opencode/adapter.go` via shared `cliexec` helper (headless stdin, package-confined env allowlist), `contracttest.Run` shared suite green, gated integration test, `docs/notes/opencode-flags.md`, registry row. Validated `go test ./internal/executor/opencode/...`.
 
 ### Task 87 (PRV-04) [P] — Gemini CLI executor adapter
 
@@ -1532,7 +1532,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** shared contract suite green; no secret leak; registered under `"gemini-cli"`.
 - **Validation:** `go test ./internal/executor/geminicli/... -race` (+ gated integration).
 - **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** same as Task 17.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — `internal/executor/geminicli/adapter.go` (shared cliexec), contract suite green, gated integration, `docs/notes/gemini-cli-flags.md`, registry row under `gemini-cli`. Validated `go test ./internal/executor/geminicli/...`.
 
 ### Task 88 (PRV-05) [P] — Cursor + Copilot executor adapters (batched)
 
@@ -1543,7 +1543,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** shared contract suite green for both; no secret leak in either; registered under `"cursor"` / `"copilot"` independently.
 - **Validation:** `go test ./internal/executor/cursor/... ./internal/executor/copilot/... -race` (+ gated integration per adapter).
 - **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Boundary:** same as Task 17, per adapter.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — `internal/executor/{cursor,copilot}/adapter.go` (shared cliexec, own env-allowlists/flags), 2 contract suites + 2 gated integration tests green, `docs/notes/{cursor,copilot}-cli-flags.md`, 2 registry rows. Validated `go test ./internal/executor/cursor/... ./internal/executor/copilot/...`.
 
 ### Task 89 (PRV-06) [P] — Windsurf adapter + Kimi/Kilo capability stubs (explicitly deprioritized)
 
@@ -1555,7 +1555,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** Windsurf passes shared contract suite; requesting `kimi`/`kilo` via Task 85's selector fails closed with a named, distinguishable error (test asserts the exact error, not just non-nil).
 - **Validation:** `go test ./internal/executor/windsurf/... -race && go test ./internal/kernel/... -run ExecutorSelect_Unimplemented`.
 - **Risk:** Low · **Exec:** integration · **Rev:** R2 · **Boundary:** no Kimi/Kilo CLI code is written in this milestone — this is a deliberate scope fence, not an oversight.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — `internal/executor/windsurf/adapter.go` (shared cliexec) contract suite green; kimi/kilo `availability: unsupported` registry rows + `docs/notes/kimi-kilo-deferred.md`; selector fails closed with exact `unsupported-executor` error (`TestExecutorSelect_Unimplemented`). Validated `go test ./internal/executor/windsurf/... && go test ./internal/kernel/... -run ExecutorSelect_Unimplemented`.
 
 ### Task 90 (PRV-07) — Task-class-aware routing policy (turns venture-loop.md Phase J from prose into config)
 
@@ -1566,7 +1566,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** routing table respected when no explicit executor named; explicit-name path (Task 85) still overrides; unrouted/no-eligible-executor task class fails closed, never silently defaults.
 - **Validation:** `go test ./internal/kernel/... -run ExecutorSelect_Routing -race`.
 - **Risk:** Med · **Exec:** go-kernel · **Rev:** R2 · **Boundary:** table-driven only; no model calls it; PEC still never selects, only proposes a task-class label the kernel already trusts.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — added `config/executor-routing.yaml` (class→ordered preference), `internal/kernel/executor_routing.go` strict loader, and extended `ExecutorSelector` with class-aware routing: first preference that is both `Eligible` (Task 84) and allowlisted wins; explicit executor overrides; unclassed→default; classed-but-unroutable/no-eligible fails closed (`unrouted-class`/`no-eligible-executor`). Existing goldens untouched; `TestExecutorSelect_Routing` + loader test green (`go test ./internal/kernel/... -run ExecutorSelect_Routing`).
 
 ### Task 91 (PRV-08) — Wave-level fresh-context discipline, documented and tested
 
@@ -1578,7 +1578,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** leaky-fixture adapter fails the shared suite (proves the check bites, mirrors Task 18's seeded-violation pattern); all shipped adapters (claude-code, opencode, gemini-cli, cursor, copilot, windsurf) pass it; wave e2e shows zero cross-task leakage.
 - **Validation:** `go test ./internal/executor/... -run ContractLeak -race`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** this documents/tests an existing property, it does not change Task 10's Adapter interface or add session-resume plumbing (explicitly not building context-carry — the opposite).
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — added N7.5 fresh-context-per-invocation policy to `authority-model.md`; shared `contracttest.LeakCheck`/`leakViolation` (two concurrent instances, separate workspaces, race-detector, per-workspace content isolation) + `leak_test.go` proving the check bites on a planted leaky fixture and passes clean; `TestContractLeak` added to all six shipped adapters. Green: `go test ./internal/executor/... -run ContractLeak -race`. Gap-fill: added `internal/kernel/wave_isolation_test.go` (`TestWaveIsolation`) — two PEC-waved tasks run concurrently through the real `ExecuteTask`; each workspace/evidence bundle carries only its own goal (no cross-task leak).
 
 ### Task 92 (PRV-09) — Optional inner-loop phase hint on `TaskPacket` (additive, non-authoritative)
 
@@ -1591,7 +1591,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** empty `PhaseHint` byte-identical to pre-existing prompt (no behavior change when absent); lying "ship"-phase Summary still ends FAILED under Task 13's Runner (proves no authority leak); grep-based boundary test green.
 - **Validation:** `go test ./internal/executor/claudecode/... -run PhaseHint -race && go test ./internal/kernel/... -run PhaseHintNeverRead`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** hard non-negotiable — `PhaseHint` is a label, never a capability grant, permission, or completion signal; C4 (kernel owns sequencing/side effects) and C10 (evidence-based completion) are never satisfied or bypassed by this field under any value.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — added optional `executor.TaskPacket.PhaseHint`; claudecode `renderPrompt` appends a labeled, non-authoritative phase section only when set (empty = byte-identical prefix, proven); kernel populates it via pure `phaseHintFor` (execution=I) and never reads it back — `TestPhaseHintNeverRead` asserts no decision path (ExecutorSelector/routing/activities/admission) references it; lying "ship"-hint Summary still errors identically. Green: `go test ./internal/executor/claudecode/... -run PhaseHint -race && go test ./internal/kernel/... -run PhaseHintNeverRead`.
 
 ### Task 93 (PRV-10) — M4 e2e: multi-provider routed delivery + capability/registry drift proof (M4 exit)
 
@@ -1602,7 +1602,7 @@ logic reads) should wait until the M3/M4 sequencing relationship is confirmed, r
 - **Acceptance:** all 3 explicit-executor tasks succeed via their real (or gated-stub) adapters; routed-default task resolves per Task 90's table; denied-executor task fails closed with the exact classification from Task 85; `make fitness` zero violations.
 - **Validation:** `bash test/m4_e2e.sh && bash scripts/fitness.sh`.
 - **Risk:** Med · **Exec:** go-kernel+integration · **Rev:** R3 (milestone exit, mirrors Tasks 19/39/53/63/73's own R3/R4 exit bar) · **Boundary:** none beyond the milestone's own standing non-goals above.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-07-28 — added `test/m4_e2e.sh` + `test/helpers/m4harness` driving the REAL kernel `ExecutorSelector`, capability registry, and routing table (no Temporal): 3 explicit-executor tasks (claude-code/opencode/gemini-cli) each record `ExecutorUsed`; routed `backend` class resolves to opencode; denied windsurf fails closed `policy-violation`; PhaseHint present/absent proven; staleness lint clean. Evidence archived to `evidence/m4-exit/`. Green: `bash test/m4_e2e.sh`.
 
 ---
 
