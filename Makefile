@@ -96,7 +96,7 @@ e2e-github:
 	$(RUN) bash test/e2e_github.sh
 
 e2e-venture:
-	@echo "not yet: e2e-venture" && exit 1
+	$(RUN) bash test/e2e/venture/run.sh
 
 e2e-tenx:
 	@echo "not yet: e2e-tenx" && exit 1

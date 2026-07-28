@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|product>")
+		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|product|promotions>")
 		os.Exit(1)
 	}
 
@@ -276,6 +276,15 @@ func main() {
 			os.Exit(1)
 		}
 		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "promotions":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry promotions <unfreeze>")
+			os.Exit(1)
+		}
+		if err := runPromotions(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

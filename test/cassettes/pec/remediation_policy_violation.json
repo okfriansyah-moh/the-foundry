@@ -1,0 +1,13 @@
+{
+  "description": "Cassette: policy violation — PEC suggests allowlist update",
+  "failed_task": {"plan_id": "plan-2", "task_id": "t2"},
+  "records": [
+    {"cmd": "curl https://example.com", "exit_code": 1, "policy_violation": true, "duration_ms": 10}
+  ],
+  "summaries": [],
+  "expected_remediation": {
+    "suggestion": "review failed commands and re-run validation; if a policy violation, update the validation allowlist",
+    "confidence_min": 0.5,
+    "evidence_contains": ["policy violation in: curl https://example.com"]
+  }
+}

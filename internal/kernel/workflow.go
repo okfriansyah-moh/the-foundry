@@ -8,6 +8,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/pec"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
 	"github.com/okfriansyah-moh/the-foundry/internal/recovery"
 	"github.com/okfriansyah-moh/the-foundry/internal/state"
@@ -146,6 +147,13 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 
 	results := make([]TaskResult, 0, len(loaded.Tasks))
 	classification := ""
+
+	// Task 56 (TX-03): optionally consult PEC for wave ordering.
+	// The kernel validates the proposal against its own dependency check
+	// before use; a malformed or untrustworthy proposal is silently ignored
+	// and the sequential fallback is used (distrust principle).
+	tasks := pecOrderedTasks(loaded.Tasks)
+
 	// checkpoint tracks how far this workflow has durably progressed —
 	// the last task to fully complete plus every evidence bundle recorded
 	// up to and including it (docs/PLAN.md Task 16 Step 1) — so the
@@ -154,7 +162,7 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 	checkpoint := recovery.Checkpoint{}
 
 taskLoop:
-	for _, task := range loaded.Tasks {
+	for _, task := range tasks {
 		if ctx.Err() != nil {
 			classification = "cancelled"
 			break taskLoop
@@ -403,4 +411,46 @@ func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workf
 	}).Get(actCtx, nil); err != nil {
 		workflow.GetLogger(ctx).Error("kernel: append transition failed", "error", err, "to", to)
 	}
+}
+
+// pecOrderedTasks optionally consults PEC for wave-ordered task execution.
+// The kernel is the final authority: if PEC's proposal is malformed (unknown
+// task IDs or a cycle), the sequential fallback is used. This satisfies
+// Task 56's distrust requirement: "malformed proposal ignored, kernel falls
+// back to sequential" (docs/PLAN.md Task 56 / TX-03 Steps).
+func pecOrderedTasks(tasks []plan.Task) []plan.Task {
+	if len(tasks) == 0 {
+		return tasks
+	}
+	doc := plan.Document{Tasks: tasks}
+	proposal, err := pec.ProposeWaves(doc)
+	if err != nil {
+		// Cycle or unknown task: distrust, fall back to sequential.
+		return tasks
+	}
+	if err := pec.ValidateWaveProposal(proposal, doc); err != nil {
+		// Malformed proposal: distrust, fall back to sequential.
+		return tasks
+	}
+	// Flatten waves into sequential task list (waves[0] first, then waves[1], etc.).
+	// Within each wave, tasks are sorted by ID (PEC's deterministic tie-break).
+	// Current DeliverPlan runs tasks sequentially so flattening is correct;
+	// true concurrent wave dispatch is a future enhancement.
+	ordered := make([]plan.Task, 0, len(tasks))
+	taskByID := make(map[string]plan.Task, len(tasks))
+	for _, t := range tasks {
+		taskByID[t.ID] = t
+	}
+	for _, wave := range proposal.Waves {
+		for _, id := range wave {
+			if t, ok := taskByID[id]; ok {
+				ordered = append(ordered, t)
+			}
+		}
+	}
+	if len(ordered) != len(tasks) {
+		// Proposal didn't cover all tasks: distrust, fall back to sequential.
+		return tasks
+	}
+	return ordered
 }

@@ -1,0 +1,15 @@
+{
+  "description": "Cassette: copy tweak improvement (A0/A1 in-envelope auto-admit)",
+  "plan": {
+    "id": "improve-mission1-copy-tweak",
+    "title": "Improvement: update landing page copy for clarity",
+    "tasks": [
+      {
+        "id": "t1",
+        "goal": "Update landing page headline copy for clarity and conversion",
+        "files": ["products/product1/frontend/src/routes/**"],
+        "commands": ["make test"]
+      }
+    ]
+  }
+}

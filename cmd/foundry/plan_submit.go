@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,19 +13,33 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
 )
 
+// sha256sumHex returns the SHA-256 hex digest of content.
+func sha256sumHex(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
+}
+
 // runPlanSubmit implements `foundry plan submit <file>`: parses and
 // validates the plan file and prints the PlanSubmission artifact
 // (docs/PLAN.md Task 8 Step 1). It performs no admission decision and no
 // persistence — those happen at `plan approve`.
+//
+// For org-profile submissions (Task 55 / TX-02), the --org flag enables
+// --repo and --rev flags that auto-compute source_digests for org provenance
+// validation. The computed OrgPlanSource is embedded in the submission output.
 func runPlanSubmit(args []string) error {
 	fs := flag.NewFlagSet("plan submit", flag.ContinueOnError)
 	submitter := fs.String("submitter", os.Getenv("FOUNDRY_PRINCIPAL"), "submitting principal")
 	apiAddr := fs.String("api-addr", os.Getenv("FOUNDRY_API_ADDR"), "foundryd API base URL; when set, the plan is submitted over the API instead of parsed locally")
+	// Task 55 (TX-02): org provenance flags.
+	orgMode := fs.Bool("org", false, "org-profile submission: enable source-digest computation")
+	orgRepo := fs.String("repo", "", "org: source repository URL")
+	orgRev := fs.String("rev", "", "org: source revision (git SHA)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return fmt.Errorf("plan submit: usage: foundry plan submit <file>")
+		return fmt.Errorf("plan submit: usage: foundry plan submit [--org --repo <url> --rev <sha>] <file>")
 	}
 	path := fs.Arg(0)
 
@@ -32,14 +48,7 @@ func runPlanSubmit(args []string) error {
 		return fmt.Errorf("plan submit: read %s: %w", path, err)
 	}
 
-	// docs/PLAN.md Task 36 dogfood: --api-addr (or $FOUNDRY_API_ADDR)
-	// routes this command over foundryd's HTTP API (POST /v1/plans)
-	// instead of parsing the plan locally. Opt-in and additive — every
-	// existing direct caller (test/skp_e2e.sh, test/skp_resume_test.sh,
-	// test/provenance_e2e.sh, none of which set --api-addr) keeps its
-	// current behavior unchanged. Submitter there is always the API's
-	// session principal, not this --submitter flag — see
-	// internal/api.handleSubmitPlan's own doc comment.
+	// docs/PLAN.md Task 36 dogfood: --api-addr routes over foundryd HTTP API.
 	if *apiAddr != "" {
 		return runPlanSubmitViaAPI(*apiAddr, raw)
 	}
@@ -55,7 +64,39 @@ func runPlanSubmit(args []string) error {
 		At:        time.Now().UTC(),
 	}
 
+	// Task 55: org-mode source digest computation.
+	if *orgMode {
+		if *orgRepo == "" || *orgRev == "" {
+			return fmt.Errorf("plan submit --org: --repo and --rev are required")
+		}
+		srcDigest, err := computeOrgSourceDigests(path, raw, *orgRepo, *orgRev)
+		if err != nil {
+			return fmt.Errorf("plan submit --org: compute source digests: %w", err)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(struct {
+			Submission provenance.PlanSubmission `json:"submission"`
+			OrgSource  provenance.OrgPlanSource  `json:"org_source"`
+		}{submission, srcDigest})
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(submission)
+}
+
+// computeOrgSourceDigests computes the OrgPlanSource for an org-mode submission.
+// It produces a single SourceRef for the plan file itself (the source whose
+// digest the validator will verify). Additional source files can be added by
+// future org-workflow tooling.
+func computeOrgSourceDigests(planPath string, content []byte, repo, rev string) (provenance.OrgPlanSource, error) {
+	sum := sha256sumHex(content)
+	return provenance.OrgPlanSource{
+		Repo:     repo,
+		Revision: rev,
+		SourceDigests: []provenance.SourceRef{
+			{Path: planPath, Digest: sum},
+		},
+	}, nil
 }
