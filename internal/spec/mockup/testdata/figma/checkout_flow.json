@@ -1,0 +1,50 @@
+{
+  "name": "Checkout Flow",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "1:2",
+        "name": "Login Screen",
+        "type": "FRAME",
+        "transitionNodeID": "1:5",
+        "children": [
+          {
+            "id": "1:3",
+            "name": "Email Field",
+            "type": "COMPONENT",
+            "a11yLabel": "Email address input"
+          },
+          {
+            "id": "1:4",
+            "name": "Sign In Button",
+            "type": "INSTANCE",
+            "transitionNodeID": "1:5"
+          }
+        ]
+      },
+      {
+        "id": "1:5",
+        "name": "Payment Screen",
+        "type": "FRAME",
+        "children": [
+          {
+            "id": "1:6",
+            "name": "Card Number Field",
+            "type": "COMPONENT",
+            "a11yLabel": "Credit card number"
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "1:3": { "key": "comp-email", "name": "Email Field" },
+    "1:6": { "key": "comp-card", "name": "Card Number Field" }
+  },
+  "flowStartingPoints": [
+    { "nodeId": "1:2", "name": "Login Entry" }
+  ]
+}

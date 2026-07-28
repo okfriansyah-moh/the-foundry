@@ -11,7 +11,7 @@ import (
 
 func loadFixture(t *testing.T) FigmaFile {
 	t.Helper()
-	c, err := LoadFigmaCassette(filepath.Join("data", "figma", "checkout_flow.json"))
+	c, err := LoadFigmaCassette(filepath.Join("testdata", "figma", "checkout_flow.json"))
 	if err != nil {
 		t.Fatalf("LoadFigmaCassette: %v", err)
 	}

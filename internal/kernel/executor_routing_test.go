@@ -136,6 +136,16 @@ func TestLoadRoutingTable(t *testing.T) {
 		t.Fatal("shipped routing table missing 'frontend' class")
 	}
 
+	// Absent file must yield an empty (inactive) table, not an error.
+	absent := filepath.Join(t.TempDir(), "no-such.yaml")
+	rtEmpty, err := LoadRoutingTable(absent)
+	if err != nil {
+		t.Fatalf("absent routing table must be non-fatal, got: %v", err)
+	}
+	if len(rtEmpty) != 0 {
+		t.Fatal("absent routing table must yield empty table")
+	}
+
 	bad := filepath.Join(t.TempDir(), "bad.yaml")
 	if err := os.WriteFile(bad, []byte("routes:\n  frontend: [cursor]\nbogus: true\n"), 0o600); err != nil {
 		t.Fatal(err)

@@ -20,7 +20,9 @@ func main() {
 		}
 	}
 	base := evolve.SoakConfig{
-		Workers: 8, Ticks: 1050, DeliveryArrivals: arrivals, DeliveryDuration: 4,
+		// Ticks = arrivals_len + DeliveryDuration drain window so all in-flight
+		// tasks finish within the simulation (Copilot review finding).
+		Workers: 8, Ticks: 1010, DeliveryArrivals: arrivals, DeliveryDuration: 4,
 		Lane: evolve.LearningLane{HeadroomThreshold: 0.2}, BudgetHeadroom: 1.0,
 	}
 	deliveryOnly := evolve.RunSoak(base)

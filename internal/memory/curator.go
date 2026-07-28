@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -95,6 +96,9 @@ func (c *Curator) Curate(ctx context.Context, profile string, evidence []Evidenc
 		}
 		out = append(out, m)
 	}
+	// Sort by ID so the return is deterministic regardless of the Proposer's
+	// output order (a real LLM Proposer may return candidates non-deterministically).
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
 }
 

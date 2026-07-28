@@ -77,12 +77,16 @@ func RunSoak(cfg SoakConfig) SoakResult {
 	var queue []int // arrival ticks of waiting delivery tasks (FIFO)
 	var latencies []int
 	learningAdmitted := 0
+	completions := 0 // counts tasks that actually finish within the simulation
 
 	for tick := 0; tick < cfg.Ticks; tick++ {
-		// 1) Free workers whose delivery finished; clear last tick's learning.
+		// 1) Free workers whose delivery FINISHED this tick; count completions
+		// only at actual finish — not at assignment — so in-flight tasks
+		// (deliveryUntil > last tick) are never over-counted.
 		for i := range workers {
 			if workers[i].deliveryUntil != 0 && workers[i].deliveryUntil <= tick {
 				workers[i].deliveryUntil = 0
+				completions++
 			}
 			workers[i].learning = false
 		}
@@ -132,7 +136,7 @@ func RunSoak(cfg SoakConfig) SoakResult {
 
 	return SoakResult{
 		DeliveryP95:       p95(latencies),
-		DeliveryCompleted: len(latencies),
+		DeliveryCompleted: completions,
 		LearningAdmitted:  learningAdmitted,
 	}
 }

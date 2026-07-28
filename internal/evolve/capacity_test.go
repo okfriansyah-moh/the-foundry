@@ -39,7 +39,10 @@ func TestSoak_DeliveryUnaffectedByLearning(t *testing.T) {
 		}
 	}
 	base := SoakConfig{
-		Workers: 4, Ticks: 220, DeliveryArrivals: arrivals, DeliveryDuration: 3,
+		// Extra ticks beyond arrivals to let all in-flight deliveries finish —
+		// ensures DeliveryCompleted counts only genuinely-finished tasks
+		// (Copilot review finding).
+		Workers: 4, Ticks: 230, DeliveryArrivals: arrivals, DeliveryDuration: 3,
 		Lane: LearningLane{HeadroomThreshold: 0.2}, BudgetHeadroom: 1.0,
 	}
 	deliveryOnly := RunSoak(base)
