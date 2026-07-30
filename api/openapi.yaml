@@ -86,6 +86,117 @@ paths:
           description: Plan not found.
         "409":
           description: Could not record approval.
+  /plans/{id}/deliver:
+    post:
+      operationId: deliverPlan
+      summary: Start a DeliverPlan execution for an approved plan (mirrors `foundry plan run`)
+      description: >
+        The single production edge from an ApprovedPlan to a running
+        DeliverPlan execution (docs/PLAN.md Task 105 / RTC-01). Transport
+        only: the kernel resolves the lane, the executor allowlist and the
+        deterministic, idempotent workflow ID (Constitution C4). Starting the
+        same plan twice collapses to one execution and returns 409.
+      parameters:
+        - $ref: "#/components/parameters/PlanID"
+        - name: lane
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional queue-priority lane; the kernel resolves its task queue.
+      responses:
+        "202":
+          description: Delivery started; workflow id and resolved lane returned.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: PDP denied.
+        "409":
+          description: A delivery for this plan already exists.
+        "422":
+          description: Plan revoked/expired, or the lane/executor allowlist is invalid.
+        "500":
+          description: Could not reach the workflow service or start the delivery.
+  /missions:
+    get:
+      operationId: listMissions
+      summary: List missions with their latest loop state (mirrors `foundry mission list`)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: profile
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Missions with latest state.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: PDP denied.
+        "500":
+          description: Could not list missions.
+  /missions/{id}:
+    get:
+      operationId: missionStatus
+      summary: Read one mission's status and latest loop state (mirrors `foundry mission status`)
+      parameters:
+        - $ref: "#/components/parameters/MissionID"
+      responses:
+        "200":
+          description: Mission and its latest state.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: PDP denied.
+        "404":
+          description: Mission not found.
+  /missions/{id}/start:
+    post:
+      operationId: startMission
+      summary: Start a mission's MissionLoop (mirrors `foundry mission start`)
+      parameters:
+        - $ref: "#/components/parameters/MissionID"
+        - name: lane
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Mission loop started.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: PDP denied.
+        "404":
+          description: Mission not found.
+        "409":
+          description: Could not start the mission loop.
+        "422":
+          description: Invalid lane.
+  /missions/{id}/resume:
+    post:
+      operationId: resumeMission
+      summary: Resume a WAITING mission (mirrors `foundry mission resume`)
+      parameters:
+        - $ref: "#/components/parameters/MissionID"
+      responses:
+        "202":
+          description: Mission resume signal sent.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: PDP denied.
+        "404":
+          description: Mission not found.
+        "409":
+          description: Mission is not WAITING — nothing to resume.
   /webauthn/register/begin:
     post:
       operationId: webauthnRegisterBegin
@@ -260,6 +371,13 @@ components:
       name: id
       in: path
       required: true
+      schema:
+        type: string
+    MissionID:
+      name: id
+      in: path
+      required: true
+      description: Mission id (distinct from a plan id).
       schema:
         type: string
     EvidenceID:

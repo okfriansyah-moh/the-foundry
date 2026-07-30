@@ -16,6 +16,8 @@ version: "1"
 tasks:
   - id: t1
     goal: do a thing
+    validation_commands:
+      - echo ok
 ---
 ## Notes
 a test plan

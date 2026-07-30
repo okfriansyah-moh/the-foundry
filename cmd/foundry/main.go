@@ -46,7 +46,7 @@ func main() {
 		}
 	case "plan":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry plan <submit|approve|verify|revoke> ...")
+			fmt.Fprintln(os.Stderr, "usage: foundry plan <submit|approve|verify|revoke|run> ...")
 			os.Exit(1)
 		}
 		var err error
@@ -59,6 +59,8 @@ func main() {
 			err = runPlanVerify(os.Args[3:])
 		case "revoke":
 			err = runPlanRevoke(os.Args[3:])
+		case "run":
+			err = runPlanRun(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown plan subcommand: %s\n", os.Args[2])
 			os.Exit(1)
@@ -239,7 +241,7 @@ func main() {
 		}
 	case "mission":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry mission <create|show|pause|kill|ceremony>")
+			fmt.Fprintln(os.Stderr, "usage: foundry mission <create|show|start|resume|list|status|pause|kill|ceremony>")
 			os.Exit(1)
 		}
 		var err error
@@ -248,6 +250,14 @@ func main() {
 			err = runMissionCreate(os.Args[3:])
 		case "show":
 			err = runMissionShow(os.Args[3:])
+		case "start":
+			err = runMissionStart(os.Args[3:])
+		case "resume":
+			err = runMissionResume(os.Args[3:])
+		case "list":
+			err = runMissionList(os.Args[3:])
+		case "status":
+			err = runMissionStatus(os.Args[3:])
 		case "pause":
 			err = runMissionPause(os.Args[3:])
 		case "kill":
@@ -285,6 +295,27 @@ func main() {
 			os.Exit(1)
 		}
 		if err := runPromotions(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "opportunity":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry opportunity <list|show|report>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "list":
+			err = runOpportunityList(os.Args[3:])
+		case "show":
+			err = runOpportunityShow(os.Args[3:])
+		case "report":
+			err = runOpportunityReport(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown opportunity subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

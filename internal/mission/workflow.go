@@ -4,12 +4,18 @@ import (
 	"fmt"
 	"time"
 
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/state"
 )
+
+// defaultIterationsBeforeContinueAsNew bounds MissionLoop's Temporal history
+// growth: after this many loop iterations the workflow continues-as-new
+// carrying its loop state (docs/PLAN.md Task 106).
+const defaultIterationsBeforeContinueAsNew = 1000
 
 // Activity names, registered by cmd/foundryd/main.go and referenced here by
 // name so workflow.go never imports the Activities struct itself (mirrors
@@ -83,6 +89,20 @@ type HumanGateRequest struct {
 type MissionLoopInput struct {
 	MissionID string
 	Contract  Contract
+	// DeliveryTaskQueue is the explicit lane task queue child DeliverPlan
+	// executions run on (docs/PLAN.md Task 106). Empty inherits the parent's
+	// task queue.
+	DeliveryTaskQueue string
+	// The Carried* fields preserve loop state across ContinueAsNew so a
+	// months-long mission runs with bounded Temporal history without losing
+	// deliverySeq (child workflow IDs stay unique/deterministic) or the
+	// evaluator's progress (docs/PLAN.md Task 106).
+	CarriedDeliverySeq int
+	CarriedEvalState   EvalState
+	CarriedIteration   int
+	// MaxIterationsBeforeContinue bounds history growth by continuing-as-new
+	// after this many observe/evaluate cycles. 0 uses the package default.
+	MaxIterationsBeforeContinue int
 }
 
 // MissionLoopResult is MissionLoop's terminal workflow result.
@@ -168,45 +188,82 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 	pauseCh := workflow.GetSignalChannel(ctx, SignalManualPause)
 	humanGateCh := workflow.GetSignalChannel(ctx, SignalEnterHumanGate)
 
-	evalState := EvalState{}
-	deliverySeq := 0
+	evalState := in.CarriedEvalState
+	deliverySeq := in.CarriedDeliverySeq
+	iteration := in.CarriedIteration
+	maxIterations := in.MaxIterationsBeforeContinue
+	if maxIterations <= 0 {
+		maxIterations = defaultIterationsBeforeContinueAsNew
+	}
 
 	for {
-		timerCtx, cancelTimer := workflow.WithCancel(ctx)
-		timer := workflow.NewTimer(timerCtx, interval)
-		sel := workflow.NewSelector(ctx)
-
 		var killReq KillRequest
 		killed := false
-		sel.AddReceive(killCh, func(c workflow.ReceiveChannel, _ bool) {
-			c.Receive(ctx, &killReq)
-			killed = true
-		})
-
 		var deliverIn kernel.DeliverPlanInput
 		triggered := false
-		sel.AddReceive(deliverCh, func(c workflow.ReceiveChannel, _ bool) {
-			c.Receive(ctx, &deliverIn)
-			triggered = true
-		})
-
 		var pauseReq PauseRequest
 		pauseRequested := false
-		sel.AddReceive(pauseCh, func(c workflow.ReceiveChannel, _ bool) {
-			c.Receive(ctx, &pauseReq)
-			pauseRequested = true
-		})
 		var humanGateReq HumanGateRequest
 		humanGateRequested := false
-		sel.AddReceive(humanGateCh, func(c workflow.ReceiveChannel, _ bool) {
-			c.Receive(ctx, &humanGateReq)
-			humanGateRequested = true
-		})
 
-		sel.AddFuture(timer, func(workflow.Future) {})
+		// Bounded history: after a configurable number of observe/evaluate
+		// cycles, continue-as-new carrying loop state so a months-long
+		// mission never exhausts Temporal history (docs/PLAN.md Task 106).
+		// deliverySeq is preserved so child workflow IDs stay unique.
+		if iteration >= maxIterations {
+			// Signals buffered on this run are NOT carried across
+			// ContinueAsNew (Temporal drops them), so drain any pending signal
+			// and handle it this iteration rather than losing it — an operator
+			// `foundry mission kill` must never be dropped at the CAN boundary.
+			switch {
+			case killCh.ReceiveAsync(&killReq):
+				killed = true
+			case deliverCh.ReceiveAsync(&deliverIn):
+				triggered = true
+			case pauseCh.ReceiveAsync(&pauseReq):
+				pauseRequested = true
+			case humanGateCh.ReceiveAsync(&humanGateReq):
+				humanGateRequested = true
+			default:
+				return MissionLoopResult{}, workflow.NewContinueAsNewError(ctx, MissionLoop, MissionLoopInput{
+					MissionID:                   in.MissionID,
+					Contract:                    in.Contract,
+					DeliveryTaskQueue:           in.DeliveryTaskQueue,
+					CarriedDeliverySeq:          deliverySeq,
+					CarriedEvalState:            evalState,
+					CarriedIteration:            0,
+					MaxIterationsBeforeContinue: in.MaxIterationsBeforeContinue,
+				})
+			}
+			// A drained signal falls through to the shared handling below.
+		} else {
+			iteration++
 
-		sel.Select(ctx)
-		cancelTimer()
+			timerCtx, cancelTimer := workflow.WithCancel(ctx)
+			timer := workflow.NewTimer(timerCtx, interval)
+			sel := workflow.NewSelector(ctx)
+
+			sel.AddReceive(killCh, func(c workflow.ReceiveChannel, _ bool) {
+				c.Receive(ctx, &killReq)
+				killed = true
+			})
+			sel.AddReceive(deliverCh, func(c workflow.ReceiveChannel, _ bool) {
+				c.Receive(ctx, &deliverIn)
+				triggered = true
+			})
+			sel.AddReceive(pauseCh, func(c workflow.ReceiveChannel, _ bool) {
+				c.Receive(ctx, &pauseReq)
+				pauseRequested = true
+			})
+			sel.AddReceive(humanGateCh, func(c workflow.ReceiveChannel, _ bool) {
+				c.Receive(ctx, &humanGateReq)
+				humanGateRequested = true
+			})
+			sel.AddFuture(timer, func(workflow.Future) {})
+
+			sel.Select(ctx)
+			cancelTimer()
+		}
 
 		if killed {
 			return finishKilled(ctx, noRetryOpts, workflowID, state.StatusRunning, killReq, evalState), nil
@@ -230,17 +287,59 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 		}
 
 		if triggered {
+			// (4) Validate the trigger payload before it reaches DeliverPlan —
+			// an empty/malformed DeliverPlanInput is refused with a recorded
+			// reason, never forwarded (docs/PLAN.md Task 106).
+			if err := validateDeliverInput(deliverIn); err != nil {
+				workflow.GetLogger(ctx).Warn("mission: refusing malformed delivery trigger", "error", err.Error())
+				appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusRunning, state.ReasonHumanCommand, "")
+				continue
+			}
+
 			deliverySeq++
-			childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
-				WorkflowID: fmt.Sprintf("%s-delivery-%d", workflowID, deliverySeq),
-			})
+			childOpts := workflow.ChildWorkflowOptions{
+				WorkflowID:        fmt.Sprintf("%s-delivery-%d", workflowID, deliverySeq),
+				ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
+			}
+			if in.DeliveryTaskQueue != "" {
+				childOpts.TaskQueue = in.DeliveryTaskQueue
+			}
+			childCtx, cancelChild := workflow.WithCancel(workflow.WithChildOptions(ctx, childOpts))
+			childFut := workflow.ExecuteChildWorkflow(childCtx, kernel.DeliverPlan, deliverIn)
+
+			// (3) Kill during delivery: select over the child future AND
+			// killCh, so `foundry mission kill` cancels the in-flight
+			// DeliverPlan through the child's cancellation scope rather than
+			// being ignored until the child finishes.
+			childSel := workflow.NewSelector(ctx)
 			var childResult kernel.DeliverPlanResult
-			// MissionLoop orchestrates the call only -- DeliverPlan's own
-			// sequencing/retries/side effects are unchanged and untouched
-			// here (Constitution C4). Its outcome feeds into the mission's
-			// progress only via the next ledger observation, never
-			// decided by this loop directly.
-			_ = workflow.ExecuteChildWorkflow(childCtx, kernel.DeliverPlan, deliverIn).Get(childCtx, &childResult)
+			var childErr error
+			childDone := false
+			childSel.AddFuture(childFut, func(f workflow.Future) {
+				childErr = f.Get(childCtx, &childResult)
+				childDone = true
+			})
+			var deliverKillReq KillRequest
+			killedDuringDelivery := false
+			childSel.AddReceive(killCh, func(c workflow.ReceiveChannel, _ bool) {
+				c.Receive(ctx, &deliverKillReq)
+				killedDuringDelivery = true
+			})
+			childSel.Select(ctx)
+
+			if killedDuringDelivery {
+				cancelChild()
+				return finishKilled(ctx, noRetryOpts, workflowID, state.StatusRunning, deliverKillReq, evalState), nil
+			}
+			cancelChild()
+
+			// (2) Record the real child outcome rather than swallowing it: a
+			// failed delivery is distinguishable from a successful one and
+			// feeds the next evaluator cycle through recorded mission state.
+			recordDeliveryOutcome(ctx, retryOpts, in.MissionID, deliverySeq, childResult, childErr)
+			if childDone && (childErr != nil || childResultFailed(childResult)) {
+				appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusRunning, state.ReasonBlockedDependency, "")
+			}
 			continue
 		}
 
@@ -418,4 +517,40 @@ type gateEventInput struct {
 type resolveGateInput struct {
 	GateEventID string
 	Resolution  string
+}
+
+// validateDeliverInput rejects an empty or malformed DeliverPlanInput before
+// it reaches DeliverPlan (docs/PLAN.md Task 106): a mission never forwards a
+// trigger payload it cannot vouch for.
+func validateDeliverInput(in kernel.DeliverPlanInput) error {
+	if in.PlanID == "" {
+		return fmt.Errorf("mission: delivery trigger has empty plan id")
+	}
+	if in.PlanFilePath == "" {
+		return fmt.Errorf("mission: delivery trigger has empty plan file path")
+	}
+	if in.RepoPath == "" {
+		return fmt.Errorf("mission: delivery trigger has empty repo path")
+	}
+	return nil
+}
+
+// childResultFailed reports whether a child DeliverPlan terminated FAILED.
+func childResultFailed(r kernel.DeliverPlanResult) bool {
+	return r.Status == string(state.StatusFailed)
+}
+
+// recordDeliveryOutcome records a child delivery's real outcome so a failed
+// delivery is never silently swallowed (docs/PLAN.md Task 106). It logs
+// deterministically; the caller also appends a mission transition on failure.
+func recordDeliveryOutcome(ctx workflow.Context, _ workflow.ActivityOptions, missionID string, seq int, r kernel.DeliverPlanResult, childErr error) {
+	logger := workflow.GetLogger(ctx)
+	switch {
+	case childErr != nil:
+		logger.Warn("mission: child delivery errored", "mission_id", missionID, "delivery_seq", seq, "error", childErr.Error())
+	case childResultFailed(r):
+		logger.Warn("mission: child delivery FAILED", "mission_id", missionID, "delivery_seq", seq, "result_code", r.ResultCode)
+	default:
+		logger.Info("mission: child delivery completed", "mission_id", missionID, "delivery_seq", seq, "status", r.Status)
+	}
 }

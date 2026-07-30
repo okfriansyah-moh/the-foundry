@@ -1,0 +1,56 @@
+# docs/PLAN.md Task 101 (OPP-02): source-domain policy, per-cycle caps and the
+# injection-marker corpus for untrusted opportunity research intake.
+#
+# Research runs through the LLM provider's own server-side web_search/web_fetch
+# tools (transport decision B11): the provider performs the fetch, max_uses is
+# a hard per-request search cap, allowed_domains/blocked_domains is the source
+# policy, and citations supply the SourceRef. Nothing here relaxes containment;
+# it only bounds it.
+version: "opp-research-v1"
+
+source_policy:
+  # Only these domains may be searched/fetched. An empty allow-list means no
+  # domain is permitted (fail-closed) — a live cycle must name its sources.
+  allowed_domains:
+    - news.ycombinator.com
+    - reddit.com
+    - producthunt.com
+    - g2.com
+    - capterra.com
+    - statista.com
+    - census.gov
+    - crunchbase.com
+  blocked_domains:
+    - pastebin.com
+    - raw.githubusercontent.com
+
+per_cycle:
+  # max_searches is passed to the provider as web_search max_uses, so the cap
+  # is enforced by the provider as well as by our own accounting.
+  max_searches: 5
+  max_fetches: 10
+  token_cap: 200000
+  dollar_cap: 5.00
+
+# Case-insensitive substring markers that flag text as an imperative addressed
+# to the system. A claim whose text matches is refused outright — it never
+# becomes evidence (containment, docs/PLAN.md Task 101 Step 2). This corpus
+# extends Task 70's prompt-injection corpus with opportunity-shaped payloads.
+injection_markers:
+  - ignore previous
+  - ignore the previous
+  - ignore all previous
+  - disregard the
+  - disregard previous
+  - proceed to build
+  - proceed to the build
+  - mark everything observed
+  - mark all claims observed
+  - set the verdict
+  - override the verdict
+  - this market is validated
+  - you are now
+  - system prompt
+  - new instructions
+  - execute the following
+  - run the following command

@@ -1,6 +1,9 @@
 package plan
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // RepoRef declares a repository a plan's tasks operate against.
 type RepoRef struct {
@@ -17,6 +20,15 @@ type Task struct {
 	Commands           []string `yaml:"commands"`
 	ValidationCommands []string `yaml:"validation_commands"`
 	Files              []string `yaml:"files"`
+	// ValidationOptOut is the single, explicit, auditable escape for a task
+	// that genuinely cannot be validated by command (docs/PLAN.md Task 104 /
+	// SKP-11R2). A task with neither validation_commands nor this opt-out is a
+	// plan-validation error — the honest-completion enforcement point may not
+	// be bypassed by omission (Constitution C10). An opt-out task is a valid
+	// plan task, but it can never auto-succeed: it requires a human-recorded
+	// reason (ValidationOptOutReason) and downstream human sign-off.
+	ValidationOptOut       bool   `yaml:"validation_optout"`
+	ValidationOptOutReason string `yaml:"validation_optout_reason"`
 	// Executor, when set, names the executor adapter this task must run on
 	// (docs/PLAN.md Task 85 / PRV-02). Empty means "let the kernel choose"
 	// (routing or the configured default). It is never authoritative on its
@@ -92,6 +104,18 @@ func (d *Document) validate() error {
 			return fmt.Errorf("plan: duplicate task id %q", t.ID)
 		}
 		ids[t.ID] = struct{}{}
+
+		// Honest-completion: every task must declare at least one validation
+		// command, or take the explicit, reasoned opt-out (docs/PLAN.md Task
+		// 104 / SKP-11R2, Constitution C10).
+		if len(t.ValidationCommands) == 0 {
+			if !t.ValidationOptOut {
+				return fmt.Errorf("plan: task %q declares no validation_commands and no validation_optout (honest completion requires one or the other)", t.ID)
+			}
+			if strings.TrimSpace(t.ValidationOptOutReason) == "" {
+				return fmt.Errorf("plan: task %q sets validation_optout but records no validation_optout_reason", t.ID)
+			}
+		}
 	}
 	for _, t := range d.Tasks {
 		for _, dep := range t.DependsOn {

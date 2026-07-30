@@ -43,6 +43,10 @@ MISSION_BUDGET_EXHAUSTED       on FAILED
 MISSION_TERMINATED_BY_POLICY   on CANCELLED
 MISSION_KILLED                 on CANCELLED
 MISSION_MAINTENANCE_MODE       on SUCCEEDED
+OPPORTUNITY_REJECTED           on SUCCEEDED — build nothing is a successful decision when evidence is weak (C23)
+OPPORTUNITY_VALIDATION_REQUIRED on SUCCEEDED — one more bounded validation experiment; not a failure (C23)
+OPPORTUNITY_VERDICT_MISSING    on FAILED   — no reproducible BUILD verdict exists (or it has expired) (C23)
+OPPORTUNITY_VERDICT_UNREPRODUCIBLE on FAILED — a stored verdict cannot be re-derived from its own evidence (C23)
 ```
 
 `TEN_X_BRANCHES_READY` exists **only** as a deprecated compatibility alias for `TEN_X_BRANCH_HANDOFF_READY` and MUST NOT appear in new configuration, code, diagrams, or documents.

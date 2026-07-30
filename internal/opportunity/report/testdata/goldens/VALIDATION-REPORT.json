@@ -1,0 +1,20 @@
+{
+  "opportunity_id": "opp-report-1",
+  "verdict": "VALIDATE-MORE",
+  "total_score": 53.33,
+  "config_version": "opp-thresholds-v1",
+  "scorecard_digest": "c194c9db5b8632df8a829491e03ce2ee0aa0ff81df38377fec6a69cc472891fc",
+  "unmet_thresholds": [
+    "unmet:minimum_distribution_score",
+    "unmet:minimum_total_score",
+    "unmet:must_have_real_validation_signal"
+  ],
+  "unresolved_assumptions": [
+    {
+      "kind": "risk",
+      "text": "Adoption depends on community goodwill."
+    }
+  ],
+  "research_cost_usd": 1.25,
+  "generated_at": "2026-01-02T03:04:05Z"
+}

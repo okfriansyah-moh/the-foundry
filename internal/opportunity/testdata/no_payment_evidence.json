@@ -1,0 +1,30 @@
+{
+  "idea": {
+    "id": "opp-nopay-001",
+    "statement": "A habit-tracking companion for remote software teams.",
+    "submitted_by": "operator",
+    "source": "manual",
+    "submitted_at": "2026-01-01T00:00:00Z"
+  },
+  "icp": {
+    "segment": "remote software teams",
+    "role": "engineering manager",
+    "economic_buyer": "engineering manager",
+    "reachable_channels": [
+      { "name": "engineering slack communities", "kind": "community", "reachable": true },
+      { "name": "devtool newsletters", "kind": "newsletter", "reachable": true }
+    ]
+  },
+  "claims": [
+    { "kind": "problem", "text": "Remote teams lose shared rituals and it hurts cohesion.", "label": "Observed", "source_ref": "interview://t-201#hash-c1", "basis": "10 recorded interviews" },
+    { "kind": "frequency", "text": "The cohesion problem is felt continuously, every sprint.", "label": "Observed", "source_ref": "interview://t-201#hash-c2", "basis": "10 recorded interviews" },
+    { "kind": "distribution", "text": "Several 10k-member engineering communities allow tool posts.", "label": "Observed", "source_ref": "channel://community-b#hash-c3", "basis": "verified posting rules" },
+    { "kind": "market", "text": "Remote engineering is a large and growing segment.", "label": "Observed", "source_ref": "report://market-3#hash-c4", "basis": "industry report" },
+    { "kind": "competitor", "text": "Existing tools focus on standups, not rituals/habits.", "label": "Observed", "source_ref": "review://g2#hash-c5", "basis": "competitive teardown" },
+    { "kind": "alternative", "text": "The alternative today is ad-hoc Slack reminders nobody maintains.", "label": "Observed", "source_ref": "interview://t-201#hash-c6", "basis": "10 recorded interviews" }
+  ],
+  "estimated_validation_cost_usd": 30,
+  "mvp_budget_usd": 120,
+  "max_active_builds": 1,
+  "real_validation_signal": true
+}

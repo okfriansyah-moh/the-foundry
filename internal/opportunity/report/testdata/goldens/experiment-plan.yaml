@@ -1,0 +1,11 @@
+# experiment-plan.yaml
+# docs/PLAN.md Task 103 (OPP-04): operator-executed validation work.
+verdict: VALIDATE-MORE
+validation_budget_usd: 40.00
+experiments:
+  - name: close-1
+    goal: gather evidence to satisfy "unmet:minimum_distribution_score"
+  - name: close-2
+    goal: gather evidence to satisfy "unmet:minimum_total_score"
+  - name: close-3
+    goal: gather evidence to satisfy "unmet:must_have_real_validation_signal"

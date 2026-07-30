@@ -76,4 +76,13 @@ bash scripts/check_tenx_prohibition.sh .
 echo "== fitness (j): executor-capability staleness (Task 84 / PRV-01) =="
 "${fitlint_bin}" capability config/executor-capabilities.yaml
 
+echo "== fitness (k): opportunity-research boundary (Task 101 / OPP-02, Constitution C23) =="
+"${fitlint_bin}" research-boundary internal
+
+echo "== fitness (l): plan validation-command declaration (Task 104 / SKP-11R2, Constitution C10) =="
+"${fitlint_bin}" plan-validation examples internal/admission/testdata
+
+echo "== fitness (m): plan topology (Task 110 / INT-02) =="
+"${fitlint_bin}" plan-topology docs/PLAN.md examples internal/admission/testdata
+
 echo "fitness OK"

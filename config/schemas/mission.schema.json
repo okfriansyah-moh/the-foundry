@@ -97,6 +97,10 @@
         "post_success_policy": {
           "type": "string",
           "enum": ["stop", "maintenance", "raise-target", "continue-growth", "start-another-product"]
+        },
+        "requires_build_verdict": {
+          "description": "docs/PLAN.md Task 102 (OPP-03): personal-venture missions must not start without a reproducible BUILD verdict over stored opportunity evidence (Constitution C23). Optional; defaults to false for the organization/10x path.",
+          "type": "boolean"
         }
       }
     }

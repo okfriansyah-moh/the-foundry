@@ -27,11 +27,19 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
+	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 )
 
-// taskQueue must match cmd/foundryd/main.go's taskQueue constant — the
-// worker this tool's started workflow is dispatched to.
-const taskQueue = "foundry-core"
+// The dead task-queue constant Task 96 orphaned is gone: this helper now
+// resolves its Temporal task queue through the kernel's LaneSelector against
+// config/queue-priority.yaml, exactly as the production trigger
+// kernel.StartDelivery does (docs/PLAN.md Task 105 / RTC-01). The production
+// single-edge from an ApprovedPlan to a running DeliverPlan is
+// kernel.StartDelivery (behind POST /v1/plans/{id}/deliver and
+// `foundry plan run`); this test helper deliberately keeps a caller-supplied
+// workflow ID for test/skp_e2e.sh / skp_resume_test.sh, which key their own
+// DB/Temporal assertions off that fixed ID, while sharing the kernel's lane
+// resolution so it never targets an unpolled queue again.
 
 func main() {
 	if err := run(); err != nil {
@@ -47,10 +55,23 @@ func run() error {
 	repoPath := flag.String("repo-path", "", "path to the repo DeliverPlan operates on (required)")
 	executorName := flag.String("executor", "fake", "executor adapter name")
 	executorAllowlist := flag.String("executor-allowlist", "", "comma-separated resolved executor_allowlist; when set, the kernel runs policy-checked selection (docs/PLAN.md Task 85)")
+	lane := flag.String("lane", "", "queue-priority lane to resolve the task queue from (empty => delivery default)")
+	queueConfig := flag.String("queue-config", envOr("FOUNDRY_QUEUE_PRIORITY", "config/queue-priority.yaml"), "path to config/queue-priority.yaml")
 	flag.Parse()
 
 	if *workflowID == "" || *planID == "" || *planFile == "" || *repoPath == "" {
-		return fmt.Errorf("usage: startplan --workflow-id ID --plan-id ID --plan-file PATH --repo-path PATH [--executor NAME] [--executor-allowlist a,b] [--temporal-hostport HOST:PORT]")
+		return fmt.Errorf("usage: startplan --workflow-id ID --plan-id ID --plan-file PATH --repo-path PATH [--executor NAME] [--executor-allowlist a,b] [--lane LANE] [--temporal-hostport HOST:PORT]")
+	}
+
+	// Resolve the task queue through the same kernel-owned LaneSelector the
+	// production trigger uses (Constitution C4) — never a hardcoded queue.
+	queueCfg, err := observe.LoadQueueConfig(*queueConfig)
+	if err != nil {
+		return fmt.Errorf("load queue config %s: %w", *queueConfig, err)
+	}
+	taskQueue, err := kernel.LaneSelector{}.Select(*lane, queueCfg)
+	if err != nil {
+		return fmt.Errorf("resolve lane %q: %w", *lane, err)
 	}
 
 	var allowlist []string

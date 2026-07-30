@@ -1,0 +1,29 @@
+{
+  "idea": {
+    "id": "opp-assumed-001",
+    "statement": "A niche marketplace connecting local pottery makers with buyers.",
+    "submitted_by": "operator",
+    "source": "manual",
+    "submitted_at": "2026-01-01T00:00:00Z"
+  },
+  "icp": {
+    "segment": "local pottery makers",
+    "role": "artisan",
+    "economic_buyer": "the artisan",
+    "reachable_channels": [
+      { "name": "craft fairs", "kind": "event", "reachable": true }
+    ]
+  },
+  "claims": [
+    { "kind": "problem", "text": "Assume makers struggle to find buyers.", "label": "Assumed", "basis": "founder intuition" },
+    { "kind": "frequency", "text": "Assume the problem is frequent.", "label": "Assumed", "basis": "founder intuition" },
+    { "kind": "wtp", "text": "Assume makers would pay a listing fee.", "label": "Assumed", "basis": "founder intuition" },
+    { "kind": "distribution", "text": "Assume craft fairs are a viable channel.", "label": "Assumed", "basis": "founder intuition" },
+    { "kind": "market", "text": "Assume the market is large enough.", "label": "Assumed", "basis": "founder intuition" },
+    { "kind": "competitor", "text": "Assume competition is weak.", "label": "Assumed", "basis": "founder intuition" }
+  ],
+  "estimated_validation_cost_usd": 40,
+  "mvp_budget_usd": 120,
+  "max_active_builds": 1,
+  "real_validation_signal": true
+}

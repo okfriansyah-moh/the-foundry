@@ -73,3 +73,18 @@ func TestEvaluateIgnoresExecutorSummary(t *testing.T) {
 		t.Fatalf("Evaluate() classification = %q, want %q", class, ClassificationVerificationFailed)
 	}
 }
+
+// TestEvaluateEmptyRecordsIsNoValidationDeclared proves the honest-completion
+// closure (docs/PLAN.md Task 104): a task that ran no validation command must
+// NOT pass — an empty record set fails closed with a distinct classification,
+// so the enforcement point cannot be bypassed by omission (Constitution C10).
+func TestEvaluateEmptyRecordsIsNoValidationDeclared(t *testing.T) {
+	ok, class := Evaluate(nil, 1)
+	if ok || class != ClassificationNoValidationDeclared {
+		t.Fatalf("Evaluate(nil) = (%v, %q), want (false, %q)", ok, class, ClassificationNoValidationDeclared)
+	}
+	ok, class = Evaluate([]CommandRecord{}, 1)
+	if ok || class != ClassificationNoValidationDeclared {
+		t.Fatalf("Evaluate([]) = (%v, %q), want (false, %q)", ok, class, ClassificationNoValidationDeclared)
+	}
+}

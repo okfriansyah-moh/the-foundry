@@ -1,0 +1,72 @@
+{
+  "$id": "https://foundry.dev/schemas/opportunity/v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Foundry Opportunity v1",
+  "description": "docs/PLAN.md Task 100 (OPP-01): the storable, evaluable shape of an opportunity — the idea, the ICP, the labeled evidence set and the economic envelope Phase D bounds a build within. Labels reuse internal/spec's exact four-value Observed|Inferred|Assumed|Unresolved vocabulary (Constitution C23).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["idea", "icp", "claims"],
+  "properties": {
+    "idea": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement"],
+      "properties": {
+        "id": { "type": "string" },
+        "statement": { "type": "string", "minLength": 1 },
+        "submitted_by": { "type": "string" },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "source": { "type": "string" }
+      }
+    },
+    "icp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "segment": { "type": "string" },
+        "role": { "type": "string" },
+        "economic_buyer": { "type": "string" },
+        "reachable_channels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "kind": { "type": "string" },
+              "reachable": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "text", "label"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["problem", "frequency", "alternative", "market", "wtp", "competitor", "distribution", "risk"]
+          },
+          "text": { "type": "string", "minLength": 1 },
+          "label": {
+            "type": "string",
+            "enum": ["Observed", "Inferred", "Assumed", "Unresolved"]
+          },
+          "basis": { "type": "string" },
+          "source_ref": { "type": "string" },
+          "observed_at": { "type": "string", "format": "date-time" },
+          "untrusted": { "type": "boolean" }
+        }
+      }
+    },
+    "estimated_validation_cost_usd": { "type": "number", "minimum": 0 },
+    "mvp_budget_usd": { "type": "number", "minimum": 0 },
+    "max_active_builds": { "type": "integer", "minimum": 0 },
+    "real_validation_signal": { "type": "boolean" }
+  }
+}

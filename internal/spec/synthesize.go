@@ -2,6 +2,8 @@ package spec
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -25,11 +27,29 @@ func (s Synthesizer) Synthesize(ctx context.Context, input string) (Specificatio
 	if err != nil {
 		return Specification{}, fmt.Errorf("spec: synthesize: %w", err)
 	}
-	return PostPass(reqs, s.Defaults), nil
+	spec := PostPass(reqs, s.Defaults)
+	// A source that carries provenance (an LLM synthesis call) records what
+	// produced this specification, so a spec can be traced to what produced it
+	// (provenance, not authorization — Task 109 / C16).
+	if p, ok := s.Source.(ProvenanceSource); ok {
+		spec.Provenance = p.Provenance()
+	}
+	return spec, nil
+}
+
+// ProvenanceSource is an optional CandidateSource capability: a source that can
+// report what produced its requirements (provider/model/prompt digest).
+type ProvenanceSource interface {
+	Provenance() SpecProvenance
 }
 
 // ReplaySource serves deterministic, file-backed outputs for tests.
 type ReplaySource struct {
+	// InputDigest, when non-empty, keys this cassette to a specific input: a
+	// replay whose input does not hash to this digest fails loudly instead of
+	// silently returning someone else's requirements (docs/PLAN.md Task 109).
+	// Empty preserves the legacy input-agnostic replay behavior.
+	InputDigest  string        `json:"input_digest,omitempty"`
 	Requirements []Requirement `json:"requirements"`
 }
 
@@ -45,7 +65,19 @@ func LoadReplaySource(path string) (ReplaySource, error) {
 	return rs, nil
 }
 
-func (r ReplaySource) Synthesize(_ context.Context, _ string) ([]Requirement, error) {
+// InputDigest returns the hex sha256 of a synthesis input, the key a
+// digest-keyed cassette is matched against.
+func InputDigest(input string) string {
+	sum := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(sum[:])
+}
+
+func (r ReplaySource) Synthesize(_ context.Context, input string) ([]Requirement, error) {
+	if r.InputDigest != "" {
+		if got := InputDigest(input); got != r.InputDigest {
+			return nil, fmt.Errorf("spec: replay cassette input mismatch: input digest %s does not match cassette key %s", got, r.InputDigest)
+		}
+	}
 	out := make([]Requirement, len(r.Requirements))
 	copy(out, r.Requirements)
 	return out, nil

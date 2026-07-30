@@ -1,0 +1,22 @@
+{
+  "idea": {
+    "id": "opp-reject-001",
+    "statement": "A revolutionary app powered by AI that does everything for everyone.",
+    "submitted_by": "operator",
+    "source": "manual",
+    "submitted_at": "2026-01-01T00:00:00Z"
+  },
+  "icp": {
+    "segment": "",
+    "role": "",
+    "economic_buyer": "",
+    "reachable_channels": []
+  },
+  "claims": [
+    { "kind": "market", "text": "AI is a huge and growing market.", "label": "Unresolved", "basis": "no supporting source" }
+  ],
+  "estimated_validation_cost_usd": 400,
+  "mvp_budget_usd": 500,
+  "max_active_builds": 1,
+  "real_validation_signal": false
+}

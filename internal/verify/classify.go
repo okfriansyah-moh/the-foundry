@@ -13,6 +13,14 @@ const (
 	ClassificationPolicyViolation    Classification = "policy-violation"
 	ClassificationRetryable          Classification = "retryable"
 	ClassificationNoProgress         Classification = "no-progress"
+	// ClassificationNoValidationDeclared is assigned when a task ran no
+	// validation commands at all (docs/PLAN.md Task 104 / SKP-11R2). An empty
+	// record set is NOT a pass: the honest-completion enforcement point must
+	// never be bypassable by omission (Constitution C10). A task that
+	// genuinely cannot be validated by command must declare the explicit
+	// validation_optout in its plan and carry a human-recorded reason — it can
+	// never auto-succeed through an absent record set.
+	ClassificationNoValidationDeclared Classification = "no-validation-declared"
 )
 
 // Evaluate derives the sole, honest pass/fail verdict for a task from
@@ -28,6 +36,12 @@ const (
 // exit, so records is scanned in order and the first such record found is
 // the one that determines the outcome.
 func Evaluate(records []CommandRecord, attempt int) (ok bool, classification Classification) {
+	// An empty record set means no validation command ran at all. That is not
+	// a pass — it is the omission hole a lying executor would exploit, so it
+	// fails closed with a distinct classification (docs/PLAN.md Task 104).
+	if len(records) == 0 {
+		return false, ClassificationNoValidationDeclared
+	}
 	for _, rec := range records {
 		switch {
 		case rec.PolicyViolation:

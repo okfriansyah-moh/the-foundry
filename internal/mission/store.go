@@ -288,3 +288,100 @@ SELECT EXISTS(
 	}
 	return ok, nil
 }
+
+// MissionFilter bounds a ListMissions query. Status filters on the mission's
+// latest recorded state; Profile is accepted now but enforced by Task 118's
+// tenancy rule, not here (docs/PLAN.md Task 107). Limit defaults to 50.
+type MissionFilter struct {
+	Status  string
+	Profile string
+	Limit   int
+	Offset  int
+}
+
+// MissionListItem is a mission plus its latest recorded loop state, for the
+// operator list/status surface.
+type MissionListItem struct {
+	Mission
+	Status     string
+	Reason     string
+	Cycle      int
+	ObservedAt *time.Time
+}
+
+// ListMissions returns missions with their latest loop state, newest first,
+// with paging and an optional status filter (docs/PLAN.md Task 107).
+func (s *Store) ListMissions(ctx context.Context, filter MissionFilter) ([]MissionListItem, error) {
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	const q = `
+SELECT m.id, m.principal_id, m.workflow_id, m.contract, m.created_at, m.updated_at,
+       COALESCE(ms.status, ''), COALESCE(ms.reason, ''), COALESCE(ms.cycle, 0), ms.observed_at
+FROM missions m
+LEFT JOIN LATERAL (
+    SELECT status, reason, cycle, observed_at
+    FROM mission_state
+    WHERE mission_id = m.id
+    ORDER BY observed_at DESC, id DESC
+    LIMIT 1
+) ms ON true
+WHERE ($1 = '' OR ms.status = $1)
+ORDER BY m.created_at DESC, m.id DESC
+LIMIT $2 OFFSET $3`
+	rows, err := s.db.QueryContext(ctx, q, filter.Status, limit, filter.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("mission: list: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []MissionListItem
+	for rows.Next() {
+		var it MissionListItem
+		var contractJSON []byte
+		var observedAt sql.NullTime
+		if err := rows.Scan(&it.ID, &it.PrincipalID, &it.WorkflowID, &contractJSON, &it.CreatedAt, &it.UpdatedAt,
+			&it.Status, &it.Reason, &it.Cycle, &observedAt); err != nil {
+			return nil, fmt.Errorf("mission: scan list row: %w", err)
+		}
+		if err := json.Unmarshal(contractJSON, &it.Contract); err != nil {
+			return nil, fmt.Errorf("mission: decode contract in list: %w", err)
+		}
+		if observedAt.Valid {
+			t := observedAt.Time
+			it.ObservedAt = &t
+		}
+		out = append(out, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("mission: iterate list: %w", err)
+	}
+	return out, nil
+}
+
+// LatestState returns a mission's most recent recorded loop state, or
+// ErrNotFound when the mission has produced no state yet.
+func (s *Store) LatestState(ctx context.Context, missionID string) (StateSnapshot, error) {
+	const q = `
+SELECT mission_id, cycle, net_mrr_usd, no_progress_cycles, confirming, confirmed_since,
+       status, reason, result_code, observed_at
+FROM mission_state
+WHERE mission_id = $1
+ORDER BY observed_at DESC, id DESC
+LIMIT 1`
+	var snap StateSnapshot
+	var confirmedSince sql.NullTime
+	err := s.db.QueryRowContext(ctx, q, missionID).Scan(
+		&snap.MissionID, &snap.Cycle, &snap.NetMRRUSD, &snap.NoProgressCycles, &snap.Confirming,
+		&confirmedSince, &snap.Status, &snap.Reason, &snap.ResultCode, &snap.ObservedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return StateSnapshot{}, ErrNotFound
+	}
+	if err != nil {
+		return StateSnapshot{}, fmt.Errorf("mission: latest state for %s: %w", missionID, err)
+	}
+	if confirmedSince.Valid {
+		snap.ConfirmedSince = &confirmedSince.Time
+	}
+	return snap, nil
+}
