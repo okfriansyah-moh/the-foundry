@@ -1,0 +1,31 @@
+{
+  "idea": {
+    "id": "opp-build-001",
+    "statement": "A scheduling tool that removes the back-and-forth of booking client calls for solo consultants.",
+    "submitted_by": "operator",
+    "source": "manual",
+    "submitted_at": "2026-01-01T00:00:00Z"
+  },
+  "icp": {
+    "segment": "solo consultants",
+    "role": "independent consultant",
+    "economic_buyer": "the consultant themselves",
+    "reachable_channels": [
+      { "name": "consultant communities", "kind": "community", "reachable": true },
+      { "name": "linkedin outreach", "kind": "social", "reachable": true }
+    ]
+  },
+  "claims": [
+    { "kind": "problem", "text": "Consultants lose 3+ hours a week to booking back-and-forth.", "label": "Observed", "source_ref": "interview://c-101#hash-a1", "basis": "12 recorded interviews" },
+    { "kind": "frequency", "text": "The pain recurs every week for active consultants.", "label": "Observed", "source_ref": "interview://c-101#hash-a2", "basis": "12 recorded interviews" },
+    { "kind": "wtp", "text": "9 of 12 said they would pay $20/mo to remove it.", "label": "Observed", "source_ref": "interview://c-101#hash-a3", "basis": "explicit pricing question" },
+    { "kind": "distribution", "text": "Two consultant communities of 5k members each allow tool posts.", "label": "Observed", "source_ref": "channel://community-a#hash-a4", "basis": "verified posting rules" },
+    { "kind": "market", "text": "There are ~1.2M solo consultants in the target geography.", "label": "Observed", "source_ref": "report://market-1#hash-a5", "basis": "industry census" },
+    { "kind": "competitor", "text": "Incumbents target teams, not solos, and are priced for teams.", "label": "Observed", "source_ref": "review://g2#hash-a6", "basis": "competitive teardown" },
+    { "kind": "alternative", "text": "The current alternative is manual email, which everyone dislikes.", "label": "Observed", "source_ref": "interview://c-101#hash-a7", "basis": "12 recorded interviews" }
+  ],
+  "estimated_validation_cost_usd": 50,
+  "mvp_budget_usd": 120,
+  "max_active_builds": 1,
+  "real_validation_signal": true
+}

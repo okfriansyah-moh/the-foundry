@@ -105,6 +105,13 @@ const (
 	ResultMissionTerminatedByPolicy ResultCode = "MISSION_TERMINATED_BY_POLICY"
 	ResultMissionKilled             ResultCode = "MISSION_KILLED"
 	ResultMissionMaintenanceMode    ResultCode = "MISSION_MAINTENANCE_MODE"
+
+	// Opportunity verdict-gate result codes (docs/PLAN.md Task 102 / OPP-03,
+	// Constitution C23). No new workflow status: phase/reason/result_code only.
+	ResultOpportunityRejected              ResultCode = "OPPORTUNITY_REJECTED"
+	ResultOpportunityValidationRequired    ResultCode = "OPPORTUNITY_VALIDATION_REQUIRED"
+	ResultOpportunityVerdictMissing        ResultCode = "OPPORTUNITY_VERDICT_MISSING"
+	ResultOpportunityVerdictUnreproducible ResultCode = "OPPORTUNITY_VERDICT_UNREPRODUCIBLE"
 )
 
 // resultCodeEntry pairs a registered result code with the single Status it is
@@ -126,6 +133,10 @@ var resultCodeRegistry = []resultCodeEntry{
 	{ResultMissionTerminatedByPolicy, StatusCancelled},
 	{ResultMissionKilled, StatusCancelled},
 	{ResultMissionMaintenanceMode, StatusSucceeded},
+	{ResultOpportunityRejected, StatusSucceeded},
+	{ResultOpportunityValidationRequired, StatusSucceeded},
+	{ResultOpportunityVerdictMissing, StatusFailed},
+	{ResultOpportunityVerdictUnreproducible, StatusFailed},
 }
 
 // KnownResultCode reports whether c is a member of the terminal result-code

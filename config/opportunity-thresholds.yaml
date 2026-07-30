@@ -1,0 +1,89 @@
+# docs/PLAN.md Task 100 (OPP-01): deterministic opportunity scoring weights and
+# Phase-D selection thresholds. Every weight and threshold the scorer and the
+# verdict use is loaded from here — none is hardcoded in Go — so a decision can
+# be changed with configuration alone (Task 100 acceptance).
+#
+# Weights mirror docs/foundry/docs/workflows/venture-loop.md §"Phase B —
+# Independent scoring": 25% pain severity / 20% WTP evidence / 15% reachable
+# distribution / 15% founder fit / 10% speed to MVP / 10% recurring revenue /
+# 5% defensibility, minus risk and cost penalties. Thresholds mirror §"Phase D".
+version: "opp-thresholds-v1"
+
+weights:
+  pain_severity: 0.25
+  wtp_evidence: 0.20
+  reachable_distribution: 0.15
+  founder_fit: 0.15
+  speed_to_mvp: 0.10
+  recurring_revenue: 0.10
+  defensibility: 0.05
+  risk_penalty: 0.15
+  cost_penalty: 0.10
+
+# Which claim kinds feed each scoring dimension. A dimension with no
+# contributing evidence scores 0, which is what makes an all-Assumed /
+# all-Unresolved opportunity unable to reach a high total.
+dimension_sources:
+  pain_severity: [problem, frequency]
+  wtp_evidence: [wtp]
+  reachable_distribution: [distribution]
+  founder_fit: [market]
+  speed_to_mvp: [market]
+  recurring_revenue: [wtp, market]
+  defensibility: [competitor, alternative]
+
+# Deterministic evidence strength per label. Observed is fully credited;
+# Unresolved contributes nothing.
+label_strength:
+  Observed: 1.0
+  Inferred: 0.6
+  Assumed: 0.3
+  Unresolved: 0.0
+
+thresholds:
+  minimum_total_score: 75
+  minimum_distribution_score: 65
+  minimum_payment_evidence_score: 60
+  must_have_real_validation_signal: true
+  maximum_mvp_budget_usd: 150
+  maximum_active_builds: 1
+  validate_more_min_score: 50
+  weak_margin_floor: 20
+  max_verdict_age_hours: 168
+  # Hard cap on the dollars a VALIDATE-MORE outcome may reserve for the
+  # operator's bounded Phase-C experiment (Task 102 verdict gate).
+  validation_cost_cap_usd: 150
+
+# Reference MVP budget used to scale the cost penalty (cost/reference, capped).
+reference_mvp_budget_usd: 150
+
+# Text markers (case-insensitive substring) that flag a platform-policy risk
+# claim, triggering the Phase-A reject rule.
+platform_policy_risk_markers:
+  - app store
+  - platform policy
+  - terms of service
+  - tos violation
+  - marketplace policy
+
+# Text markers that indicate a value proposition leaning on "uses AI"; combined
+# with an absence of problem/WTP evidence this triggers the Phase-A reject rule.
+value_prop_ai_markers:
+  - uses ai
+  - powered by ai
+  - ai-powered
+  - ai powered
+  - using ai
+  - with ai
+
+# Default bases filled in for Assumed claims that arrive with an empty basis,
+# keyed by claim kind (fail-closed labeling, mirrors config/spec-defaults.yaml).
+assumed_basis:
+  problem: "default problem-evidence policy"
+  frequency: "default frequency-evidence policy"
+  alternative: "default alternatives policy"
+  market: "default market-sizing policy"
+  wtp: "default willingness-to-pay policy"
+  competitor: "default competitive-landscape policy"
+  distribution: "default distribution-channel policy"
+  risk: "default risk-assessment policy"

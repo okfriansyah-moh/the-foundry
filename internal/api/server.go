@@ -41,6 +41,14 @@ type Dependencies struct {
 	Profiles   *profile.Store
 	Provenance *provenance.Store
 
+	// QueueConfig and DeliverExecutorAllowlist back POST /v1/plans/{id}/deliver
+	// (docs/PLAN.md Task 105 / RTC-01): the kernel resolves the task queue via
+	// LaneSelector against QueueConfig, and passes DeliverExecutorAllowlist as
+	// the resolved executor allowlist. DeliverExecutorAllowlist must be
+	// non-empty; an empty one makes StartDelivery refuse (fail-closed, C4).
+	QueueConfig              observe.QueueConfig
+	DeliverExecutorAllowlist []string
+
 	// ApprovalSigningKey signs an ApprovedPlan when an approver is
 	// recorded (mirrors cmd/foundry/plan_approve.go's local Ed25519 key).
 	ApprovalSigningKey ed25519.PrivateKey
@@ -193,6 +201,11 @@ func (s *Server) register(method, pattern string, resource func(*http.Request) s
 func (s *Server) registerRoutes() {
 	s.register(http.MethodPost, "/v1/plans", staticResource("plan:submit"), s.handleSubmitPlan)
 	s.register(http.MethodPost, "/v1/plans/{id}/approve", pathResource("plan", "approve"), s.handleApprovePlan)
+	s.register(http.MethodPost, "/v1/plans/{id}/deliver", pathResource("plan", "deliver"), s.handleDeliverPlan)
+	s.register(http.MethodGet, "/v1/missions", staticResource("mission:list"), s.handleListMissions)
+	s.register(http.MethodGet, "/v1/missions/{id}", pathResource("mission", "status"), s.handleMissionStatus)
+	s.register(http.MethodPost, "/v1/missions/{id}/start", pathResource("mission", "start"), s.handleStartMission)
+	s.register(http.MethodPost, "/v1/missions/{id}/resume", pathResource("mission", "resume"), s.handleResumeMission)
 
 	s.register(http.MethodPost, "/v1/webauthn/register/begin", staticResource("webauthn:register"), s.webauthnHTTP.BeginRegistration)
 	s.register(http.MethodPost, "/v1/webauthn/register/finish", staticResource("webauthn:register"), s.webauthnHTTP.FinishRegistration)

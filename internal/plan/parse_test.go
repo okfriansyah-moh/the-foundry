@@ -70,6 +70,8 @@ version: "1.0"
 tasks:
   - id: t1
     goal: attempt to self-classify
+    validation_commands:
+      - echo ok
 declared_tier: A0
 ---
 `
@@ -205,6 +207,8 @@ version: "1.0"
 tasks:
   - id: t1
     goal: g
+    validation_commands:
+      - echo ok
 ---
 ## First
 

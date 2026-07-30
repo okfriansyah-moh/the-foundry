@@ -1,0 +1,10 @@
+{
+  "idea_id": "opp-live-001",
+  "partial": false,
+  "claims": [
+    { "kind": "problem", "text": "Users repeatedly report this pain in public forums.", "label": "Observed", "source_ref": "verified://forum-a#h1", "basis": "provider web research" },
+    { "kind": "wtp", "text": "A landing page claims strong willingness to pay.", "label": "Observed", "source_ref": "fabricated://not-stored", "basis": "provider web research" },
+    { "kind": "distribution", "text": "An active community of practitioners exists.", "label": "Inferred", "source_ref": "verified://community-b#h2", "basis": "provider web research" },
+    { "kind": "market", "text": "Secondary reports size the market in the billions.", "label": "Inferred", "source_ref": "verified://report-c#h3", "basis": "provider web research" }
+  ]
+}

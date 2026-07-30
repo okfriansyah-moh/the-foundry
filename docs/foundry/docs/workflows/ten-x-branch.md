@@ -211,19 +211,32 @@ Rules:
 Supported:
 
 ```text
+after-atomic-group
 after-accepted-task
-after-group
 after-wave
 manual-command
 ```
 
-10x default:
+10x default (canonical, single source of truth — reconciled with
+`multi-repository.md` §N10.2):
+
+```yaml
+push_cadence: after-atomic-group
+```
+
+`after-accepted-task` is permitted **only** when the intermediate-branch
+invariant holds:
 
 ```yaml
 push_cadence: after-accepted-task
+intermediate_branch_invariant: buildable-and-testable
 ```
 
-This preserves the “push and push” behavior while still applying deterministic admission and verification before every push.
+Without that exact invariant, `after-accepted-task` is refused rather than
+silently accepted (enforced by `kernel.ValidatePushCadence`). This preserves
+the “push and push” behavior — every intermediate branch state is buildable and
+testable — while still applying deterministic admission and verification before
+every push.
 
 For a very small sequence touching the same files, the planner may combine tasks into one atomic group commit rather than pushing partially inconsistent intermediate states.
 

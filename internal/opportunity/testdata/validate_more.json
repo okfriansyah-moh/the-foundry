@@ -1,0 +1,28 @@
+{
+  "idea": {
+    "id": "opp-validate-001",
+    "statement": "A lightweight invoicing helper for freelance designers.",
+    "submitted_by": "operator",
+    "source": "manual",
+    "submitted_at": "2026-01-01T00:00:00Z"
+  },
+  "icp": {
+    "segment": "freelance designers",
+    "role": "freelancer",
+    "economic_buyer": "the freelancer",
+    "reachable_channels": [
+      { "name": "design newsletter", "kind": "newsletter", "reachable": true }
+    ]
+  },
+  "claims": [
+    { "kind": "problem", "text": "Some designers find invoicing tedious.", "label": "Inferred", "source_ref": "thread://forum-9#hash-b1", "basis": "forum reading" },
+    { "kind": "frequency", "text": "Invoicing likely happens a few times a month.", "label": "Inferred", "source_ref": "thread://forum-9#hash-b2", "basis": "forum reading" },
+    { "kind": "wtp", "text": "A couple of comments mention paying for convenience.", "label": "Inferred", "source_ref": "thread://forum-9#hash-b3", "basis": "forum reading" },
+    { "kind": "distribution", "text": "One design newsletter might accept a sponsorship.", "label": "Inferred", "source_ref": "channel://newsletter-1#hash-b4", "basis": "newsletter media kit" },
+    { "kind": "market", "text": "Freelance design is a sizeable but crowded space.", "label": "Inferred", "source_ref": "report://market-2#hash-b5", "basis": "secondary research" }
+  ],
+  "estimated_validation_cost_usd": 30,
+  "mvp_budget_usd": 130,
+  "max_active_builds": 1,
+  "real_validation_signal": true
+}

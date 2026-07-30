@@ -11,9 +11,11 @@
 // invocation, evidence persistence, transition/lease/receipt storage —
 // happens inside an activity, never inline in workflow code.
 //
-// ValidateTask in this package is a STUB pending Task 13
-// (internal/verify): it only checks whether ExecuteTask's adapter run
-// returned an error, not real command-level verification. It is marked
-// TODO at its definition and must not be mistaken for Task 13's honest,
-// evidence-based validator.
+// ValidateTask in this package runs a task's declared validation commands
+// through the real internal/verify.Runner and classifies pass/fail solely
+// from Runner records, never from an executor's self-reported Summary
+// (Constitution C10; docs/PLAN.md Tasks 13, 99, 104). A task that ran no
+// validation commands at all is not a pass: verify.Evaluate returns the
+// no-validation-declared classification for an empty record set, so the
+// honest-completion enforcement point cannot be bypassed by omission.
 package kernel

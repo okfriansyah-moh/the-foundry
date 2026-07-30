@@ -94,6 +94,46 @@ jobs:
       - name: migrate up -> down -> up
         run: make migrate-up migrate-down migrate-up
 
+  # docs/PLAN.md Task 104 (SKP-11R2): the AUTHORITATIVE honest-completion
+  # gate. Runs the gated RUN_VALIDATE_LIVE suite (test/validate_honest_live_
+  # test.go) with the real internal/verify.Runner executing real commands
+  # against the production config/validation-allowlist.yaml, proving the
+  # three honest terminals (verification-failed, policy-violation,
+  # no-validation-declared) are reached rather than validate-as-PASSED by
+  # omission. This job is required, so the proof is a merge gate, not a
+  # local claim.
+  honest-validation-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Warm Docker Hub base image
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull golang:1.25.7; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "Warning: failed to warm golang:1.25.7 after retries; continuing to build step"
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Match container UID/GID to this runner's checkout owner
+        run: |
+          echo "USER_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "USER_GID=$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Build dev image
+        run: docker compose -f deploy/docker-compose.yaml build dev
+
+      - name: Start dev-time services (postgres, temporal)
+        run: docker compose -f deploy/docker-compose.yaml up -d postgres temporal
+
+      - name: Run honest-completion live suite
+        run: docker compose -f deploy/docker-compose.yaml run --rm -e RUN_VALIDATE_LIVE=1 dev go test ./test/... -run ValidateHonestLive -race
+
   # docs/PLAN.md Task 34 (FND-15): the AUTHORITATIVE signal for the rootless
   # OCI executor sandbox (Blocker B9's "hybrid" resolution). This job
   # deliberately has NO `dev` build step and never wraps a command in

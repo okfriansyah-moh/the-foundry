@@ -37,9 +37,12 @@ import (
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/opencode"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/windsurf"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
+	"github.com/okfriansyah-moh/the-foundry/internal/kernel/integrator"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
+	"github.com/okfriansyah-moh/the-foundry/internal/mission"
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
+	"github.com/okfriansyah-moh/the-foundry/internal/opportunity"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy/pdp"
 	"github.com/okfriansyah-moh/the-foundry/internal/profile"
@@ -194,6 +197,40 @@ func run() error {
 		verify.NewRunner(validationAllowlist),
 	)
 
+	// docs/PLAN.md Task 102 (OPP-03): the kernel-owned opportunity verdict
+	// gate. It re-derives the scorecard from stored evidence and refuses any
+	// build whose BUILD verdict is missing, expired, unreproducible, out of
+	// envelope or unbacked by a real validation signal (Constitution C4/C23).
+	// RealSignal is fail-closed (DenyRealSignal) until Task 139 supplies the
+	// allowlisted real-signal verifier.
+	oppConfig, err := opportunity.LoadConfig(envOr("FOUNDRY_OPPORTUNITY_THRESHOLDS", "config/opportunity-thresholds.yaml"))
+	if err != nil {
+		return fmt.Errorf("load opportunity thresholds: %w", err)
+	}
+	oppGate := &kernel.OpportunityGate{
+		Loader:     opportunity.NewStore(db),
+		Config:     oppConfig,
+		Reserver:   oppValidationReserver{store: cost.NewStore(db)},
+		RealSignal: kernel.DenyRealSignal{},
+	}
+
+	// docs/PLAN.md Task 106 (RTC-02): construct MissionLoop's activities from
+	// the real Postgres mission store, cost store and net-MRR source, and
+	// register MissionLoop + its eight activities on the lane workers so
+	// `foundry mission pause|kill|start|resume` signal a workflow a production
+	// worker is actually running (Constitution C2/C18).
+	missionStore := mission.NewStore(db)
+	missionActs := mission.NewActivities(
+		missionStore, // LoopContractChecker
+		missionStore, // ReadinessChecker
+		missionStore, // MissionStateRecorder
+		missionStore, // GateEventRecorder
+		missionStore, // GateEventResolver
+		kernel.NewPGTransitionStore(db),
+		cost.NewStore(db),
+		mission.UnimplementedNetMRRSource{},
+	)
+
 	// docs/PLAN.md Tasks 84/85/90 (PRV-01/02/07): wire the kernel-owned
 	// executor selector so that when a DeliverPlanInput carries a resolved
 	// executor_allowlist, ExecuteTask selects (and policy-checks) the adapter
@@ -210,6 +247,11 @@ func run() error {
 		return fmt.Errorf("load executor routing table: %w", err)
 	}
 	activities.CapabilityRegistry = capRegistry
+	// docs/PLAN.md Task 108 (RTC-04): wire the durable Postgres integration
+	// queue so the 10x IntegrateChangeSet activity has a real reader/writer.
+	// The Integrator's CAS pusher is supplied once Task 140 selects a
+	// policy-derived SCM provider; until then IntegrateChangeSet fails closed.
+	activities.IntegrationQueue = integrator.NewPGQueue(db)
 	activities.ExecutorSelector = kernel.ExecutorSelector{
 		Default: envOr("FOUNDRY_EXECUTOR", "claude-code"),
 		Routing: routingTable,
@@ -302,6 +344,12 @@ func run() error {
 		})
 		lw.RegisterWorkflow(kernel.DeliverPlan)
 		registerActivities(lw, activities)
+		lw.RegisterActivityWithOptions(oppGate.RequireBuildVerdict, activity.RegisterOptions{Name: kernel.ActivityRequireBuildVerdict})
+		lw.RegisterWorkflow(mission.MissionLoop)
+		registerMissionActivities(lw, missionActs)
+		lw.RegisterWorkflow(kernel.TenXDeliver)
+		lw.RegisterActivityWithOptions(activities.SelectBranchDeliveryPolicy, activity.RegisterOptions{Name: kernel.ActivitySelectBranchDeliveryPolicy})
+		lw.RegisterActivityWithOptions(activities.IntegrateChangeSet, activity.RegisterOptions{Name: kernel.ActivityIntegrateChangeSet})
 		if err := lw.Start(); err != nil {
 			return fmt.Errorf("start worker for lane %q (task queue %q): %w", lane.Name, lane.TaskQueue, err)
 		}
@@ -388,18 +436,40 @@ func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN str
 		return nil, fmt.Errorf("open profile store: %w", err)
 	}
 
+	// docs/PLAN.md Task 105 (RTC-01): resolve the platform-layer executor
+	// allowlist and the lane queue config the deliver route hands to
+	// kernel.StartDelivery. Until Task 116 supplies compiled policy layers,
+	// the platform allowlist is the set of supported executors in the
+	// capability registry — non-empty, never nil (Constitution C4).
+	deliverQueueCfg, err := observe.LoadQueueConfig(envOr("FOUNDRY_QUEUE_PRIORITY_CONFIG", "config/queue-priority.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("load queue config for deliver route: %w", err)
+	}
+	deliverCapRegistry, err := capability.Load(envOr("FOUNDRY_EXECUTOR_CAPABILITIES", "config/executor-capabilities.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("load capability registry for deliver route: %w", err)
+	}
+	var deliverAllowlist []string
+	for _, rec := range deliverCapRegistry.Executors {
+		if rec.Availability == capability.AvailabilitySupported {
+			deliverAllowlist = append(deliverAllowlist, rec.Provider)
+		}
+	}
+
 	return api.NewServer(api.Dependencies{
-		DB:                 db,
-		TemporalHostPort:   temporalHostPort,
-		TemporalNamespace:  envOr("TEMPORAL_NAMESPACE", "default"),
-		Evidence:           evidence.NewFSStore(envOr("FOUNDRY_EVIDENCE_ROOT", "/var/lib/foundry/evidence")),
-		Profiles:           profile.NewStore(profileRaw),
-		Provenance:         provenance.NewStore(rawStore, approverKeys.Public),
-		ApprovalSigningKey: approverKeys.Private,
-		SessionPub:         &sessionKey.PublicKey,
-		WebAuthn:           waSvc,
-		Decider:            decider,
-		PolicyDigest:       resolved.Digest,
+		DB:                       db,
+		TemporalHostPort:         temporalHostPort,
+		TemporalNamespace:        envOr("TEMPORAL_NAMESPACE", "default"),
+		Evidence:                 evidence.NewFSStore(envOr("FOUNDRY_EVIDENCE_ROOT", "/var/lib/foundry/evidence")),
+		Profiles:                 profile.NewStore(profileRaw),
+		Provenance:               provenance.NewStore(rawStore, approverKeys.Public),
+		QueueConfig:              deliverQueueCfg,
+		DeliverExecutorAllowlist: deliverAllowlist,
+		ApprovalSigningKey:       approverKeys.Private,
+		SessionPub:               &sessionKey.PublicKey,
+		WebAuthn:                 waSvc,
+		Decider:                  decider,
+		PolicyDigest:             resolved.Digest,
 		// docs/PLAN.md Task 95: mount observe.Middleware's rate limit +
 		// bounded admission in front of this server's real routes — Task
 		// 33's own internal/observe middleware protected nothing until
@@ -425,9 +495,45 @@ func registerActivities(w worker.Worker, a *kernel.Activities) {
 	w.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
 }
 
+// registerMissionActivities registers MissionLoop's eight activities under the
+// names internal/mission/workflow.go references (docs/PLAN.md Task 106).
+func registerMissionActivities(w worker.Worker, a *mission.Activities) {
+	w.RegisterActivityWithOptions(a.RequireLoopContract, activity.RegisterOptions{Name: mission.ActivityRequireLoopContract})
+	w.RegisterActivityWithOptions(a.RequireReadiness, activity.RegisterOptions{Name: mission.ActivityRequireReadiness})
+	w.RegisterActivityWithOptions(a.ObserveLedger, activity.RegisterOptions{Name: mission.ActivityObserveLedger})
+	w.RegisterActivityWithOptions(a.CheckBudget, activity.RegisterOptions{Name: mission.ActivityCheckBudget})
+	w.RegisterActivityWithOptions(a.AppendMissionTransition, activity.RegisterOptions{Name: mission.ActivityAppendMissionTransition})
+	w.RegisterActivityWithOptions(a.RecordMissionState, activity.RegisterOptions{Name: mission.ActivityRecordMissionState})
+	w.RegisterActivityWithOptions(a.RecordGateEvent, activity.RegisterOptions{Name: mission.ActivityRecordGateEvent})
+	w.RegisterActivityWithOptions(a.ResolveGateEvent, activity.RegisterOptions{Name: mission.ActivityResolveGateEvent})
+}
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return fallback
+}
+
+// oppValidationReserver adapts the cost ledger to kernel.ValidationReserver so
+// a VALIDATE-MORE outcome reserves its bounded Phase-C envelope under the
+// mission's experiment budget (docs/PLAN.md Task 102). scopeID is taken from
+// the reservation meta's opportunity_id when present.
+type oppValidationReserver struct {
+	store *cost.Store
+}
+
+func (r oppValidationReserver) Reserve(ctx context.Context, amountUSD float64, meta any) (string, error) {
+	scopeID := "opportunity"
+	if m, ok := meta.(map[string]string); ok {
+		if id := m["opportunity_id"]; id != "" {
+			scopeID = id
+		}
+	}
+	period := time.Now().UTC().Format("2006-01")
+	entry, err := r.store.Reserve(ctx, cost.ScopeMission, scopeID, cost.KindExperiment, period, amountUSD, "opportunity-validation", "v1", meta)
+	if err != nil {
+		return "", err
+	}
+	return entry.ID, nil
 }

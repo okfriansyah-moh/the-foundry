@@ -86,6 +86,12 @@ type Contract struct {
 	PauseWhen         []string    `yaml:"pause_when" json:"pause_when"`
 	TerminateWhen     []string    `yaml:"terminate_when" json:"terminate_when"`
 	PostSuccessPolicy string      `yaml:"post_success_policy" json:"post_success_policy"`
+	// RequiresBuildVerdict is set for the personal-venture profile (docs/PLAN.md
+	// Task 102 / OPP-03, Constitution C23): an unattended mission with this flag
+	// set may not start without a reproducible BUILD verdict over stored
+	// opportunity evidence. It is optional and defaults to false, preserving
+	// the organization/10x path unchanged.
+	RequiresBuildVerdict bool `yaml:"requires_build_verdict,omitempty" json:"requires_build_verdict,omitempty"`
 }
 
 // document is the on-disk YAML/JSON shape: a single top-level "mission"

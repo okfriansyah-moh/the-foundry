@@ -22,7 +22,7 @@ func TestPlanGen_StrictParseAndNoSelfClassification(t *testing.T) {
 		},
 		Sections: []string{"apis", "billing"},
 	}
-	raw, err := PlanFromSpecification("plan-spec-test", "Generated Plan", specIn, mapping)
+	raw, err := PlanFromSpecification("plan-spec-test", "Generated Plan", specIn, mapping, testMC())
 	if err != nil {
 		t.Fatalf("PlanFromSpecification: %v", err)
 	}
@@ -32,6 +32,67 @@ func TestPlanGen_StrictParseAndNoSelfClassification(t *testing.T) {
 	}
 	if doc.SelfClassified {
 		t.Fatal("SelfClassified=true; generated plan must never set declared tier")
+	}
+	// Least-privilege: no requested permission may target a wildcard.
+	for _, p := range doc.RequestedPermissions {
+		if p.Target == "*" {
+			t.Fatalf("generated plan requested a wildcard permission: %+v", p)
+		}
+	}
+}
+
+func testMC() MissionContext {
+	return MissionContext{
+		RepoAlias:       "product",
+		RepoURL:         "https://github.com/example/mission-repo",
+		RepoBranch:      "main",
+		BudgetUSD:       75,
+		RepoWriteTarget: "product/**",
+	}
+}
+
+// TestPlanGen_NoWildcardPermission is the anti-wildcard regression: a generated
+// plan must never request repo-write to "*" (the pre-Task-110 hardcoded hole).
+func TestPlanGen_NoWildcardPermission(t *testing.T) {
+	mapping, err := loadEffectMapping("../../config/effect-mapping.yaml")
+	if err != nil {
+		t.Fatalf("loadEffectMapping: %v", err)
+	}
+	specIn := Specification{Sections: []string{"apis", "billing"}}
+	raw, err := PlanFromSpecification("plan-nowild", "No Wildcard", specIn, mapping, testMC())
+	if err != nil {
+		t.Fatalf("PlanFromSpecification: %v", err)
+	}
+	doc, err := plan.ParseBytes(raw)
+	if err != nil {
+		t.Fatalf("ParseBytes: %v", err)
+	}
+	sawRepoWrite := false
+	for _, p := range doc.RequestedPermissions {
+		if p.Target == "*" {
+			t.Fatalf("wildcard permission emitted: %+v", p)
+		}
+		if p.Kind == "repo-write" {
+			sawRepoWrite = true
+			if p.Target != "product/**" {
+				t.Fatalf("repo-write must target the mission path, got %q", p.Target)
+			}
+		}
+	}
+	if !sawRepoWrite {
+		t.Fatal("expected a scoped repo-write permission")
+	}
+}
+
+// TestPlanGen_WildcardTargetRejected proves a wildcard repo-write target is a
+// generation error, not silently emitted.
+func TestPlanGen_WildcardTargetRejected(t *testing.T) {
+	mapping := EffectMapping{}
+	specIn := Specification{Sections: []string{"apis"}}
+	mc := testMC()
+	mc.RepoWriteTarget = "*"
+	if _, err := PlanFromSpecification("plan-bad", "Bad", specIn, mapping, mc); err == nil {
+		t.Fatal("a wildcard repo-write target must be rejected")
 	}
 }
 
@@ -44,7 +105,7 @@ func TestPlanGen_EffectMappingRowsCovered(t *testing.T) {
 		Requirements: nil,
 		Sections:     []string{"apis", "billing", "persistence", "analytics", "permissions", "authentication"},
 	}
-	raw, err := PlanFromSpecification("plan-spec-rows", "Rows", specIn, mapping)
+	raw, err := PlanFromSpecification("plan-spec-rows", "Rows", specIn, mapping, testMC())
 	if err != nil {
 		t.Fatalf("PlanFromSpecification: %v", err)
 	}
@@ -79,9 +140,15 @@ func TestPlanGen_GoldensStable(t *testing.T) {
 			if err != nil {
 				t.Fatalf("loadSpecFixture: %v", err)
 			}
-			got, err := PlanFromSpecification(tc.planID, tc.title, specIn, mapping)
+			got, err := PlanFromSpecification(tc.planID, tc.title, specIn, mapping, testMC())
 			if err != nil {
 				t.Fatalf("PlanFromSpecification: %v", err)
+			}
+			if os.Getenv("UPDATE_GOLDENS") == "1" {
+				if err := os.WriteFile(tc.golden, got, 0o644); err != nil {
+					t.Fatalf("write golden: %v", err)
+				}
+				return
 			}
 			want, err := os.ReadFile(tc.golden)
 			if err != nil {

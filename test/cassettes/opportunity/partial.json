@@ -1,0 +1,8 @@
+{
+  "idea_id": "opp-live-002",
+  "partial": true,
+  "partial_reason": "max_uses_exceeded",
+  "claims": [
+    { "kind": "problem", "text": "One partial finding before the search cap was hit.", "label": "Inferred", "source_ref": "verified://forum-d#h4", "basis": "provider web research" }
+  ]
+}

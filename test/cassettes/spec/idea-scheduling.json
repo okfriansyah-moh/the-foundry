@@ -1,0 +1,8 @@
+{
+  "input_digest": "e2ccf7c17f3a94242de5fef8f4a905083113eb8b0f38ab9404baa8672bf51c38",
+  "requirements": [
+    { "id": "auth-login", "section": "authentication", "text": "Users authenticate before booking is exposed", "label": "Inferred", "basis": "idea implies accounts", "impact": "high" },
+    { "id": "sched-core", "section": "apis", "text": "A scheduling API resolves mutual availability", "label": "Inferred", "basis": "core value proposition", "impact": "medium" },
+    { "id": "billing-plan", "section": "billing", "text": "A paid plan gates advanced scheduling", "label": "Assumed", "basis": "monetization assumption", "impact": "high" }
+  ]
+}

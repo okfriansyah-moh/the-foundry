@@ -52,6 +52,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/okfriansyah-moh/the-foundry/internal/plan"
 )
 
 // sixStatusWords are the exact literal values of Constitution C1's six
@@ -126,6 +128,12 @@ func main() {
 		violations, err = checkMissionLoopContract(roots)
 	case "capability":
 		violations, err = checkCapabilityStaleness(roots)
+	case "research-boundary":
+		violations, err = checkResearchBoundary(roots)
+	case "plan-validation":
+		violations, err = checkPlanValidation(roots)
+	case "plan-topology":
+		violations, err = checkPlanTopology(roots)
 	default:
 		usage()
 		os.Exit(2)
@@ -144,7 +152,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability> <root>...")
+	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability|research-boundary|plan-validation|plan-topology> <root>...")
 }
 
 // walkFiles walks roots, invoking fn for every regular file whose name
@@ -977,4 +985,196 @@ func checkMissionLoopContract(roots []string) ([]string, error) {
 	})
 	sort.Strings(violations)
 	return violations, err
+}
+
+// checkResearchBoundary enforces docs/PLAN.md Task 101 (OPP-02) separation of
+// duties: internal/opportunity/research proposes and summarizes evidence but
+// may never call opportunity.Score or opportunity.Decide — research proposes,
+// the kernel gate decides (Constitution C23). research legitimately imports
+// the opportunity package for its types, so this is a call-graph prohibition
+// (like scripts/check_pec_boundary.sh's precedent), not an import ban: a call
+// to the opportunity import's Score/Decide is the violation.
+func checkResearchBoundary(roots []string) ([]string, error) {
+	const researchPathSegment = "internal/opportunity/research"
+	const opportunityImportSuffix = "internal/opportunity"
+	prohibited := map[string]bool{"Score": true, "Decide": true}
+
+	var violations []string
+	err := walkFiles(roots, ".go", func(path string) error {
+		norm := filepath.ToSlash(path)
+		if !strings.Contains(norm, researchPathSegment) {
+			return nil
+		}
+		fset := token.NewFileSet()
+		file, perr := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		if perr != nil {
+			return fmt.Errorf("research-boundary: parse %s: %w", path, perr)
+		}
+
+		// Resolve the local name the opportunity package is imported under,
+		// and reject a dot-import (which would make Score/Decide unqualified
+		// and hide the boundary).
+		localName := ""
+		for _, imp := range file.Imports {
+			ipath := strings.Trim(imp.Path.Value, `"`)
+			// Exact opportunity package, not the research subpackage itself.
+			if ipath == opportunityImportSuffix || strings.HasSuffix(ipath, "/"+opportunityImportSuffix) {
+				if imp.Name != nil {
+					if imp.Name.Name == "." {
+						violations = append(violations, fmt.Sprintf(
+							"%s: dot-imports %s -- research must import it qualified so the Score/Decide prohibition is checkable (C23)",
+							norm, opportunityImportSuffix))
+						continue
+					}
+					if imp.Name.Name == "_" {
+						continue
+					}
+					localName = imp.Name.Name
+				} else {
+					localName = "opportunity"
+				}
+			}
+		}
+		if localName == "" {
+			return nil
+		}
+
+		ast.Inspect(file, func(n ast.Node) bool {
+			sel, ok := n.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			ident, ok := sel.X.(*ast.Ident)
+			if !ok || ident.Name != localName {
+				return true
+			}
+			if prohibited[sel.Sel.Name] {
+				pos := fset.Position(sel.Pos())
+				violations = append(violations, fmt.Sprintf(
+					"%s:%d: research references %s.%s -- research proposes, it must never Score or Decide (Constitution C23)",
+					norm, pos.Line, localName, sel.Sel.Name))
+			}
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(violations)
+	return violations, nil
+}
+
+// checkPlanValidation enforces docs/PLAN.md Task 104 (SKP-11R2) at CI time:
+// every executable PLAN file's task must declare at least one validation
+// command or take the explicit, reasoned validation_optout. It parses each
+// executable-plan Markdown file (front matter that declares tasks) with
+// plan.ParseBytes, whose validation now rejects a task with neither — so a
+// plan task that could otherwise validate-as-PASSED by omission fails CI.
+func checkPlanValidation(roots []string) ([]string, error) {
+	var violations []string
+	err := walkFiles(roots, ".md", func(path string) error {
+		raw, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return fmt.Errorf("plan-validation: read %s: %w", path, rerr)
+		}
+		// Only inspect executable plans: front-matter documents that declare
+		// tasks. Prose docs are skipped.
+		if !bytes.HasPrefix(bytes.TrimLeft(raw, "\n"), []byte("---")) {
+			return nil
+		}
+		if !bytes.Contains(raw, []byte("\ntasks:")) {
+			return nil
+		}
+		if _, perr := plan.ParseBytes(raw); perr != nil {
+			violations = append(violations, fmt.Sprintf("%s: %v", filepath.ToSlash(path), perr))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(violations)
+	return violations, nil
+}
+
+// checkPlanTopology validates the task DAG of every PLAN card document and
+// executable plan under roots (docs/PLAN.md Task 110 / INT-02) using
+// plan.ValidateTopology: no self-deps, cycles, unknown/dangling references,
+// wave-order errors, or intra-parallel-wave dependency/path overlaps.
+//
+// A prose PLAN (Markdown "### Task N" cards with "**Depends:**" fields) has its
+// dependency graph extracted from the cards; an executable plan (YAML front
+// matter declaring tasks) is parsed with plan.ParseBytes.
+func checkPlanTopology(roots []string) ([]string, error) {
+	taskHeading := regexp.MustCompile(`(?m)^### Task\s+(\d+)\b`)
+	dependsField := regexp.MustCompile(`\*\*Depends:\*\*\s*([0-9,\s]+)`)
+
+	var violations []string
+	err := walkFiles(roots, ".md", func(path string) error {
+		raw, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return fmt.Errorf("plan-topology: read %s: %w", path, rerr)
+		}
+		norm := filepath.ToSlash(path)
+
+		// Executable plan: front matter declaring tasks.
+		if bytes.HasPrefix(bytes.TrimLeft(raw, "\n"), []byte("---")) && bytes.Contains(raw, []byte("\ntasks:")) {
+			doc, perr := plan.ParseBytes(raw)
+			if perr != nil {
+				// plan-validation reports parse errors; topology only reports
+				// topology, so a parse failure here is skipped (not double-reported).
+				return nil
+			}
+			for _, v := range plan.ValidateTopology(plan.TopologyFromDocument(doc)) {
+				violations = append(violations, fmt.Sprintf("%s: %s", norm, v))
+			}
+			return nil
+		}
+
+		// Prose PLAN cards.
+		headings := taskHeading.FindAllSubmatchIndex(raw, -1)
+		if len(headings) == 0 {
+			return nil
+		}
+		var tasks []plan.TopologyTask
+		known := map[string]bool{}
+		for _, h := range headings {
+			known[string(raw[h[2]:h[3]])] = true
+		}
+		for i, h := range headings {
+			id := string(raw[h[2]:h[3]])
+			start := h[1]
+			end := len(raw)
+			if i+1 < len(headings) {
+				end = headings[i+1][0]
+			}
+			card := raw[start:end]
+			var deps []string
+			if m := dependsField.FindSubmatch(card); m != nil {
+				for _, part := range strings.Split(string(m[1]), ",") {
+					part = strings.TrimSpace(part)
+					// A prose PLAN spans milestones and trims completed cards,
+					// so a dependency on a task without a present card is a
+					// known-external reference, not a dangling one. Only edges
+					// between present cards are topology-checked (cycles,
+					// self-deps, ordering); this keeps the whole-file DAG check
+					// meaningful without false "unknown" reports.
+					if part != "" && known[part] {
+						deps = append(deps, part)
+					}
+				}
+			}
+			tasks = append(tasks, plan.TopologyTask{ID: id, DependsOn: deps})
+		}
+		for _, v := range plan.ValidateTopology(tasks) {
+			violations = append(violations, fmt.Sprintf("%s: %s", norm, v))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(violations)
+	return violations, nil
 }

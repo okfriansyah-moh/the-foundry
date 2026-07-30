@@ -17,6 +17,7 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
+	"github.com/okfriansyah-moh/the-foundry/internal/kernel/integrator"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
@@ -60,6 +61,12 @@ type Activities struct {
 	// lookup for callers (e.g. unit tests) that supply no allowlist.
 	ExecutorSelector   ExecutorSelector
 	CapabilityRegistry capability.Registry
+
+	// Integrator and IntegrationQueue back the 10x IntegrateChangeSet activity
+	// (docs/PLAN.md Task 108 / RTC-04). Both are zero-valued by default; only
+	// the 10x path sets them, so DeliverPlan callers are unaffected.
+	Integrator       *integrator.Integrator
+	IntegrationQueue IntegrationQueue
 
 	mu         sync.Mutex
 	workspaces map[string]worktree.Workspace

@@ -48,10 +48,21 @@ type Requirement struct {
 	Impact  Impact `json:"impact" yaml:"impact"`
 }
 
+// SpecProvenance records what produced a Specification when it was synthesized
+// by an LLM (docs/PLAN.md Task 109 / INT-01): the provider, model and a digest
+// of the exact prompt. This is provenance, not authorization — labels, bases
+// and completeness remain decided by PostPass (Constitution C16).
+type SpecProvenance struct {
+	Provider     string `json:"provider,omitempty" yaml:"provider,omitempty"`
+	Model        string `json:"model,omitempty" yaml:"model,omitempty"`
+	PromptDigest string `json:"prompt_digest,omitempty" yaml:"prompt_digest,omitempty"`
+}
+
 // Specification is a post-pass-complete requirement set plus risk feed.
 type Specification struct {
 	Requirements       []Requirement    `json:"requirements" yaml:"requirements"`
 	UnresolvedByImpact map[Impact]int   `json:"unresolved_by_impact" yaml:"unresolved_by_impact"`
+	Provenance         SpecProvenance   `json:"provenance,omitempty" yaml:"provenance,omitempty"`
 	BySection          map[string][]int `json:"-" yaml:"-"`
 	Sections           []string         `json:"-" yaml:"-"`
 }

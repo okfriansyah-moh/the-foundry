@@ -196,17 +196,17 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅   | 97   | FND-15R | Rootless podman verification lane                               | M1R        | 34                         | [P]  |
 | ✅   | 98   | FND-16R | Secrets-backed GitHub TokenSource for scm/write                 | M1R        | 35,27                      | [P]  |
 | ✅  | 99   | SKP-11R | Wire ValidateTask to real internal/verify.Runner                | M1R        | 12,13                      | None |
-| ⬜  | 100  | OPP-01 | Opportunity contract: evidence model, scorer, verdict (C23)       | M5/V0      | 20,29,40,42                | None |
-| ⬜  | 101  | OPP-02 | Untrusted opportunity research intake (proposes only) (C23)       | M5/V1      | 70,84,100                  | None |
-| ⬜  | 102  | OPP-03 | Kernel-owned opportunity verdict gate + validation budget (C23)   | M5/V3      | 29,45,100,101,139          | None |
-| ⬜  | 103  | OPP-04 | Opportunity validation bundle + digest                            | M5/V4      | 11,52,100,102              | [P]  |
-| ⬜  | 104  | SKP-11R2 | ValidateTask honest-completion closure (C10/C24)                | M5/V0      | 13,99                      | None |
-| ⬜  | 105  | RTC-01 | Kernel-owned production delivery trigger (C4)                     | M5/V0      | 24,36,96,99                | None |
-| ⬜  | 106  | RTC-02 | MissionLoop in production foundryd (C2/C18)                       | M5/V1      | 40,105                     | None |
-| ⬜  | 107  | RTC-03 | Mission operational UX: start/resume/list/status                  | M5/V2      | 36,106                     | None |
-| ⬜  | 108  | RTC-04 | 10x branch-handoff workflow + durable integration queue (C15)     | M5/V1      | 27,58,60,61,105,137        | None |
-| ⬜  | 109  | INT-01 | Free-text → labeled requirements (real CandidateSource) (C16)      | M5/V2      | 42,43,101                  | None |
-| ⬜  | 110  | INT-02 | PLAN generator v2 + static topology validator                     | M5/V3      | 44,45,109                  | None |
+| ✅  | 100  | OPP-01 | Opportunity contract: evidence model, scorer, verdict (C23)       | M5/V0      | 20,29,40,42                | None |
+| ✅  | 101  | OPP-02 | Untrusted opportunity research intake (proposes only) (C23)       | M5/V1      | 70,84,100                  | None |
+| ✅  | 102  | OPP-03 | Kernel-owned opportunity verdict gate + validation budget (C23)   | M5/V3      | 29,45,100,101,139          | None |
+| ✅  | 103  | OPP-04 | Opportunity validation bundle + digest                            | M5/V4      | 11,52,100,102              | [P]  |
+| ✅  | 104  | SKP-11R2 | ValidateTask honest-completion closure (C10/C24)                | M5/V0      | 13,99                      | None |
+| ✅  | 105  | RTC-01 | Kernel-owned production delivery trigger (C4)                     | M5/V0      | 24,36,96,99                | None |
+| ✅  | 106  | RTC-02 | MissionLoop in production foundryd (C2/C18)                       | M5/V1      | 40,105                     | None |
+| ✅  | 107  | RTC-03 | Mission operational UX: start/resume/list/status                  | M5/V2      | 36,106                     | None |
+| ✅  | 108  | RTC-04 | 10x branch-handoff workflow + durable integration queue (C15)     | M5/V1      | 27,58,60,61,105,137        | None |
+| ✅  | 109  | INT-01 | Free-text → labeled requirements (real CandidateSource) (C16)      | M5/V2      | 42,43,101                  | None |
+| ✅  | 110  | INT-02 | PLAN generator v2 + static topology validator                     | M5/V3      | 44,45,109                  | None |
 | ⬜  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
 | ⬜  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
 | ⬜  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
@@ -2353,7 +2353,7 @@ flowchart LR
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** pure data + pure functions + storage only — no
   network, no LLM, no side effect, no authorization decision (`Decide` returns a *verdict*; only Task 102's kernel
   gate may act on it). `internal/opportunity` never imports `internal/kernel` or `internal/scm/write`. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-30
 
 ### Task 101 (OPP-02) — Untrusted opportunity research intake: proposes evidence, never authorizes (C23)
 
@@ -2423,7 +2423,7 @@ flowchart LR
   gated, `RUN_OPPORTUNITY_LIVE=1 go test ./internal/opportunity/research/... -run Live -race`.
 - **Risk:** High · **Exec:** go-backend+security-review · **Rev:** **R3** · **Boundary:** C23 — this package may
   propose and summarize; it may never write a verdict, never raise a score above what evidence supports, and never
-  be the sole basis for an `Observed` label. No import of `internal/kernel`. · **Status:** ⬜ Not started
+  be the sole basis for an `Observed` label. No import of `internal/kernel`. · **Status:** ✅ 2026-07-30
 
 ### Task 102 (OPP-03) — Kernel-owned opportunity verdict gate + bounded validation budget (C23)
 
@@ -2470,7 +2470,7 @@ flowchart LR
 - **Validation:** `go test ./internal/kernel/... -run Opportunity -race && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** a C4 admission-adjacent decision made only
   by deterministic re-derivation — no LLM output, no PEC proposal and no operator assertion may substitute for a
-  reproducible scorecard. `internal/kernel` still never imports `internal/scm/write`. · **Status:** ⬜ Not started
+  reproducible scorecard. `internal/kernel` still never imports `internal/scm/write`. · **Status:** ✅ 2026-07-30
 
 ### Task 103 (OPP-04) [P] — Opportunity validation artifact bundle + digest
 
@@ -2499,7 +2499,7 @@ flowchart LR
 - **Validation:** `go test ./internal/opportunity/... ./internal/notify/... -race && make evidence-verify`.
 - **Risk:** Low · **Exec:** go-backend · **Rev:** R2 · **Boundary:** read/render only; no verdict, no state
   transition, no approval request (C11 — the digest is a veto surface, never an approval surface). ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-30
 
 ### Task 104 (SKP-11R2) — ValidateTask honest-completion closure: independent proof, live path, empty-command hole (C10/C24)
 
@@ -2552,7 +2552,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel + security-review (the independent reviewer must not be the implementing
   session) · **Rev:** **R3** · **Boundary:** no change to `ValidateTask`'s body or to `verify.Runner`; the
   empty-command change is a *tightening* — its rollback is reverting one schema rule, not re-permitting silent
-  passes. · **Status:** ⬜ Not started
+  passes. · **Status:** ✅ 2026-07-30
 
 ### Task 105 (RTC-01) — Kernel-owned production delivery trigger (C4)
 
@@ -2600,7 +2600,7 @@ flowchart LR
   allowlist and workflow ID; the API and CLI are transport only and may not pass an executor name, a lane or a
   workflow ID that the kernel did not resolve. This card must never pass a nil `ExecutorAllowlist` (that is the
   fail-open path Task 116 closes); if the compiled policy yields an empty allowlist, refuse. No PR/merge/deploy
-  behaviour is added. · **Status:** ⬜ Not started
+  behaviour is added. · **Status:** ✅ 2026-07-30
 
 ### Task 106 (RTC-02) — MissionLoop in production `foundryd`: registration, ContinueAsNew, child-result handling (C2/C18)
 
@@ -2647,7 +2647,7 @@ flowchart LR
 - **Validation:** `go test ./internal/mission/... -race && RUN_MISSION_LIVE=1 PG_DSN=... TEMPORAL_HOSTPORT=... go test ./test/... -run MissionLoopLive -race && bash scripts/fitness.sh` (incl. the existing mission-loop contract lint).
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C2/C18 — no new workflow status; loop-exit
   semantics stay Task 40's. `cmd/foundryd/main.go` is shared with Tasks 102/105/107/112/115/116/119/121 — serialize
-  those edits, do not run them in parallel. · **Status:** ⬜ Not started
+  those edits, do not run them in parallel. · **Status:** ✅ 2026-07-30
 
 ### Task 107 (RTC-03) — Mission operational UX: start, resume, list, status
 
@@ -2682,7 +2682,7 @@ flowchart LR
 - **Validation:** `go test ./internal/mission/... ./internal/api/... -race && bash scripts/fitness.sh`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** transport and read surface only — no
   side-effect decision, no direct `ExecuteWorkflow` call from `cmd/` or `internal/api` (that authority stays in
-  `internal/kernel` per C4). · **Status:** ⬜ Not started
+  `internal/kernel` per C4). · **Status:** ✅ 2026-07-30
 
 ### Task 108 (RTC-04) — 10x branch-handoff workflow: kernel push activity + durable integration queue (C15)
 
@@ -2746,7 +2746,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C4/C15 — `internal/kernel/scmpush.go`
   remains the only importer of `internal/scm/write`; no PR API surface is added anywhere; no staging or production
   deploy activity is reachable from this workflow; the terminal vocabulary is Task 60's, unchanged. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-30
 
 ### Task 137 (TX-11) — Bitbucket authentication and write parity
 
@@ -2831,7 +2831,7 @@ flowchart LR
   `RUN_SPEC_LIVE=1 go test ./internal/spec/... -run LLMSourceLive -race`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** the model proposes requirement *text*; labels,
   bases and completeness remain decided by deterministic `PostPass` code (C16). No admission or tier influence —
-  `declared_tier` is never emitted (C6). · **Status:** ⬜ Not started
+  `declared_tier` is never emitted (C6). · **Status:** ✅ 2026-07-30
 
 ### Task 110 (INT-02) — PLAN generator v2: requirement-driven, least-privilege, topology-checked
 
@@ -2882,7 +2882,7 @@ flowchart LR
   zero parallel-wave path overlaps.
 - **Validation:** `go test ./internal/spec/... ./internal/plan/... ./internal/admission/... ./internal/pec/... -race && go run ./cmd/fitlint plan-topology docs/PLAN.md && bash scripts/fitness.sh && make doclint`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** generation only — the generator never
-  classifies, never approves and never widens a permission; C6 holds. · **Status:** ⬜ Not started
+  classifies, never approves and never widens a permission; C6 holds. · **Status:** ✅ 2026-07-30
 
 ### Task 111 (INT-03) — `foundry mission start --idea`: staged, resumable intake pipeline
 
