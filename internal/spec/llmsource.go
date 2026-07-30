@@ -25,26 +25,20 @@ type ProposedRequirements struct {
 	Model        string        `json:"model,omitempty"`
 }
 
-// inferenceConfidenceFloor mirrors internal/spec/mockup.NormalizeLabel: an
-// Observed label below this confidence is downgraded to Inferred. It is
-// duplicated (not imported) because internal/spec/mockup imports internal/spec,
-// so importing it here would create a cycle.
-const inferenceConfidenceFloor = 0.85
-
-// capInferenceLabel enforces the two deterministic caps synthesis output is
-// subject to: a synthesis (inference-stage) output can never be Observed, and
-// a below-floor-confidence Observed is downgraded to Inferred. An invalid label
-// fails closed to Unresolved.
-func capInferenceLabel(confidence float64, suggested Label) Label {
+// capInferenceLabel enforces the deterministic cap synthesis output is subject
+// to: a synthesis (inference-stage) output can never be Observed, so any
+// Observed suggestion is downgraded to Inferred unconditionally. An invalid
+// label fails closed to Unresolved. Because the downgrade is unconditional (a
+// confidence floor cannot make a synthesis output Observed either), no separate
+// confidence-floor check is needed here — unlike internal/spec/mockup.Normalize
+// Label, whose never-Observed cap is stage-conditional.
+func capInferenceLabel(suggested Label) Label {
 	lbl := suggested
 	if !lbl.Valid() {
 		return LabelUnresolved
 	}
 	// Synthesis is always inference: it can never be Observed.
 	if lbl == LabelObserved {
-		lbl = LabelInferred
-	}
-	if confidence < inferenceConfidenceFloor && lbl == LabelObserved {
 		lbl = LabelInferred
 	}
 	return lbl
@@ -96,11 +90,7 @@ func (s *LLMCandidateSource) Synthesize(ctx context.Context, input string) ([]Re
 
 	out := make([]Requirement, len(prop.Requirements))
 	for i, r := range prop.Requirements {
-		conf := 1.0
-		if i < len(prop.Confidences) {
-			conf = prop.Confidences[i]
-		}
-		r.Label = capInferenceLabel(conf, r.Label)
+		r.Label = capInferenceLabel(r.Label)
 		out[i] = r
 	}
 

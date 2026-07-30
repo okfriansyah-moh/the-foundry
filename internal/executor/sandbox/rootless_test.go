@@ -77,6 +77,15 @@ func requireRootlessPodman(t *testing.T) {
 	if os.Getenv("RUN_SANDBOX") != "1" {
 		t.Skip("skipping: set RUN_SANDBOX=1 to run real-container sandbox tests (docs/PLAN.md Task 97)")
 	}
+	// This lane is the sandbox-tests-rootless job specifically
+	// (FOUNDRY_SANDBOX_TEST_ENGINE=podman), which installs a known-good
+	// rootless podman + crun. The default sandbox-tests job runs the same
+	// package with engine=docker on a runner whose pre-installed podman/crun
+	// is not guaranteed usable (observed: `crun: unknown version specified`),
+	// so this podman-only test must not run there.
+	if engine := os.Getenv("FOUNDRY_SANDBOX_TEST_ENGINE"); engine != "podman" {
+		t.Skipf("skipping: this test verifies rootless podman specifically and runs only in the podman lane; FOUNDRY_SANDBOX_TEST_ENGINE=%q (docs/PLAN.md Task 97)", engine)
+	}
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skipf("skipping: podman not found on PATH: %v — this test proves a property specific to rootless podman, not exercisable via docker (docs/PLAN.md Task 97)", err)
 	}

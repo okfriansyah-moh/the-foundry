@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"go.temporal.io/sdk/client"
 
@@ -13,6 +14,82 @@ import (
 // list, status, start and resume. Transport only: the kernel owns the workflow
 // (Constitution C4). Each route is behind the same PDP middleware as every
 // other internal/api route.
+
+// missionResponse is the wire shape for a mission.Mission. The domain struct
+// carries no json tags (it would marshal CamelCase, e.g. "ID"/"PrincipalID"),
+// so the API maps it to explicit snake_case here, matching every other route's
+// convention (see status.go's statusResponse). Contract already has its own
+// snake_case json tags, so it is embedded directly.
+type missionResponse struct {
+	ID          string           `json:"id"`
+	PrincipalID string           `json:"principal_id"`
+	WorkflowID  string           `json:"workflow_id"`
+	Contract    mission.Contract `json:"contract"`
+	CreatedAt   time.Time        `json:"created_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
+}
+
+func newMissionResponse(m mission.Mission) missionResponse {
+	return missionResponse{
+		ID:          m.ID,
+		PrincipalID: m.PrincipalID,
+		WorkflowID:  m.WorkflowID,
+		Contract:    m.Contract,
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
+	}
+}
+
+// missionStateResponse is the wire shape for a mission.StateSnapshot (latest
+// loop state), snake_case to match the rest of the API.
+type missionStateResponse struct {
+	MissionID        string     `json:"mission_id"`
+	Cycle            int        `json:"cycle"`
+	NetMRRUSD        float64    `json:"net_mrr_usd"`
+	NoProgressCycles int        `json:"no_progress_cycles"`
+	Confirming       bool       `json:"confirming"`
+	ConfirmedSince   *time.Time `json:"confirmed_since,omitempty"`
+	Status           string     `json:"status"`
+	Reason           string     `json:"reason"`
+	ResultCode       string     `json:"result_code"`
+	ObservedAt       time.Time  `json:"observed_at"`
+}
+
+func newMissionStateResponse(s mission.StateSnapshot) missionStateResponse {
+	return missionStateResponse{
+		MissionID:        s.MissionID,
+		Cycle:            s.Cycle,
+		NetMRRUSD:        s.NetMRRUSD,
+		NoProgressCycles: s.NoProgressCycles,
+		Confirming:       s.Confirming,
+		ConfirmedSince:   s.ConfirmedSince,
+		Status:           s.Status,
+		Reason:           s.Reason,
+		ResultCode:       s.ResultCode,
+		ObservedAt:       s.ObservedAt,
+	}
+}
+
+// missionListItemResponse is a mission plus its latest loop state, snake_case.
+// missionResponse's tagged fields are promoted into the object, mirroring the
+// domain MissionListItem's own embedding of Mission.
+type missionListItemResponse struct {
+	missionResponse
+	Status     string     `json:"status"`
+	Reason     string     `json:"reason"`
+	Cycle      int        `json:"cycle"`
+	ObservedAt *time.Time `json:"observed_at,omitempty"`
+}
+
+func newMissionListItemResponse(item mission.MissionListItem) missionListItemResponse {
+	return missionListItemResponse{
+		missionResponse: newMissionResponse(item.Mission),
+		Status:          item.Status,
+		Reason:          item.Reason,
+		Cycle:           item.Cycle,
+		ObservedAt:      item.ObservedAt,
+	}
+}
 
 func (s *Server) missionStore() *mission.Store { return mission.NewStore(s.deps.DB) }
 
@@ -27,7 +104,11 @@ func (s *Server) handleListMissions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not list missions")
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	resp := make([]missionListItemResponse, len(items))
+	for i, item := range items {
+		resp[i] = newMissionListItemResponse(item)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleMissionStatus implements GET /v1/missions/{id}.
@@ -39,9 +120,9 @@ func (s *Server) handleMissionStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "mission not found")
 		return
 	}
-	resp := map[string]any{"mission": m}
+	resp := map[string]any{"mission": newMissionResponse(m)}
 	if st, err := store.LatestState(r.Context(), id); err == nil {
-		resp["latest_state"] = st
+		resp["latest_state"] = newMissionStateResponse(st)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

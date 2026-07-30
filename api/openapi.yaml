@@ -146,7 +146,7 @@ paths:
       operationId: missionStatus
       summary: Read one mission's status and latest loop state (mirrors `foundry mission status`)
       parameters:
-        - $ref: "#/components/parameters/PlanID"
+        - $ref: "#/components/parameters/MissionID"
       responses:
         "200":
           description: Mission and its latest state.
@@ -161,7 +161,7 @@ paths:
       operationId: startMission
       summary: Start a mission's MissionLoop (mirrors `foundry mission start`)
       parameters:
-        - $ref: "#/components/parameters/PlanID"
+        - $ref: "#/components/parameters/MissionID"
         - name: lane
           in: query
           required: false
@@ -185,7 +185,7 @@ paths:
       operationId: resumeMission
       summary: Resume a WAITING mission (mirrors `foundry mission resume`)
       parameters:
-        - $ref: "#/components/parameters/PlanID"
+        - $ref: "#/components/parameters/MissionID"
       responses:
         "202":
           description: Mission resume signal sent.
@@ -371,6 +371,13 @@ components:
       name: id
       in: path
       required: true
+      schema:
+        type: string
+    MissionID:
+      name: id
+      in: path
+      required: true
+      description: Mission id (distinct from a plan id).
       schema:
         type: string
     EvidenceID:

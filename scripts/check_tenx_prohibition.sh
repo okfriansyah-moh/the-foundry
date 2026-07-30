@@ -21,7 +21,10 @@ done
 
 found=0
 present=0
-pattern='\b(CreatePullRequest|OpenPullRequest|MergePullRequest|CreateMergeRequest|MergeBranch|DeployTo|StagingDeploy|ProductionDeploy)\b'
+# POSIX ERE (grep -E) has no \b word-boundary metacharacter, so use explicit
+# non-identifier boundaries instead — \b would be a literal backspace/no-op and
+# could let a prohibited symbol slip the check (Constitution C15 bypass).
+pattern='(^|[^A-Za-z0-9_])(CreatePullRequest|OpenPullRequest|MergePullRequest|CreateMergeRequest|MergeBranch|DeployTo|StagingDeploy|ProductionDeploy)([^A-Za-z0-9_]|$)'
 for file in "${files[@]}"; do
   [ -f "${file}" ] || continue
   present=1
