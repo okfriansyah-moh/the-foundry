@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/worktree"
 )
@@ -61,12 +62,61 @@ type Summary struct {
 	Claimed string
 	// ExitNotes is free-form self-reported detail accompanying Claimed.
 	ExitNotes string
+	// Usage is the executor's structured, parseable resource usage
+	// (docs/PLAN.md Task 120 / COST-02). Adapters that can report real
+	// provider usage populate it; those that cannot leave it zero. It replaces
+	// discarding these numbers into ExitNotes as free text nothing parses back.
+	Usage Usage
+}
+
+// Usage is structured executor resource usage for cost reconciliation
+// (docs/PLAN.md Task 120 / COST-02). ProviderReportedUSD is the provider's own
+// dollar figure when available; token counts let the rate table price a call
+// deterministically when the provider reports no dollar figure. A zero Usage
+// means the executor could not report usage (e.g. a subscription-seat CLI).
+type Usage struct {
+	InputTokens         int
+	OutputTokens        int
+	CachedTokens        int
+	ProviderReportedUSD float64
+	Model               string
+	Provider            string
+}
+
+// HasSignal reports whether this Usage carries any reconcilable figure.
+func (u Usage) HasSignal() bool {
+	return u.ProviderReportedUSD > 0 || u.InputTokens > 0 || u.OutputTokens > 0
 }
 
 // Artifacts lists the filesystem paths (relative to the workspace) an
 // executor produced or touched during Run, for Collect to gather.
 type Artifacts struct {
 	Paths []string
+}
+
+// SandboxSpec is the command an adapter would run, expressed so the kernel can
+// run it INSIDE the mandatory sandbox instead of on the host (docs/PLAN.md Task
+// 115 / SEC-01). No shell is invoked — Argv is executed directly.
+type SandboxSpec struct {
+	// Argv is the command and its arguments (argv[0] is the binary).
+	Argv []string
+	// Stdin is written to the command's standard input, if any.
+	Stdin []byte
+	// EnvAllowlist names the host environment variables copied into the
+	// sandboxed command's environment (the scrub discipline, applied at the
+	// container boundary).
+	EnvAllowlist []string
+	// Timeout bounds the command; zero means the sandbox default.
+	Timeout time.Duration
+}
+
+// SandboxSpecProvider is an OPTIONAL Adapter capability (additive to the
+// three-method contract): an adapter that can express its work as a
+// SandboxSpec, so the kernel runs it inside the sandbox. An adapter that does
+// not implement it cannot run under a profile whose policy demands sandboxing —
+// the kernel refuses rather than falling back to host execution (C24).
+type SandboxSpecProvider interface {
+	SandboxSpec(ctx context.Context, ws worktree.Workspace, packet TaskPacket) (SandboxSpec, error)
 }
 
 // Adapter is the seam every task executor implements: prepare a workspace,

@@ -32,8 +32,13 @@ type Notification struct {
 	State     State
 	Attempts  int
 	LastError string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// NextAttemptAt is the durable not-before time for a retry
+	// (docs/PLAN.md Task 112 / INT-04). A zero value means "eligible now".
+	// Persisting it means Telegram's retry_after pacing survives a daemon
+	// restart instead of every pending row becoming immediately eligible.
+	NextAttemptAt time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // Store is the persistence seam Engine depends on — an interface so
@@ -62,6 +67,23 @@ type Store interface {
 	// dead-letter path for permanently-failing sends (attempts exhausted
 	// or a non-retryable classification).
 	MarkDeadLetter(ctx context.Context, id, errMsg string) error
+	// ScheduleRetry persists id's not-before time so a transient failure's
+	// backoff (and Telegram's authoritative retry_after) survives a daemon
+	// restart (docs/PLAN.md Task 112 / INT-04). ClaimPending must not return
+	// a row whose NextAttemptAt is still in the future.
+	ScheduleRetry(ctx context.Context, id string, notBefore time.Time) error
+}
+
+// OffsetStore durably records the Telegram getUpdates offset per bot so a
+// daemon restart resumes exactly where it stopped — no re-delivery, no gap
+// (docs/PLAN.md Task 112 / INT-04, step 2).
+type OffsetStore interface {
+	// GetOffset returns the last processed update id for botID, or 0 when the
+	// bot has no recorded offset yet.
+	GetOffset(ctx context.Context, botID string) (int64, error)
+	// SetOffset advances botID's offset to updateID. It is monotonic: an
+	// updateID not greater than the stored value is ignored.
+	SetOffset(ctx context.Context, botID string, updateID int64) error
 }
 
 // PostgresStore is the Postgres-backed Store implementation, wrapping
@@ -90,7 +112,7 @@ func (s *PostgresStore) ClaimPending(ctx context.Context, limit int) ([]Notifica
 	const q = `
 SELECT id, channel, target, class, payload, state, attempts, COALESCE(last_error, ''), created_at, updated_at
 FROM notifications
-WHERE state = 'pending'
+WHERE state = 'pending' AND (next_attempt_at IS NULL OR next_attempt_at <= now())
 ORDER BY created_at ASC
 LIMIT $1`
 	rows, err := s.db.QueryContext(ctx, q, limit)
@@ -162,6 +184,44 @@ func mustAffectOne(res sql.Result, id string) error {
 	}
 	if n == 0 {
 		return ErrNotificationNotFound
+	}
+	return nil
+}
+
+// ScheduleRetry persists id's not-before time (durable pacing, Task 112).
+func (s *PostgresStore) ScheduleRetry(ctx context.Context, id string, notBefore time.Time) error {
+	const update = `UPDATE notifications SET next_attempt_at = $2, updated_at = now() WHERE id = $1`
+	res, err := s.db.ExecContext(ctx, update, id, notBefore)
+	if err != nil {
+		return fmt.Errorf("notify: schedule retry %s: %w", id, err)
+	}
+	return mustAffectOne(res, id)
+}
+
+// GetOffset returns botID's last processed getUpdates offset (0 if none).
+func (s *PostgresStore) GetOffset(ctx context.Context, botID string) (int64, error) {
+	const q = `SELECT last_update_id FROM telegram_offsets WHERE bot_id = $1`
+	var id int64
+	err := s.db.QueryRowContext(ctx, q, botID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("notify: get offset %s: %w", botID, err)
+	}
+	return id, nil
+}
+
+// SetOffset advances botID's offset monotonically.
+func (s *PostgresStore) SetOffset(ctx context.Context, botID string, updateID int64) error {
+	const q = `
+INSERT INTO telegram_offsets (bot_id, last_update_id, updated_at)
+VALUES ($1, $2, now())
+ON CONFLICT (bot_id) DO UPDATE
+SET last_update_id = GREATEST(telegram_offsets.last_update_id, EXCLUDED.last_update_id),
+    updated_at = now()`
+	if _, err := s.db.ExecContext(ctx, q, botID, updateID); err != nil {
+		return fmt.Errorf("notify: set offset %s: %w", botID, err)
 	}
 	return nil
 }

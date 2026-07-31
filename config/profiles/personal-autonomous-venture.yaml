@@ -1,0 +1,43 @@
+# Personal autonomous venture profile (docs/PLAN.md Task 116 / SEC-02, C13).
+#
+# The audit found no personal-profile policy layer source despite C13. This is
+# the profile layer for the personal-autonomous-venture profile: it only
+# tightens platform defaults (Constitution — a profile can never widen a
+# tighten-only field; Compile rejects any attempt at compile time).
+#
+# Profile layer in the precedence chain: platform -> org -> profile -> workflow.
+# Fields not set here inherit unchanged from the platform layer.
+
+# Permissions: the personal venture builds its own product repo; ci-trigger
+# stays inherited from platform (a personal venture runs its own CI).
+permissions_allowlist:
+  - repo-read
+  - repo-write
+  - ci-trigger
+
+# Budget: a personal venture runs on a tight envelope.
+budget_ceilings_usd:
+  workflow_usd: 50
+  task_usd: 3
+
+# Executor: the personal profile uses the sandbox-required autonomous executor.
+executor_allowlist:
+  - claude-code
+
+# Risk tier controls: the personal profile's bounded production-auto grant
+# (C13) — A0/A1/A2 auto-execute inside this pre-authorized profile; H still
+# requires human authorization. This does not widen platform (platform already
+# permits A0-A2 auto); it records the personal profile's stance explicitly.
+risk_tier_controls:
+  A0:
+    auto_allowed: true
+    require_review: false
+  A1:
+    auto_allowed: true
+    require_review: false
+  A2:
+    auto_allowed: true
+    require_review: false
+  H:
+    auto_allowed: false
+    require_review: true

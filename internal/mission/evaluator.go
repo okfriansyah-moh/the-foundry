@@ -137,6 +137,11 @@ type Signal struct {
 	TotalBudgetExhausted   bool
 	UnforeseenHumanGate    bool
 	PolicyTerminated       bool
+	// NoBudgetEnvelope marks that the mission has no provisioned monthly
+	// envelope at all (docs/PLAN.md Task 119 / COST-01). It is fail-closed:
+	// an unattended mission without an envelope halts rather than running
+	// unmetered. It implies MonthlyBudgetExhausted.
+	NoBudgetEnvelope bool
 }
 
 // Outcome is one Evaluate call's decision. Continue means no pause/

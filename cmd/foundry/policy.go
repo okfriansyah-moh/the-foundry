@@ -16,15 +16,6 @@ import (
 
 const policyTimeout = 10 * time.Second
 
-// profileBudget is the slice of profile.schema.json's config this command
-// reads: budget.max_usd, the only field of Task 21's profile config that
-// maps cleanly onto this task's Policy model.
-type profileBudget struct {
-	Budget struct {
-		MaxUSD float64 `json:"max_usd"`
-	} `json:"budget"`
-}
-
 // runPolicyResolve implements `foundry policy resolve --profile X`
 // (docs/PLAN.md Task 22 / FND-03): loads the named profile, folds it in as
 // the profile layer atop the embedded platform defaults, and prints the
@@ -67,7 +58,7 @@ func runPolicyResolve(args []string) error {
 		return fmt.Errorf("policy resolve: load profile %s: %w", *profileID, err)
 	}
 
-	profileLayer, err := profileLayerFromConfig(p.Config)
+	profileLayer, err := compiler.ProfileLayerFromConfig(p.Config)
 	if err != nil {
 		return fmt.Errorf("policy resolve: %w", err)
 	}
@@ -85,19 +76,4 @@ func runPolicyResolve(args []string) error {
 	fmt.Printf("digest: %s\n", resolved.Digest)
 	fmt.Print(compiler.Explain(resolved))
 	return nil
-}
-
-// profileLayerFromConfig maps profile.schema.json's required budget.max_usd
-// onto this task's budget_ceilings_usd "workflow_usd" key — the overall
-// per-workflow ceiling the profile authorizes. Compile rejects it as a
-// compile error (not silently clamps it) if it exceeds the platform's
-// workflow_usd ceiling, per the tighten-only rule.
-func profileLayerFromConfig(raw json.RawMessage) (compiler.LayerPolicy, error) {
-	var cfg profileBudget
-	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return compiler.LayerPolicy{}, fmt.Errorf("parse profile config: %w", err)
-	}
-	return compiler.LayerPolicy{
-		BudgetCeilingsUSD: map[string]float64{"workflow_usd": cfg.Budget.MaxUSD},
-	}, nil
 }

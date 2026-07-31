@@ -175,6 +175,7 @@ func newRevocationFixture(t *testing.T) revocationFixture {
 		cost.Defaults{DefaultUSD: 0.10},
 		verify.NewRunner(validationAllow),
 	)
+	wireTestSelection(acts, "fake")
 
 	return revocationFixture{
 		PlanID:       doc.ID,
@@ -227,10 +228,11 @@ func TestDeliverPlan_MidFlightRevocation(t *testing.T) {
 	})
 
 	env.ExecuteWorkflow(kernel.DeliverPlan, kernel.DeliverPlanInput{
-		PlanID:       fx.PlanID,
-		PlanFilePath: fx.PlanFilePath,
-		RepoPath:     fx.RepoPath,
-		ExecutorName: "fake",
+		PlanID:            fx.PlanID,
+		PlanFilePath:      fx.PlanFilePath,
+		RepoPath:          fx.RepoPath,
+		ExecutorName:      "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {

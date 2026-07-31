@@ -134,6 +134,10 @@ func main() {
 		violations, err = checkPlanValidation(roots)
 	case "plan-topology":
 		violations, err = checkPlanTopology(roots)
+	case "subprocess":
+		violations, err = checkKernelSubprocess(roots)
+	case "env":
+		violations, err = checkExecutorEnv(roots)
 	default:
 		usage()
 		os.Exit(2)
@@ -152,7 +156,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability|research-boundary|plan-validation|plan-topology> <root>...")
+	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability|research-boundary|plan-validation|plan-topology|subprocess|env> <root>...")
 }
 
 // walkFiles walks roots, invoking fn for every regular file whose name
@@ -1170,6 +1174,116 @@ func checkPlanTopology(roots []string) ([]string, error) {
 		for _, v := range plan.ValidateTopology(tasks) {
 			violations = append(violations, fmt.Sprintf("%s: %s", norm, v))
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(violations)
+	return violations, nil
+}
+
+// checkKernelSubprocess enforces docs/PLAN.md Task 115 (SEC-01): internal/kernel
+// must never regain a direct bare-subprocess call. Kernel code runs autonomous
+// executor work only through the mandatory sandbox seam (SandboxRunner); a
+// direct exec.Command / executor.RunSubprocess* in internal/kernel is a
+// fail-open host-execution path and fails CI, not just review. Test files are
+// exempt (they may spawn helper processes).
+func checkKernelSubprocess(roots []string) ([]string, error) {
+	const kernelSegment = "internal/kernel/"
+	prohibited := map[string]bool{
+		"RunSubprocess":          true,
+		"RunSubprocessWithStdin": true,
+		"Command":                true, // exec.Command
+		"CommandContext":         true, // exec.CommandContext
+	}
+	var violations []string
+	err := walkFiles(roots, ".go", func(path string) error {
+		norm := filepath.ToSlash(path)
+		if !strings.Contains(norm, kernelSegment) {
+			return nil
+		}
+		if strings.HasSuffix(norm, "_test.go") {
+			return nil
+		}
+		fset := token.NewFileSet()
+		file, perr := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		if perr != nil {
+			return fmt.Errorf("subprocess: parse %s: %w", path, perr)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			sel, ok := n.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			ident, ok := sel.X.(*ast.Ident)
+			if !ok {
+				return true
+			}
+			// Flag exec.Command/CommandContext and <executor>.RunSubprocess*.
+			if (ident.Name == "exec" && prohibited[sel.Sel.Name]) ||
+				(sel.Sel.Name == "RunSubprocess" || sel.Sel.Name == "RunSubprocessWithStdin") {
+				pos := fset.Position(sel.Pos())
+				violations = append(violations, fmt.Sprintf(
+					"%s:%d: internal/kernel calls %s.%s -- kernel must run executors only through the mandatory sandbox seam, never a bare host subprocess (Task 115, C4/C24)",
+					norm, pos.Line, ident.Name, sel.Sel.Name))
+			}
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(violations)
+	return violations, nil
+}
+
+// checkExecutorEnv enforces docs/PLAN.md Task 117 (SEC-03): no process-global
+// credential mutation on the executor/kernel path. os.Setenv/os.Unsetenv under
+// internal/executor/** or internal/kernel/** is a concurrency hazard — a
+// credential installed for one task can leak to or be clobbered by another
+// running concurrently in the same process. Credentials must reach a child
+// process through its own per-invocation environment (RunSubprocessWithEnv),
+// never the shared daemon process. Test files are exempt by an explicit
+// allowance (they may set process env to arrange a scenario).
+func checkExecutorEnv(roots []string) ([]string, error) {
+	segments := []string{"internal/executor/", "internal/kernel/"}
+	var violations []string
+	err := walkFiles(roots, ".go", func(path string) error {
+		norm := filepath.ToSlash(path)
+		inScope := false
+		for _, seg := range segments {
+			if strings.Contains(norm, seg) {
+				inScope = true
+				break
+			}
+		}
+		if !inScope || strings.HasSuffix(norm, "_test.go") {
+			return nil
+		}
+		fset := token.NewFileSet()
+		file, perr := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		if perr != nil {
+			return fmt.Errorf("env: parse %s: %w", path, perr)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			sel, ok := n.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			ident, ok := sel.X.(*ast.Ident)
+			if !ok || ident.Name != "os" {
+				return true
+			}
+			if sel.Sel.Name == "Setenv" || sel.Sel.Name == "Unsetenv" {
+				pos := fset.Position(sel.Pos())
+				violations = append(violations, fmt.Sprintf(
+					"%s:%d: os.%s under an executor/kernel path -- credentials must be passed per-invocation (RunSubprocessWithEnv), never via process-global env (Task 117, OWASP A02/A07)",
+					norm, pos.Line, sel.Sel.Name))
+			}
+			return true
+		})
 		return nil
 	})
 	if err != nil {

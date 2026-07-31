@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
@@ -63,16 +65,23 @@ func run() error {
 
 	// Only ReceiptStore matters: ExecuteTask never touches the other
 	// Activities collaborators (provenance, worktree, evidence, lease,
-	// transitions, cost store/defaults, validator).
+	// transitions, cost store/defaults, validator). Task 116 (SEC-02):
+	// ExecuteTask fails closed without an executor allowlist, so wire the
+	// deterministic selector + a capability registry supporting "fake".
 	activities := kernel.NewActivities(nil, nil, nil, nil, kernel.NewPGReceiptStore(db), nil, nil, cost.Defaults{}, verify.Runner{})
+	activities.ExecutorSelector = kernel.ExecutorSelector{Default: "fake"}
+	activities.CapabilityRegistry = capability.Registry{Executors: []capability.Record{
+		{Provider: "fake", ExecutionClass: "test", Availability: capability.AvailabilitySupported, LastVerifiedAt: time.Now()},
+	}}
 
 	out, err := activities.ExecuteTask(context.Background(), kernel.ExecuteTaskInput{
-		WorkflowID:    *workflowID,
-		TaskID:        *taskID,
-		Attempt:       *attempt,
-		ExecutorName:  "fake",
-		WorkspacePath: *workspace,
-		Packet:        executor.TaskPacket{Goal: *scriptPath},
+		WorkflowID:        *workflowID,
+		TaskID:            *taskID,
+		Attempt:           *attempt,
+		ExecutorName:      "fake",
+		WorkspacePath:     *workspace,
+		ExecutorAllowlist: []string{"fake"},
+		Packet:            executor.TaskPacket{Goal: *scriptPath},
 	})
 	if err != nil {
 		return fmt.Errorf("execute task: %w", err)

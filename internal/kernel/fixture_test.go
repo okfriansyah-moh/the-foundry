@@ -14,6 +14,7 @@ import (
 
 	"github.com/okfriansyah-moh/the-foundry/internal/admission"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
@@ -201,6 +202,11 @@ func newFixtureWithValidation(t *testing.T, scriptYAML, validationCmd string) ke
 		cost.Defaults{DefaultUSD: 0.10},
 		verify.NewRunner(validationAllow),
 	)
+	// Task 116 (SEC-02): ExecuteTask now fails closed on an absent/empty
+	// executor allowlist, so every test that drives a task must route through
+	// real, policy-checked selection. Wire the deterministic selector + a
+	// capability registry that supports the test executors.
+	wireTestSelection(acts, "fake")
 
 	return kernelFixture{
 		PlanID:       doc.ID,
@@ -254,4 +260,21 @@ func registerActivities(env *testsuite.TestWorkflowEnvironment, a *kernel.Activi
 	env.RegisterActivityWithOptions(a.ValidateTask, activity.RegisterOptions{Name: kernel.ActivityValidateTask})
 	env.RegisterActivityWithOptions(a.RecordEvidence, activity.RegisterOptions{Name: kernel.ActivityRecordEvidence})
 	env.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
+}
+
+// testCapabilityRegistry returns a capability registry that marks the test
+// executors ("fake", "claude-code") supported, so ExecutorSelector.Select
+// resolves them under a policy allowlist (Task 116 fail-closed selection).
+func testCapabilityRegistry() capability.Registry {
+	return capability.Registry{Executors: []capability.Record{
+		{Provider: "fake", ExecutionClass: "test", Availability: capability.AvailabilitySupported, LastVerifiedAt: time.Now()},
+		{Provider: "claude-code", ExecutionClass: "cli-agentic", Availability: capability.AvailabilitySupported, LastVerifiedAt: time.Now()},
+	}}
+}
+
+// wireTestSelection configures acts so an allowlisted task routes to
+// defaultExecutor through the deterministic selector.
+func wireTestSelection(acts *kernel.Activities, defaultExecutor string) {
+	acts.ExecutorSelector = kernel.ExecutorSelector{Default: defaultExecutor}
+	acts.CapabilityRegistry = testCapabilityRegistry()
 }

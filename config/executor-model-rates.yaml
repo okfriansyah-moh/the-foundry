@@ -1,0 +1,29 @@
+# Per-model cost rate table (docs/PLAN.md Task 120 / COST-02).
+#
+# Distinct from config/executor-models.yaml (Task 79's model-per-task-class
+# routing) to avoid clobbering it — decision (no-gaps rule): the card named
+# executor-models.yaml, but that path is already an unrelated routing config, so
+# the rate table lives here.
+#
+# Token counts become dollars deterministically when a provider reports no
+# dollar figure of its own. A model with NO entry here is a named refusal to
+# estimate — its cost is recorded as "unknown", never silently priced at a
+# global default. Prices are USD per 1,000 tokens; re-verify against the
+# provider's published pricing when it changes.
+models:
+  - model: claude-sonnet-4
+    input_per_1k_usd: 0.003
+    output_per_1k_usd: 0.015
+    cached_input_per_1k_usd: 0.0003
+  - model: claude-opus-4
+    input_per_1k_usd: 0.015
+    output_per_1k_usd: 0.075
+    cached_input_per_1k_usd: 0.0015
+  - model: gpt-4o
+    input_per_1k_usd: 0.0025
+    output_per_1k_usd: 0.010
+    cached_input_per_1k_usd: 0.00125
+  - model: gpt-4o-mini
+    input_per_1k_usd: 0.00015
+    output_per_1k_usd: 0.0006
+    cached_input_per_1k_usd: 0.000075

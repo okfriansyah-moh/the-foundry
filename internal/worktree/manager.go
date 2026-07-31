@@ -39,6 +39,19 @@ type Manager struct {
 	Root string
 }
 
+// ForProfile returns a Manager rooted at this Manager's Root scoped to
+// profileID (docs/PLAN.md Task 118 / SEC-04): every task in a profile gets a
+// worktree under Root/<profile>/... so a task can never be handed a workspace
+// outside its own profile's subtree. profileID is validated with the same
+// path-escape rules as a workflow/task id, so a malicious profile id cannot
+// escape Root.
+func (m *Manager) ForProfile(profileID string) (*Manager, error) {
+	if err := validateIdent(profileID); err != nil {
+		return nil, fmt.Errorf("worktree: profile id: %w", err)
+	}
+	return &Manager{Root: filepath.Join(m.Root, profileID)}, nil
+}
+
 // meta is the on-disk record SweepOlderThan uses to find and reclaim
 // orphaned worktrees without depending on in-memory Manager state.
 type meta struct {

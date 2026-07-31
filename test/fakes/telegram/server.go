@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"sync"
 
 	"golang.org/x/time/rate"
@@ -49,6 +51,9 @@ type Server struct {
 	statsMu     sync.Mutex
 	sent        int
 	rateLimited int
+
+	updatesMu sync.Mutex
+	updates   []InboundUpdate
 }
 
 // New starts a Server enforcing limits.
@@ -58,8 +63,59 @@ func New(limits RawLimits) *Server {
 		global: rate.NewLimiter(rate.Limit(limits.GlobalPerSecond), int(limits.GlobalPerSecond)),
 		chats:  make(map[string]*rate.Limiter),
 	}
-	s.Server = httptest.NewServer(http.HandlerFunc(s.handleSendMessage))
+	s.Server = httptest.NewServer(http.HandlerFunc(s.route))
 	return s
+}
+
+// route dispatches on the Bot API method suffix so the one fake server presents
+// both the outbound sendMessage endpoint and the inbound getUpdates endpoint
+// (docs/PLAN.md Task 112 / INT-04).
+func (s *Server) route(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/getUpdates"):
+		s.handleGetUpdates(w, r)
+	default:
+		s.handleSendMessage(w, r)
+	}
+}
+
+// InboundUpdate is one queued inbound update, in the getUpdates JSON shape
+// internal/notify.Receiver reads.
+type InboundUpdate struct {
+	UpdateID int64  `json:"update_id"`
+	ChatID   int64  `json:"-"`
+	Text     string `json:"-"`
+}
+
+// Enqueue makes an update available to the next getUpdates poll. It is how a
+// test drives an inbound command into the wired receiver.
+func (s *Server) Enqueue(updateID, chatID int64, text string) {
+	s.updatesMu.Lock()
+	defer s.updatesMu.Unlock()
+	s.updates = append(s.updates, InboundUpdate{UpdateID: updateID, ChatID: chatID, Text: text})
+}
+
+// handleGetUpdates returns every queued update whose update_id >= the requested
+// offset, in Telegram's envelope shape.
+func (s *Server) handleGetUpdates(w http.ResponseWriter, r *http.Request) {
+	offset, _ := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
+	s.updatesMu.Lock()
+	var result []map[string]any
+	for _, u := range s.updates {
+		if u.UpdateID < offset {
+			continue
+		}
+		result = append(result, map[string]any{
+			"update_id": u.UpdateID,
+			"message": map[string]any{
+				"text": u.Text,
+				"chat": map[string]any{"id": u.ChatID},
+			},
+		})
+	}
+	s.updatesMu.Unlock()
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": result})
 }
 
 func (s *Server) chatLimiter(chatID string) *rate.Limiter {

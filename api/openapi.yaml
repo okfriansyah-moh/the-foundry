@@ -356,6 +356,80 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: Profile not found.
+  /intake:
+    post:
+      operationId: createIntake
+      summary: Start an idea-intake run (mirrors `foundry mission start --idea`)
+      description: >
+        Records a raw idea and drives the staged pipeline to a terminal or a
+        pause. Idea text is untrusted data; a budget in the body is a request
+        clamped by the budget gate, never a grant. This surface is optional —
+        a daemon that has not wired the pipeline returns 503.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idea]
+              properties:
+                idea:
+                  type: string
+                budget:
+                  type: number
+      responses:
+        "202":
+          description: Intake run created and advanced to a terminal or pause.
+        "400":
+          description: Missing idea or refused by the budget gate.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Intake pipeline not configured.
+  /intake/{id}:
+    get:
+      operationId: getIntake
+      summary: Show an intake run (mirrors `foundry intake show`)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The intake run.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Intake run not found.
+        "503":
+          description: Intake pipeline not configured.
+  /intake/{id}/resume:
+    post:
+      operationId: resumeIntake
+      summary: Resume a paused/interrupted intake run (mirrors `foundry intake resume`)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Intake run advanced from where it stopped.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Intake run not found.
+        "503":
+          description: Intake pipeline not configured.
 components:
   securitySchemes:
     sessionBearer:

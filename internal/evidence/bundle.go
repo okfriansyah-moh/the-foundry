@@ -41,10 +41,16 @@ type Manifest struct {
 	// the digest of every pre-Task-85 bundle (which never set it)
 	// byte-identical — the field is additive and non-breaking.
 	ExecutorUsed string `json:",omitempty"`
-	Commands     []CommandRecord
-	Artifacts    []ArtifactRef
-	Transitions  []state.Transition
-	CreatedAt    time.Time
+	// Profile is the profile namespace this bundle was produced under
+	// (docs/PLAN.md Task 118 / SEC-04). omitempty keeps every pre-Task-118
+	// bundle's digest byte-identical — the field is additive and non-breaking.
+	// Migration note: existing bundles carry no profile and are treated as
+	// personal-profile by definition (recorded decision, not a rewrite).
+	Profile     string `json:",omitempty"`
+	Commands    []CommandRecord
+	Artifacts   []ArtifactRef
+	Transitions []state.Transition
+	CreatedAt   time.Time
 }
 
 // canonicalJSON renders m deterministically: json.Marshal already emits

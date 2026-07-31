@@ -182,6 +182,10 @@ type CommandRouter struct {
 	// reimplementing it.
 	ResolvePlanContext authn.PlanContextResolver
 	SecureSurfaceURL   authn.SecureSurfaceURLFunc
+
+	// Idea wires the /idea and /confirm low-risk intake commands (Task 113 /
+	// INT-05). Optional: nil disables intake-by-message.
+	Idea *IdeaCommand
 }
 
 // Handle parses and dispatches one command line (e.g. "/pause flow-123
@@ -215,6 +219,19 @@ func (r *CommandRouter) Handle(ctx context.Context, chatID, text string) string 
 		return r.handleApprove(ctx, args)
 	case "rollback":
 		return r.handleRollback(ctx, chatID, args)
+	case "idea":
+		// Task 113: a free-text idea becomes a mission draft. The text is data,
+		// never an instruction.
+		if r.Idea == nil {
+			return "idea intake is not enabled"
+		}
+		principal, _ := r.Chats.Principal(chatID)
+		return r.Idea.HandleIdea(ctx, chatID, principal, strings.Join(args, " "))
+	case "confirm":
+		if r.Idea == nil {
+			return "idea intake is not enabled"
+		}
+		return r.Idea.HandleConfirm(ctx, chatID, args)
 	default:
 		return fmt.Sprintf("unknown command: /%s", name)
 	}

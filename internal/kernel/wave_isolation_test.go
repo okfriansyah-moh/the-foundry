@@ -7,9 +7,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/claudecode"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 	"github.com/okfriansyah-moh/the-foundry/internal/pec"
@@ -58,6 +60,12 @@ func TestWaveIsolation(t *testing.T) {
 
 	evDir := t.TempDir()
 	acts := NewActivities(nil, nil, evidence.NewFSStore(evDir), nil, NewMemReceiptStore(), nil, nil, cost.Defaults{}, verify.Runner{})
+	// Task 116 (SEC-02): ExecuteTask fails closed without an allowlist, so
+	// route the test executor through real selection.
+	acts.ExecutorSelector = ExecutorSelector{Default: "claude-code"}
+	acts.CapabilityRegistry = capability.Registry{Executors: []capability.Record{
+		{Provider: "claude-code", ExecutionClass: "cli-agentic", Availability: capability.AvailabilitySupported, LastVerifiedAt: time.Now()},
+	}}
 
 	type result struct {
 		taskID string
@@ -79,7 +87,8 @@ func TestWaveIsolation(t *testing.T) {
 			out, err := acts.ExecuteTask(context.Background(), ExecuteTaskInput{
 				WorkflowID: "wave-wf", TaskID: taskID, Attempt: 1,
 				ExecutorName: "claude-code", WorkspacePath: ws,
-				Packet: executor.TaskPacket{PlanID: "wave-plan", TaskID: taskID, Goal: goals[taskID]},
+				ExecutorAllowlist: []string{"claude-code"},
+				Packet:            executor.TaskPacket{PlanID: "wave-plan", TaskID: taskID, Goal: goals[taskID]},
 			})
 			if err != nil {
 				t.Errorf("[%s] ExecuteTask: %v", taskID, err)

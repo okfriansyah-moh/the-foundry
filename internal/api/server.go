@@ -80,6 +80,11 @@ type Dependencies struct {
 	// Logger records server-side detail for failures whose full text must
 	// not be echoed to the client (OWASP A05). Defaults to slog.Default().
 	Logger *slog.Logger
+
+	// Intake is the optional intake-pipeline seam behind POST /v1/intake and
+	// its read/resume routes (docs/PLAN.md Task 111). Nil-safe: a daemon that
+	// has not wired the pipeline serves 503 on those routes.
+	Intake IntakeService
 }
 
 // Route names one registered (method, pattern) pair, in the same syntax
@@ -219,6 +224,11 @@ func (s *Server) registerRoutes() {
 	s.register(http.MethodGet, "/v1/profiles", staticResource("profile:list"), s.handleProfileList)
 	s.register(http.MethodPost, "/v1/profiles", staticResource("profile:create"), s.handleProfileCreate)
 	s.register(http.MethodGet, "/v1/profiles/{id}", pathResource("profile", "read"), s.handleProfileShow)
+
+	// Task 111 (INT-03): intake pipeline surface (optional; 503 when unwired).
+	s.register(http.MethodPost, "/v1/intake", staticResource("intake:create"), s.handleCreateIntake)
+	s.register(http.MethodGet, "/v1/intake/{id}", pathResource("intake", "read"), s.handleShowIntake)
+	s.register(http.MethodPost, "/v1/intake/{id}/resume", pathResource("intake", "resume"), s.handleResumeIntake)
 }
 
 func staticResource(name string) func(*http.Request) string {

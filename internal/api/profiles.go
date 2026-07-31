@@ -1,12 +1,11 @@
 package api
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/profile"
 )
 
@@ -63,12 +62,19 @@ func (s *Server) handleProfileCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Task 116 (SEC-02): policy_digest is the COMPILED policy digest, not a
+	// hash of the raw config bytes — so anything downstream can trust it.
+	digest, err := compiler.ProfilePolicyDigest(req.Config)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "profile create: "+err.Error())
+		return
+	}
 	p := &profile.Profile{
 		ID:           req.ID,
 		Name:         req.Name,
 		Kind:         profile.Kind(req.Kind),
 		Config:       req.Config,
-		PolicyDigest: placeholderPolicyDigest(req.Config),
+		PolicyDigest: digest,
 	}
 	if req.OrgID != "" {
 		p.OrgID = &req.OrgID
@@ -92,9 +98,4 @@ func (s *Server) handleProfileCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, p)
-}
-
-func placeholderPolicyDigest(config []byte) string {
-	sum := sha256.Sum256(config)
-	return hex.EncodeToString(sum[:])
 }

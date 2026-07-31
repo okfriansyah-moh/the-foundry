@@ -62,6 +62,19 @@ type Activities struct {
 	ExecutorSelector   ExecutorSelector
 	CapabilityRegistry capability.Registry
 
+	// Sandbox is the mandatory-sandbox execution seam (docs/PLAN.md Task 115 /
+	// SEC-01). When a task's ExecuteTaskInput.RequireSandbox is set, ExecuteTask
+	// runs the resolved executor inside this sandbox and refuses to execute at
+	// all when it is unavailable — never a host fallback (C24). Zero-valued by
+	// default so pre-Task-115 callers (RequireSandbox=false) are unaffected.
+	Sandbox SandboxRunner
+
+	// ModelRates prices token usage into dollars for actual-cost reconciliation
+	// (docs/PLAN.md Task 120 / COST-02). Zero-valued by default; RecordCost
+	// records "unknown" for a model with no rate rather than a fabricated
+	// figure.
+	ModelRates cost.RateTable
+
 	// Integrator and IntegrationQueue back the 10x IntegrateChangeSet activity
 	// (docs/PLAN.md Task 108 / RTC-04). Both are zero-valued by default; only
 	// the 10x path sets them, so DeliverPlan callers are unaffected.
@@ -206,6 +219,18 @@ type ReserveBudgetInput struct {
 	TaskID       string
 	ExecutorName string
 	Attempt      int
+	// MissionID, when set, aligns the reservation scope with the scope a
+	// mission's budget is actually provisioned at (docs/PLAN.md Task 119 /
+	// COST-01): the kernel previously reserved at ScopeWorkflow/WorkflowID
+	// while mission budgets are provisioned and read at ScopeMission/missionID,
+	// so a correctly-provisioned mission envelope was never consulted. When
+	// MissionID is set the reservation is made at ScopeMission/MissionID.
+	MissionID string
+	// Unattended marks a reservation for an unattended (autonomous) mission.
+	// An unattended reservation with no budget envelope is REFUSED, never run
+	// unmetered (C19/C24). An attended/interactive reservation without an
+	// envelope stays unmetered, preserving interactive use.
+	Unattended bool
 }
 
 // ReserveBudgetOutput is ReserveBudget's output. Exhausted reports a
@@ -217,6 +242,10 @@ type ReserveBudgetOutput struct {
 	EntryID   string
 	Exhausted bool
 	Shadow    bool
+	// Refused reports a fail-closed refusal (Task 119): an unattended mission
+	// with no budget envelope must not execute. Classification names why.
+	Refused        bool
+	Classification string
 }
 
 // ReserveBudget reserves this task's estimated cost against its
@@ -250,26 +279,38 @@ func (a *Activities) ReserveBudget(ctx context.Context, in ReserveBudgetInput) (
 		amountUSD := a.CostDefaults.DefaultUSD
 		meta := map[string]string{"task_id": in.TaskID}
 
+		// Task 119 (COST-01): align the reservation scope with the scope the
+		// budget is actually provisioned at. A mission task reserves at
+		// ScopeMission/MissionID (where mission budgets live), not
+		// ScopeWorkflow/WorkflowID (where nothing was ever provisioned).
+		scope, scopeID := cost.ScopeWorkflow, in.WorkflowID
+		if in.MissionID != "" {
+			scope, scopeID = cost.ScopeMission, in.MissionID
+		}
+
 		if isSubscriptionExecutor(in.ExecutorName) {
-			entry, err := a.CostStore.RecordShadow(ctx, cost.ScopeWorkflow, in.WorkflowID, amountUSD, in.ExecutorName, costPricingVersion, meta)
+			entry, err := a.CostStore.RecordShadow(ctx, scope, scopeID, amountUSD, in.ExecutorName, costPricingVersion, meta)
 			if err != nil {
 				return ReserveBudgetOutput{}, fmt.Errorf("kernel: record shadow cost %s/%s: %w", in.WorkflowID, in.TaskID, err)
 			}
-			// cost_per_task (docs/PLAN.md Task 31): the reservation/shadow
-			// amount is the only per-task cost-ledger figure this codebase
-			// records anywhere today — no activity calls CostStore.Incur
-			// with an actual observed amount yet (that wiring is a Task 29
-			// follow-up, out of this task's Scope), so this is the estimate,
-			// not a reconciled actual.
 			observe.ObserveCostPerTask(in.ExecutorName, entry.AmountUSD)
 			return ReserveBudgetOutput{EntryID: entry.ID, Shadow: true}, nil
 		}
 
-		entry, err := a.CostStore.Reserve(ctx, cost.ScopeWorkflow, in.WorkflowID, cost.KindMissionMonthly, currentPeriod(time.Now()), amountUSD, in.ExecutorName, costPricingVersion, meta)
+		entry, err := a.CostStore.Reserve(ctx, scope, scopeID, cost.KindMissionMonthly, currentPeriod(time.Now()), amountUSD, in.ExecutorName, costPricingVersion, meta)
 		switch {
 		case errors.Is(err, cost.ErrBudgetExhausted):
 			return ReserveBudgetOutput{Exhausted: true}, nil
 		case errors.Is(err, cost.ErrBudgetNotFound):
+			// Task 119 (COST-01): "no envelope" is a REFUSAL for an unattended
+			// mission, not "unmetered". Attended/interactive use without an
+			// envelope stays unmetered (a human is present).
+			if in.Unattended {
+				return ReserveBudgetOutput{
+					Refused:        true,
+					Classification: "budget-envelope-absent",
+				}, nil
+			}
 			return ReserveBudgetOutput{}, nil
 		case err != nil:
 			return ReserveBudgetOutput{}, fmt.Errorf("kernel: reserve budget %s/%s: %w", in.WorkflowID, in.TaskID, err)
@@ -394,11 +435,20 @@ type ExecuteTaskInput struct {
 	// TaskClass is the plan task's routing class (plan.Task.Class), used by
 	// the selector's routing table (Task 90) when no executor is explicit.
 	TaskClass string
-	// ExecutorAllowlist is the resolved policy's executor_allowlist. When
-	// nil, ExecuteTask keeps the pre-Task-85 unchecked lookup of
-	// ExecutorName; when non-nil (even if empty), ExecuteTask runs
-	// kernel-owned, policy-checked selection and fails closed on violation.
+	// ExecutorAllowlist is the resolved policy's executor_allowlist. Task 116
+	// (SEC-02): an ABSENT or EMPTY allowlist is a fail-closed refusal
+	// (ClassificationPolicyViolation) — no executor runs without a policy that
+	// names it. A non-empty allowlist drives kernel-owned, policy-checked,
+	// capability-gated selection (Task 85 / PRV-02, Constitution C4).
 	ExecutorAllowlist []string
+	// RequireSandbox is set from the task's resolved profile policy when that
+	// policy demands the mandatory executor sandbox (docs/PLAN.md Task 115 /
+	// SEC-01). When true, ExecuteTask runs the executor inside the sandbox and
+	// refuses (named classification) rather than falling back to host
+	// execution if the sandbox is unavailable or the executor is incompatible.
+	// A rollback cannot set this false for a profile whose policy demands
+	// sandboxing — the workflow derives it from policy, not from a flag.
+	RequireSandbox bool
 }
 
 // ExecuteTaskOutput is ExecuteTask's output. Failed/ErrorMessage carry the
@@ -422,6 +472,9 @@ type ExecuteTaskOutput struct {
 	// policy violation). It is surfaced to ValidateTask as the task's real
 	// classification instead of the generic executor-failed default.
 	Classification string
+	// Usage is the executor's structured resource usage (docs/PLAN.md Task 120
+	// / COST-02), carried out so a RecordCost step can incur the real cost.
+	Usage executor.Usage
 }
 
 // ExecuteTask runs packet inside the already-acquired worktree via the
@@ -432,29 +485,33 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 
 	key := IdempotencyKey{in.WorkflowID, in.TaskID, "ExecuteTask", in.Attempt}.String()
 	return withReceipt(ctx, a.ReceiptStore, key, func() (ExecuteTaskOutput, error) {
-		// Task 85 (PRV-02, Constitution C4): the kernel — not an unchecked
-		// env var, not PEC, not the executor itself — decides which adapter
-		// runs, and validates that decision against the policy allowlist and
-		// capability registry. When no allowlist is supplied (pre-Task-85
-		// callers), fall back to the historical unchecked lookup.
-		execName := in.ExecutorName
-		if in.ExecutorAllowlist != nil {
-			task := plan.Task{ID: in.TaskID, Executor: in.ExplicitExecutor, Class: in.TaskClass}
-			pol := compiler.Resolved{Effective: compiler.Policy{ExecutorAllowlist: in.ExecutorAllowlist}}
-			selected, selErr := a.ExecutorSelector.Select(ctx, task, pol, a.CapabilityRegistry)
-			if selErr != nil {
-				var se *SelectionError
-				if errors.As(selErr, &se) {
-					return ExecuteTaskOutput{
-						Failed:         true,
-						ErrorMessage:   se.Error(),
-						ExecutorUsed:   se.Executor,
-						Classification: string(se.Classification),
-					}, nil
-				}
-				return ExecuteTaskOutput{}, fmt.Errorf("kernel: select executor %s/%s: %w", in.WorkflowID, in.TaskID, selErr)
+		// Task 85 (PRV-02, Constitution C4) + Task 116 (SEC-02): the kernel —
+		// not an unchecked env var, not PEC, not the executor itself — decides
+		// which adapter runs, and validates that decision against the policy
+		// allowlist and capability registry. An ABSENT or EMPTY allowlist is a
+		// fail-closed refusal (not the historical unchecked lookup): no
+		// executor may run without a policy that names it.
+		if len(in.ExecutorAllowlist) == 0 {
+			return ExecuteTaskOutput{
+				Failed:         true,
+				ErrorMessage:   fmt.Sprintf("kernel: no executor allowlist for %s/%s — refusing (deny-when-absent, Task 116/C4/C24)", in.WorkflowID, in.TaskID),
+				Classification: string(verify.ClassificationPolicyViolation),
+			}, nil
+		}
+		task := plan.Task{ID: in.TaskID, Executor: in.ExplicitExecutor, Class: in.TaskClass}
+		pol := compiler.Resolved{Effective: compiler.Policy{ExecutorAllowlist: in.ExecutorAllowlist}}
+		execName, selErr := a.ExecutorSelector.Select(ctx, task, pol, a.CapabilityRegistry)
+		if selErr != nil {
+			var se *SelectionError
+			if errors.As(selErr, &se) {
+				return ExecuteTaskOutput{
+					Failed:         true,
+					ErrorMessage:   se.Error(),
+					ExecutorUsed:   se.Executor,
+					Classification: string(se.Classification),
+				}, nil
 			}
-			execName = selected
+			return ExecuteTaskOutput{}, fmt.Errorf("kernel: select executor %s/%s: %w", in.WorkflowID, in.TaskID, selErr)
 		}
 
 		adapter, err := executor.Get(execName)
@@ -467,17 +524,40 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 			return ExecuteTaskOutput{}, fmt.Errorf("kernel: prepare task %s/%s: %w", in.WorkflowID, in.TaskID, err)
 		}
 
+		// Task 115 (SEC-01): decide whether this task must run sandboxed. A
+		// sandbox-required task that cannot be sandboxed is refused with a named
+		// classification — never a host fallback (C24).
+		decision := a.decideSandbox(execName, in.RequireSandbox)
+		if decision.refusal != "" {
+			return refuseSandbox(execName, decision.refusal, decision.reason), nil
+		}
+
 		// provider_waiting_time (docs/PLAN.md Task 31): STUB per the card
 		// ("stub source is acceptable") — adapter.Run's wall-clock duration
 		// conflates real provider wait time with the adapter's own local
 		// work; see observe.ProviderWaitingTimeSeconds's doc comment.
 		runStart := time.Now()
 		stopHeartbeat := startHeartbeat(ctx)
-		summary, runErr := adapter.Run(ctx)
+		var summary executor.Summary
+		var runErr error
+		if decision.required {
+			// Run INSIDE the sandbox. A refusal (unwired/unavailable/incompatible
+			// sandbox) or a sandbox run failure returns fail-closed here.
+			var out ExecuteTaskOutput
+			var okRun bool
+			summary, out, okRun = a.runSandboxed(ctx, execName, adapter, ws, in.Packet)
+			if !okRun {
+				stopHeartbeat()
+				observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
+				return out, nil
+			}
+		} else {
+			summary, runErr = adapter.Run(ctx)
+		}
 		stopHeartbeat()
 		observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
 
-		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName}
+		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName, Usage: summary.Usage}
 		if runErr != nil {
 			out.Failed = true
 			out.ErrorMessage = runErr.Error()

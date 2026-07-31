@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/authn"
@@ -21,6 +22,7 @@ func runLogin(args []string) error {
 	fs := flag.NewFlagSet("login", flag.ContinueOnError)
 	issuerURL := fs.String("issuer-url", os.Getenv("FOUNDRY_OIDC_ISSUER"), "OIDC issuer URL (Blocker B5: managed IdP)")
 	clientID := fs.String("client-id", os.Getenv("FOUNDRY_OIDC_CLIENT_ID"), "OIDC client id")
+	scopes := fs.String("scopes", os.Getenv("FOUNDRY_OIDC_SCOPES"), "space-separated OIDC scopes (default 'openid'; 'profile email' bind a human approver identity)")
 	keyDir := fs.String("key-dir", "", "session key directory (default ~/.foundry/keys)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -48,7 +50,7 @@ func runLogin(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	prompt, err := authn.StartDeviceLogin(ctx, authn.LoginConfig{IssuerURL: *issuerURL, ClientID: *clientID})
+	prompt, err := authn.StartDeviceLogin(ctx, authn.LoginConfig{IssuerURL: *issuerURL, ClientID: *clientID, Scopes: parseScopes(*scopes)})
 	if err != nil {
 		return fmt.Errorf("login: %w", err)
 	}
@@ -73,4 +75,14 @@ func runLogin(args []string) error {
 
 	fmt.Printf("logged in as %s (session written to %s)\n", result.Principal, sessionPath)
 	return nil
+}
+
+// parseScopes splits a space-separated scope set (FOUNDRY_OIDC_SCOPES); empty
+// yields nil, which internal/authn defaults to {openid}.
+func parseScopes(s string) []string {
+	fields := strings.Fields(s)
+	if len(fields) == 0 {
+		return nil
+	}
+	return fields
 }

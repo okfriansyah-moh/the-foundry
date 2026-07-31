@@ -87,16 +87,17 @@ func New() *Adapter {
 	return &Adapter{binary: bin}
 }
 
-// applySecretsEnv fetches a's configured auth secret (if Secrets is set)
-// and sets it into the process environment under SecretsEnvVar for the
-// duration of Run, returning a func that restores whatever value (or
-// absence) was there beforehand. When Secrets is nil this is a no-op —
-// Run's env passthrough behaves exactly as before Task 35.
-func (a *Adapter) applySecretsEnv(ctx context.Context) (func(), error) {
+// resolveSecretEnv fetches a's configured auth secret (if Secrets is set) and
+// returns it as a per-invocation env entry (name→value) for the child process
+// ONLY. It never mutates the shared daemon process environment (Task 117 /
+// SEC-03): the credential reaches the executor through its own process env, so
+// two concurrent tasks in different secret scopes can never observe each other's
+// credential. When Secrets is nil this returns an empty map — Run's env
+// passthrough behaves exactly as before.
+func (a *Adapter) resolveSecretEnv(ctx context.Context) (map[string]string, error) {
 	if a.Secrets == nil {
-		return func() {}, nil
+		return nil, nil
 	}
-
 	envVar := a.SecretsEnvVar
 	if envVar == "" {
 		envVar = defaultSecretsEnvVar
@@ -105,23 +106,11 @@ func (a *Adapter) applySecretsEnv(ctx context.Context) (func(), error) {
 	if name == "" {
 		name = strings.ToLower(envVar)
 	}
-
 	v, err := a.Secrets.Get(ctx, a.SecretsScope, name)
 	if err != nil {
 		return nil, fmt.Errorf("claudecode: read %s from secrets store: %w", envVar, err)
 	}
-
-	prev, hadPrev := os.LookupEnv(envVar)
-	if err := os.Setenv(envVar, v); err != nil {
-		return nil, fmt.Errorf("claudecode: set %s: %w", envVar, err)
-	}
-	return func() {
-		if hadPrev {
-			_ = os.Setenv(envVar, prev)
-		} else {
-			_ = os.Unsetenv(envVar)
-		}
-	}, nil
+	return map[string]string{envVar: v}, nil
 }
 
 // Prepare writes the task packet's content to a fixed-name prompt file
@@ -196,8 +185,10 @@ func renderPrompt(p executor.TaskPacket) string {
 // answer it and the run stalls. This is safe only because Prepare has
 // already confined cmd.Dir to the isolated worktree (C8) and allowedEnv
 // strips every credential except Claude Code's own; the executor sandbox
-// (Task 34, default-deny egress) is the intended stronger boundary once it
-// exists.
+// (Task 34, default-deny egress) is the stronger boundary, and Task 115 wires
+// it: the kernel's ExecuteTask runs this executor through the mandatory
+// SandboxRunner seam for any sandbox-demanding profile, refusing host execution
+// when the sandbox is unavailable.
 func (a *Adapter) Run(ctx context.Context) (executor.Summary, error) {
 	f, err := os.Open(a.promptPath)
 	if err != nil {
@@ -210,14 +201,13 @@ func (a *Adapter) Run(ctx context.Context) (executor.Summary, error) {
 		timeout = time.Duration(a.packet.TimeoutSec) * time.Second
 	}
 
-	restore, err := a.applySecretsEnv(ctx)
+	secretEnv, err := a.resolveSecretEnv(ctx)
 	if err != nil {
 		return executor.Summary{}, err
 	}
-	defer restore()
 
 	cmdLine := a.binary + " -p --output-format json --permission-mode bypassPermissions"
-	result, err := executor.RunSubprocessWithStdin(ctx, a.ws.Path, cmdLine, f, allowedEnv, timeout)
+	result, err := executor.RunSubprocessWithEnv(ctx, a.ws.Path, cmdLine, f, allowedEnv, secretEnv, timeout)
 	if err != nil {
 		return executor.Summary{}, fmt.Errorf("claudecode: run: %w", err)
 	}
@@ -259,7 +249,25 @@ func parseSummary(stdout string) executor.Summary {
 		"session_id=%s num_turns=%d duration_ms=%d total_cost_usd=%.4f usage=%s",
 		r.SessionID, r.NumTurns, r.DurationMS, r.TotalCostUSD, string(r.Usage),
 	)
-	return executor.Summary{Claimed: r.Result, ExitNotes: notes}
+	// Task 120: parse the usage object into structured Usage for reconciliation
+	// instead of only stuffing it into ExitNotes.
+	var u struct {
+		InputTokens     int `json:"input_tokens"`
+		OutputTokens    int `json:"output_tokens"`
+		CacheReadTokens int `json:"cache_read_input_tokens"`
+	}
+	_ = json.Unmarshal(r.Usage, &u)
+	return executor.Summary{
+		Claimed:   r.Result,
+		ExitNotes: notes,
+		Usage: executor.Usage{
+			InputTokens:         u.InputTokens,
+			OutputTokens:        u.OutputTokens,
+			CachedTokens:        u.CacheReadTokens,
+			ProviderReportedUSD: r.TotalCostUSD,
+			Provider:            "claude-code",
+		},
+	}
 }
 
 // Collect reports the prompt file as the only artifact this adapter itself

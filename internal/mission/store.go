@@ -290,13 +290,15 @@ SELECT EXISTS(
 }
 
 // MissionFilter bounds a ListMissions query. Status filters on the mission's
-// latest recorded state; Profile is accepted now but enforced by Task 118's
-// tenancy rule, not here (docs/PLAN.md Task 107). Limit defaults to 50.
+// latest recorded state; PrincipalID, when set, restricts results to that
+// principal's own missions (docs/PLAN.md Task 118 / SEC-04 tenancy rule — a
+// principal cannot list another's missions). Limit defaults to 50.
 type MissionFilter struct {
-	Status  string
-	Profile string
-	Limit   int
-	Offset  int
+	Status      string
+	Profile     string
+	PrincipalID string
+	Limit       int
+	Offset      int
 }
 
 // MissionListItem is a mission plus its latest recorded loop state, for the
@@ -328,9 +330,10 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) ms ON true
 WHERE ($1 = '' OR ms.status = $1)
+  AND ($4 = '' OR m.principal_id = $4)
 ORDER BY m.created_at DESC, m.id DESC
 LIMIT $2 OFFSET $3`
-	rows, err := s.db.QueryContext(ctx, q, filter.Status, limit, filter.Offset)
+	rows, err := s.db.QueryContext(ctx, q, filter.Status, limit, filter.Offset, filter.PrincipalID)
 	if err != nil {
 		return nil, fmt.Errorf("mission: list: %w", err)
 	}

@@ -222,6 +222,14 @@ func (a *Adapter) parseSummary(body []byte) executor.Summary {
 		Claimed: strings.TrimSpace(r.Choices[0].Message.Content),
 		ExitNotes: fmt.Sprintf("provider=%s pricing_version=%s cost_usd=%.4f prompt_tokens=%d completion_tokens=%d",
 			a.cfg.Provider, a.cfg.PricingVersion, a.cfg.CostPerCallUSD, r.Usage.PromptTokens, r.Usage.CompletionTokens),
+		// Task 120: structured usage for reconciliation, not just free text.
+		Usage: executor.Usage{
+			InputTokens:         r.Usage.PromptTokens,
+			OutputTokens:        r.Usage.CompletionTokens,
+			ProviderReportedUSD: a.cfg.CostPerCallUSD,
+			Model:               a.cfg.Model,
+			Provider:            a.cfg.Provider,
+		},
 	}
 }
 

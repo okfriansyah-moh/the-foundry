@@ -204,3 +204,16 @@ type fakePolicy struct {
 func (f fakePolicy) Digest() string { return f.digest }
 
 func (f fakePolicy) RequiredControls(admission.Tier) []string { return f.controls }
+
+// TestClassify_NilPolicyFailsClosed proves Task 116 (SEC-02): a nil policy view
+// is a fail-closed error, not a silent no-op substitution.
+func TestClassify_NilPolicyFailsClosed(t *testing.T) {
+	doc := &plan.Document{ID: "p1", Title: "t"}
+	if _, err := admission.Classify(doc, nil); err == nil {
+		t.Fatal("Classify(doc, nil) must fail closed, not default to a no-op policy view")
+	}
+	// The explicit test-only no-op still works as a seam.
+	if _, err := admission.Classify(doc, admission.NoopPolicyView{}); err != nil {
+		t.Fatalf("Classify with explicit NoopPolicyView should succeed: %v", err)
+	}
+}

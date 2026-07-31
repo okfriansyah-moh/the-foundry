@@ -135,12 +135,21 @@ func (a *Activities) ObserveLedger(ctx context.Context, missionID string) (Ledge
 // envelope provisioned yet is treated as unmetered (not exhausted) --
 // the same precedent internal/kernel.Activities.ReserveBudget already
 // established for cost.ErrBudgetNotFound.
+// CheckBudget reports whether a mission's monthly or total experiment budget
+// is exhausted. docs/PLAN.md Task 119 (COST-01): a mission is unattended by
+// nature, so "no envelope" is a REFUSAL, not "unmetered" — the absence of a
+// monthly envelope is treated as exhausted so the mission halts rather than
+// running unbounded.
 func (a *Activities) CheckBudget(ctx context.Context, missionID string) (Signal, error) {
 	var sig Signal
 
 	monthly, err := a.Budgets.GetBudget(ctx, cost.ScopeMission, missionID, cost.KindMissionMonthly, currentPeriod(time.Now()))
 	switch {
 	case errors.Is(err, cost.ErrBudgetNotFound):
+		// Fail closed: an unattended mission with no monthly envelope must not
+		// run unmetered (Task 119 / C19/C24).
+		sig.MonthlyBudgetExhausted = true
+		sig.NoBudgetEnvelope = true
 	case err != nil:
 		return Signal{}, fmt.Errorf("mission: check monthly budget for %s: %w", missionID, err)
 	default:
@@ -150,6 +159,9 @@ func (a *Activities) CheckBudget(ctx context.Context, missionID string) (Signal,
 	total, err := a.Budgets.GetBudget(ctx, cost.ScopeMission, missionID, cost.KindExperiment, experimentBudgetPeriod)
 	switch {
 	case errors.Is(err, cost.ErrBudgetNotFound):
+		// The experiment cap is optional; its absence alone does not halt the
+		// mission (the monthly envelope above is the mandatory one). Recorded
+		// as a decision (no-gaps rule) rather than silently ignored.
 	case err != nil:
 		return Signal{}, fmt.Errorf("mission: check total experiment budget for %s: %w", missionID, err)
 	default:

@@ -50,7 +50,7 @@ func (m *MemoryStore) ClaimPending(_ context.Context, limit int) ([]Notification
 
 	var out []Notification
 	for _, row := range m.rows {
-		if row.State == StatePending {
+		if row.State == StatePending && (row.NextAttemptAt.IsZero() || !row.NextAttemptAt.After(time.Now())) {
 			out = append(out, *row)
 		}
 	}
@@ -108,6 +108,47 @@ func (m *MemoryStore) MarkDeadLetter(_ context.Context, id, errMsg string) error
 	row.State = StateFailed
 	row.LastError = "dead-letter: " + errMsg
 	row.UpdatedAt = time.Now()
+	return nil
+}
+
+// ScheduleRetry persists id's not-before time in memory (Task 112 parity).
+func (m *MemoryStore) ScheduleRetry(_ context.Context, id string, notBefore time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row, ok := m.rows[id]
+	if !ok {
+		return ErrNotificationNotFound
+	}
+	row.NextAttemptAt = notBefore
+	row.UpdatedAt = time.Now()
+	return nil
+}
+
+// MemoryOffsetStore is an in-memory OffsetStore for tests.
+type MemoryOffsetStore struct {
+	mu      sync.Mutex
+	offsets map[string]int64
+}
+
+// NewMemoryOffsetStore constructs an empty MemoryOffsetStore.
+func NewMemoryOffsetStore() *MemoryOffsetStore {
+	return &MemoryOffsetStore{offsets: make(map[string]int64)}
+}
+
+// GetOffset implements OffsetStore.
+func (m *MemoryOffsetStore) GetOffset(_ context.Context, botID string) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.offsets[botID], nil
+}
+
+// SetOffset implements OffsetStore (monotonic).
+func (m *MemoryOffsetStore) SetOffset(_ context.Context, botID string, updateID int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if updateID > m.offsets[botID] {
+		m.offsets[botID] = updateID
+	}
 	return nil
 }
 

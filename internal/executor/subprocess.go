@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -32,7 +33,7 @@ type CommandResult struct {
 //
 // A zero or negative timeout means no deadline beyond ctx's own.
 func RunSubprocess(ctx context.Context, dir, cmdLine string, envAllowlist []string, timeout time.Duration) (CommandResult, error) {
-	return runSubprocess(ctx, dir, cmdLine, nil, envAllowlist, timeout)
+	return runSubprocess(ctx, dir, cmdLine, nil, envAllowlist, nil, timeout)
 }
 
 // RunSubprocessWithStdin behaves exactly like RunSubprocess but additionally
@@ -43,10 +44,20 @@ func RunSubprocess(ctx context.Context, dir, cmdLine string, envAllowlist []stri
 // argv-injection or shell-quoting concern for the piped content. A nil
 // stdin behaves identically to RunSubprocess.
 func RunSubprocessWithStdin(ctx context.Context, dir, cmdLine string, stdin io.Reader, envAllowlist []string, timeout time.Duration) (CommandResult, error) {
-	return runSubprocess(ctx, dir, cmdLine, stdin, envAllowlist, timeout)
+	return runSubprocess(ctx, dir, cmdLine, stdin, envAllowlist, nil, timeout)
 }
 
-func runSubprocess(ctx context.Context, dir, cmdLine string, stdin io.Reader, envAllowlist []string, timeout time.Duration) (CommandResult, error) {
+// RunSubprocessWithEnv is the concurrency-safe credential-passing entry point
+// (docs/PLAN.md Task 117 / SEC-03). extraEnv is injected into ONLY this child
+// process's environment (overriding any allowlisted value of the same name); it
+// is NEVER written to the shared daemon process environment via os.Setenv, so
+// two concurrent tasks in different secret scopes can never observe each other's
+// credential. A nil extraEnv behaves identically to RunSubprocessWithStdin.
+func RunSubprocessWithEnv(ctx context.Context, dir, cmdLine string, stdin io.Reader, envAllowlist []string, extraEnv map[string]string, timeout time.Duration) (CommandResult, error) {
+	return runSubprocess(ctx, dir, cmdLine, stdin, envAllowlist, extraEnv, timeout)
+}
+
+func runSubprocess(ctx context.Context, dir, cmdLine string, stdin io.Reader, envAllowlist []string, extraEnv map[string]string, timeout time.Duration) (CommandResult, error) {
 	argv := strings.Fields(cmdLine)
 	if len(argv) == 0 {
 		return CommandResult{}, fmt.Errorf("executor: empty command")
@@ -64,7 +75,7 @@ func runSubprocess(ctx context.Context, dir, cmdLine string, stdin io.Reader, en
 	// via TaskPacket, which is documented as untrusted-ish input.
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = dir
-	cmd.Env = scrubEnv(envAllowlist)
+	cmd.Env = buildChildEnv(envAllowlist, extraEnv)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stdin = stdin
 
@@ -128,4 +139,38 @@ func scrubEnv(allowlist []string) []string {
 		}
 	}
 	return env
+}
+
+// buildChildEnv constructs the child process environment from the allowlisted
+// host variables plus per-invocation extraEnv (Task 117). extraEnv is applied
+// to the constructed child env only — never to the parent — and overrides any
+// allowlisted value of the same name. This is the concurrency-safe replacement
+// for os.Setenv on the shared daemon process.
+func buildChildEnv(allowlist []string, extraEnv map[string]string) []string {
+	base := scrubEnv(allowlist)
+	if len(extraEnv) == 0 {
+		return base
+	}
+	// Drop any allowlisted entry that extraEnv overrides, then append extraEnv.
+	out := make([]string, 0, len(base)+len(extraEnv))
+	for _, kv := range base {
+		name := kv
+		if i := strings.IndexByte(kv, '='); i >= 0 {
+			name = kv[:i]
+		}
+		if _, overridden := extraEnv[name]; overridden {
+			continue
+		}
+		out = append(out, kv)
+	}
+	// Deterministic order for reproducibility.
+	names := make([]string, 0, len(extraEnv))
+	for name := range extraEnv {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		out = append(out, name+"="+extraEnv[name])
+	}
+	return out
 }

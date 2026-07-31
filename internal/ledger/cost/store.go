@@ -20,6 +20,11 @@ const (
 	ScopeWorkflow Scope = "workflow"
 	ScopeProduct  Scope = "product"
 	ScopeMission  Scope = "mission"
+	// ScopeSession is the per-session budget scope (docs/PLAN.md Task 119 /
+	// COST-01): a single unattended execution session within a mission, so a
+	// runaway session cannot consume the whole mission envelope before the
+	// mission-level ceiling notices.
+	ScopeSession Scope = "session"
 )
 
 // Kind enumerates budgets.kind — the envelope categories from
@@ -498,6 +503,67 @@ FROM cost_entries WHERE id = $1`
 		return Entry{}, fmt.Errorf("cost: get entry %s: %w", entryID, err)
 	}
 	return entry, nil
+}
+
+// ListEntriesByScope returns every cost entry for (scope, scope_id), newest
+// first (docs/PLAN.md Task 120 / COST-02): the reconciliation walk's source and
+// the reserved/incurred/shadow breakdown `foundry cost show` reports.
+func (s *Store) ListEntriesByScope(ctx context.Context, scope Scope, scopeID string) ([]Entry, error) {
+	const q = `
+SELECT id, scope, scope_id, state, amount_usd, pricing_version, provider, meta, budget_id, at
+FROM cost_entries WHERE scope = $1 AND scope_id = $2
+ORDER BY at DESC, id DESC`
+	rows, err := s.db.QueryContext(ctx, q, string(scope), scopeID)
+	if err != nil {
+		return nil, fmt.Errorf("cost: list entries %s/%s: %w", scope, scopeID, err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Entry
+	for rows.Next() {
+		e, err := scanEntry(rows)
+		if err != nil {
+			return nil, fmt.Errorf("cost: scan entry: %w", err)
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("cost: iterate entries: %w", err)
+	}
+	return out, nil
+}
+
+// ScopeSummary aggregates a scope's cost figures for the CLI/digest surface
+// (docs/PLAN.md Task 120 / COST-02): reserved, incurred, reconciled and shadow
+// spend, each a sum over the scope's entries.
+type ScopeSummary struct {
+	ReservedUSD   float64
+	IncurredUSD   float64
+	ReconciledUSD float64
+	ShadowUSD     float64
+}
+
+// SummarizeScope walks a scope's entries and totals reserved/incurred/
+// reconciled/shadow spend, so both `foundry cost show` and the digest report
+// the same four figures.
+func (s *Store) SummarizeScope(ctx context.Context, scope Scope, scopeID string) (ScopeSummary, error) {
+	entries, err := s.ListEntriesByScope(ctx, scope, scopeID)
+	if err != nil {
+		return ScopeSummary{}, err
+	}
+	var sum ScopeSummary
+	for _, e := range entries {
+		switch e.State {
+		case StateReserved:
+			sum.ReservedUSD += e.AmountUSD
+		case StateIncurred:
+			sum.IncurredUSD += e.AmountUSD
+		case StateReconciled:
+			sum.ReconciledUSD += e.AmountUSD
+		case StateShadow:
+			sum.ShadowUSD += e.AmountUSD
+		}
+	}
+	return sum, nil
 }
 
 // rowScanner is the common subset of *sql.Row and *sql.Rows used below.

@@ -18,7 +18,10 @@ func newReserveBudgetTestActivities(budgetStore *kernel.MemBudgetStore, defaultU
 	return kernel.NewActivities(nil, nil, nil, nil, kernel.NewMemReceiptStore(), nil, budgetStore, cost.Defaults{DefaultUSD: defaultUSD}, verify.Runner{})
 }
 
-func TestReserveBudget_UnmeteredWithoutEnvelope(t *testing.T) {
+// TestReserveBudget_AttendedUnmeteredWithoutEnvelope: an ATTENDED reservation
+// with no envelope stays unmetered (a human is present) — Task 119 preserves
+// interactive use.
+func TestReserveBudget_AttendedUnmeteredWithoutEnvelope(t *testing.T) {
 	acts := newReserveBudgetTestActivities(kernel.NewMemBudgetStore(), 0.10)
 
 	out, err := acts.ReserveBudget(context.Background(), kernel.ReserveBudgetInput{
@@ -27,8 +30,28 @@ func TestReserveBudget_UnmeteredWithoutEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reserve budget: %v", err)
 	}
-	if out.Exhausted || out.Shadow {
-		t.Fatalf("out = %+v, want neither exhausted nor shadow (no envelope provisioned)", out)
+	if out.Exhausted || out.Shadow || out.Refused {
+		t.Fatalf("out = %+v, want unmetered (attended, no envelope)", out)
+	}
+}
+
+// TestReserveBudget_UnattendedRefusesWithoutEnvelope proves Task 119 (COST-01):
+// an UNATTENDED mission with no budget envelope is REFUSED, not run unmetered.
+func TestReserveBudget_UnattendedRefusesWithoutEnvelope(t *testing.T) {
+	acts := newReserveBudgetTestActivities(kernel.NewMemBudgetStore(), 0.10)
+
+	out, err := acts.ReserveBudget(context.Background(), kernel.ReserveBudgetInput{
+		WorkflowID: "wf1", TaskID: "t1", ExecutorName: "fake", Attempt: 1,
+		MissionID: "m1", Unattended: true,
+	})
+	if err != nil {
+		t.Fatalf("reserve budget: %v", err)
+	}
+	if !out.Refused {
+		t.Fatalf("out = %+v, want Refused=true (unattended, no envelope must fail closed)", out)
+	}
+	if out.Classification != "budget-envelope-absent" {
+		t.Fatalf("want classification budget-envelope-absent, got %q", out.Classification)
 	}
 }
 
@@ -120,4 +143,8 @@ func (f *fakeExhaustedStore) Reserve(_ context.Context, _ cost.Scope, _ string, 
 
 func (f *fakeExhaustedStore) RecordShadow(_ context.Context, scope cost.Scope, scopeID string, amountUSD float64, provider, pricingVersion string, _ any) (cost.Entry, error) {
 	return cost.Entry{ID: "shadow-1", Scope: scope, ScopeID: scopeID, State: cost.StateShadow, AmountUSD: amountUSD, Provider: provider, PricingVersion: pricingVersion}, nil
+}
+
+func (f *fakeExhaustedStore) Incur(_ context.Context, entryID string, actualAmountUSD float64) (cost.Entry, error) {
+	return cost.Entry{ID: entryID, State: cost.StateIncurred, AmountUSD: actualAmountUSD}, nil
 }

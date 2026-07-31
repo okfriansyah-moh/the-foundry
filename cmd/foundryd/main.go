@@ -247,6 +247,17 @@ func run() error {
 		return fmt.Errorf("load executor routing table: %w", err)
 	}
 	activities.CapabilityRegistry = capRegistry
+	// Task 120 (COST-02): load the per-model rate table so completed tasks
+	// incur a real, reconcilable cost (unknown when a model has no rate, never
+	// a fabricated default).
+	if rates, rerr := cost.LoadRateTable(envOr("FOUNDRY_MODEL_RATES", "config/executor-model-rates.yaml")); rerr != nil {
+		log.Printf("foundryd: model rate table unavailable (costs recorded as unknown): %v", rerr)
+	} else {
+		activities.ModelRates = rates
+	}
+	// Task 115 (SEC-01): wire the production sandbox runner so ExecuteTask runs
+	// sandbox-required executors inside the sandbox and refuses host execution.
+	wireSandbox(activities)
 	// docs/PLAN.md Task 108 (RTC-04): wire the durable Postgres integration
 	// queue so the 10x IntegrateChangeSet activity has a real reader/writer.
 	// The Integrator's CAS pusher is supplied once Task 140 selects a
@@ -306,6 +317,10 @@ func run() error {
 		notify.Config{},
 	)
 	go notifyEngine.Run(bgCtx, notifyTickInterval, notifyClaimLimit)
+
+	// Task 112 (INT-04): the inbound half — a real CommandRouter fed by a
+	// durable-offset getUpdates receiver. Env-gated (inert without a bot token).
+	startTelegramInbound(bgCtx, db, c, envOr("TEMPORAL_NAMESPACE", "default"))
 
 	supervisor := &recovery.Supervisor{
 		Source: &recovery.CompositeProjectionSource{
@@ -386,18 +401,23 @@ func run() error {
 //     generated on first run if absent — the same key `foundry login`
 //     must be pointed at for a token this server issues to verify
 //     anywhere else (an existing Task 25 assumption, not a new one).
-//   - WebAuthn: an in-memory credential store (authn.NewMemUserStore) —
-//     Task 25 shipped no Postgres-backed UserStore yet; credentials
-//     registered against this process do not survive a restart, an
-//     existing gap this task does not expand its own scope to close.
+//   - WebAuthn: a Postgres-backed credential store (authn.NewPGUserStore) and a
+//     durable, single-use challenge-session store (authn.NewPGSessionStore) —
+//     Task 114 (INT-06) makes registered passkeys, in-flight challenges and
+//     signature counters survive a foundryd restart, preserving clone detection
+//     across it.
 func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN string, rawStore *provenance.PGRawStore, approverKeys *provenance.KeyPair) (*api.Server, error) {
-	platform, err := compiler.PlatformDefaults()
+	// Task 116 (SEC-02): compile all four policy layers for the profile in
+	// force, not platform-only. The org layer (and its kernel-only push rule)
+	// and the profile layer are loaded from their real sources; a configured
+	// path that fails to load is a hard error, never a silent platform-only
+	// fallback. Empty env → that layer is skipped (an empty layer tightens
+	// nothing), the smallest reversible default.
+	orgLayerPath := os.Getenv("FOUNDRY_ORG_POLICY")
+	profileLayerPath := os.Getenv("FOUNDRY_PROFILE_POLICY")
+	resolved, _, err := compiler.CompileFourLayer(orgLayerPath, profileLayerPath)
 	if err != nil {
-		return nil, fmt.Errorf("load platform policy defaults: %w", err)
-	}
-	resolved, err := compiler.Compile(platform, compiler.LayerPolicy{}, compiler.LayerPolicy{}, compiler.LayerPolicy{})
-	if err != nil {
-		return nil, fmt.Errorf("compile platform-only policy: %w", err)
+		return nil, fmt.Errorf("compile four-layer policy: %w", err)
 	}
 	bundleDir := envOr("FOUNDRY_POLICY_BUNDLE_DIR", "config/policy/rego")
 	bundleDigest, err := pdp.BundleDigest(bundleDir)
@@ -422,11 +442,18 @@ func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN str
 		return nil, fmt.Errorf("load session signing key: %w", err)
 	}
 
-	waSvc, err := authn.NewService(&webauthn.Config{
+	// Task 114 (INT-06): a startup check that names the missing IdP variable
+	// when strong auth is enabled but no issuer is configured, rather than
+	// failing at first login with a bare error.
+	if err := checkStrongAuthIdP(); err != nil {
+		return nil, err
+	}
+
+	waSvc, err := authn.NewServiceWithSessions(&webauthn.Config{
 		RPID:          envOr("FOUNDRY_WEBAUTHN_RPID", "localhost"),
 		RPDisplayName: "Foundry",
 		RPOrigins:     []string{envOr("FOUNDRY_WEBAUTHN_ORIGIN", "http://localhost:8081")},
-	}, authn.NewMemUserStore())
+	}, authn.NewPGUserStore(db), authn.NewPGSessionStore(db))
 	if err != nil {
 		return nil, fmt.Errorf("construct webauthn service: %w", err)
 	}
@@ -493,6 +520,7 @@ func registerActivities(w worker.Worker, a *kernel.Activities) {
 	w.RegisterActivityWithOptions(a.ValidateTask, activity.RegisterOptions{Name: kernel.ActivityValidateTask})
 	w.RegisterActivityWithOptions(a.RecordEvidence, activity.RegisterOptions{Name: kernel.ActivityRecordEvidence})
 	w.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
+	w.RegisterActivityWithOptions(a.RecordCost, activity.RegisterOptions{Name: kernel.ActivityRecordCost})
 }
 
 // registerMissionActivities registers MissionLoop's eight activities under the

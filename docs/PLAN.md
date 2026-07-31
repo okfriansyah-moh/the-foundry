@@ -76,7 +76,7 @@ This reuses the product's own A0/A1/A2/H admission-tier logic (`docs/foundry/doc
   | ---------------------------- | ------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
   | `dev`                        | Task 1  | toolchain to build/test/run Foundry itself                  | long-running compose service                                                      | full outbound internet (Docker's default) — needed for module/package fetches, GitHub, Anthropic, Stripe, Fly, Telegram, OIDC |
   | `postgres`, `temporal`       | Task 4  | `dev`'s runtime dependencies                                | long-running compose services, same file as `dev`                                 | internal compose network only; no outbound needed                                                                             |
-  | `foundry-executor-sandbox`   | Task 34 | isolates AI-agent-executed task code                        | ephemeral, one per task execution, spawned by kernel Go code — **not** in compose (factual note, M5: as of the M5 audit no non-test code constructs `sandbox.Runner`; **Task 115** makes this row's "spawned by kernel Go code" true — the row states the contract, not the pre-Task-115 state) | default-deny egress + narrow explicit allowlist (least privilege — see Task 34)                                               |
+  | `foundry-executor-sandbox`   | Task 34 | isolates AI-agent-executed task code                        | ephemeral, one per task execution, spawned by kernel Go code — **not** in compose (Task 115 makes this contract true: the kernel's `ExecuteTask` runs every sandbox-required executor through the `SandboxRunner` seam and refuses host execution when the sandbox is unavailable) | default-deny egress + narrow explicit allowlist (least privilege — see Task 34)                                               |
   | product template's own image | Task 46 | the venture product's own runtime, built/deployed by Fly.io | belongs to the generated product repo, not the platform                           | governed by the product, not by Foundry                                                                                       |
   | `foundry` (release)          | Task 73 | the shipped `foundry`/`foundryd` binaries                   | versioned release artifact                                                        | not applicable — not run as a dev/CI container                                                                                |
 
@@ -207,16 +207,16 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 108  | RTC-04 | 10x branch-handoff workflow + durable integration queue (C15)     | M5/V1      | 27,58,60,61,105,137        | None |
 | ✅  | 109  | INT-01 | Free-text → labeled requirements (real CandidateSource) (C16)      | M5/V2      | 42,43,101                  | None |
 | ✅  | 110  | INT-02 | PLAN generator v2 + static topology validator                     | M5/V3      | 44,45,109                  | None |
-| ⬜  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
-| ⬜  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
-| ⬜  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
-| ⬜  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
-| ⬜  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
-| ⬜  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
-| ⬜  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
-| ⬜  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
-| ⬜  | 119  | COST-01 | Budgets fail closed for unattended missions (C19/C24)            | M5/V2      | 29,69,106,116              | None |
-| ⬜  | 120  | COST-02 | Actual-cost reconciliation + bounded shadow accounting (C19)      | M5/V3      | 17,69,85,119               | None |
+| ✅  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
+| ✅  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
+| ✅  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
+| ✅  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
+| ✅  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
+| ✅  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
+| ✅  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
+| ✅  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
+| ✅  | 119  | COST-01 | Budgets fail closed for unattended missions (C19/C24)            | M5/V2      | 29,69,106,116              | None |
+| ✅  | 120  | COST-02 | Actual-cost reconciliation + bounded shadow accounting (C19)      | M5/V3      | 17,69,85,119               | None |
 | ⬜  | 121  | MMR-01 | Durable portfolio scheduler + restart proof                       | M5/V3      | 65,81,106,119              | None |
 | ⬜  | 122  | MMR-02 | Mission-activity idempotency + crash protection (C9)              | M5/V2      | 26,106                     | [P]  |
 | ⬜  | 123  | MMR-03 | Poisoned-task / infinite-retry recovery closure (C22)             | M5/V0      | 32,64,94                   | [P]  |
@@ -2931,7 +2931,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** orchestration only — the pipeline calls
   the kernel's gate (102), the classifier (45), the approval surface (25) and the starter (105); it makes no
   authority decision of its own, never sets `declared_tier`, and never approves a plan it generated (C6). ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-31
 
 ### Task 112 (INT-04) — Telegram inbound transport: real receiver, durable retry and offset (C11)
 
@@ -2976,7 +2976,7 @@ flowchart LR
 - **Validation:** `go test ./internal/notify/... -race && bash test/telegram_inbound_e2e.sh && bash test/soak/telegram/... && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** C11 — inbound Telegram may carry
   notifications, low-risk commands and veto responses only; it may never carry a high-risk approval (Task 114 owns
-  the escalation path). All inbound text is untrusted data. · **Status:** ⬜ Not started
+  the escalation path). All inbound text is untrusted data. · **Status:** ✅ 2026-07-31
 
 ### Task 113 (INT-05) — Telegram idea intake → mission draft, confirmation-required (C11)
 
@@ -3019,7 +3019,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-backend+security-review · **Rev:** **R4** · **Boundary:** C11 — Telegram is a
   low-risk command and veto surface; this card adds one low-risk command and one confirmation, and grants no new
   authority. Message text is never an instruction; budgets are never granted by message content. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-31
 
 ### Task 114 (INT-06) — Durable strong-auth escalation from Telegram, proven across restart (C12)
 
@@ -3077,7 +3077,7 @@ flowchart LR
 - **Validation:** `go test ./internal/authn/... -race && bash test/approval_stepup_e2e.sh && bash test/telegram_stepup_e2e.sh && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-backend+security-review · **Rev:** **R4** · **Boundary:** C11/C12 — no approval
   capability is added to Telegram; no self-built crypto (libraries only); the durable store changes *where*
-  credentials live, never *how strongly* they are verified. · **Status:** ⬜ Not started
+  credentials live, never *how strongly* they are verified. · **Status:** ✅ 2026-07-31
 
 ### Task 115 (SEC-01) — Mandatory sandbox on the real executor critical path (C24)
 
@@ -3133,7 +3133,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R4** · **Boundary:** C4/C24 — no fifth image
   lineage and no second compose file (§C unchanged apart from the corrected wording); the sandbox's default-deny
   egress and narrow allowlist are unchanged; rollback is a config flag that *cannot* re-enable host execution for a
-  profile whose policy requires sandboxing. · **Status:** ⬜ Not started
+  profile whose policy requires sandboxing. · **Status:** ✅ 2026-07-31
 
 ### Task 116 (SEC-02) — No fail-open policy: four-layer loading, deny-when-absent (C24)
 
@@ -3190,7 +3190,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R4** · **Boundary:** C24 — every change here
   makes a permissive path refuse; none widens anything. The merge algebra, the tier logic and the policy field set
   are untouched. Rollback is per-branch config, and no rollback may restore the nil-allowlist bypass. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-31
 
 ### Task 117 (SEC-03) — Concurrency-safe credential passing: no process-global env on the executor path
 
@@ -3234,7 +3234,7 @@ flowchart LR
 - **Validation:** `go test ./internal/executor/... ./internal/kernel/... -race -count=5 && go run ./cmd/fitlint env ./internal/... && bash scripts/fitness.sh` (incl. the existing secrets-leak scan).
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R3** · **Boundary:** no change to secret
   storage, encryption or entitlement; the fix changes *how* a credential reaches a child process, not *which*
-  credential or *who* may have it. · **Status:** ⬜ Not started
+  credential or *who* may have it. · **Status:** ✅ 2026-07-31
 
 ### Task 118 (SEC-04) [P] — Personal vs organization isolation, proven (C13/C14)
 
@@ -3284,7 +3284,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R4** · **Boundary:** C13/C14 — no profile gains
   a capability; the personal profile's bounded production-auto grant is unchanged and the organization profile's
   stricter governance is *enforced* rather than newly defined. The evidence-namespace change is additive with a
-  recorded treatment for pre-existing bundles. · **Status:** ⬜ Not started
+  recorded treatment for pre-existing bundles. · **Status:** ✅ 2026-07-31
 
 ### Task 119 (COST-01) — Budgets fail closed for unattended missions (C19/C24)
 
@@ -3335,7 +3335,7 @@ flowchart LR
 - **Validation:** `go test ./internal/ledger/cost/... ./internal/kernel/... ./internal/mission/... -race && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C19/C24 — no budget is raised, no ceiling
   widened; the change converts a silent unmetered path into an explicit refusal. Rollback re-enables unmetered runs
-  only behind the explicit human-present flag, never by default. · **Status:** ⬜ Not started
+  only behind the explicit human-present flag, never by default. · **Status:** ✅ 2026-07-31
 
 ### Task 120 (COST-02) — Actual-cost reconciliation + bounded, visible subscription shadow accounting (C19)
 
@@ -3391,7 +3391,7 @@ flowchart LR
 - **Validation:** `go test ./internal/ledger/cost/... ./internal/executor/... ./internal/kernel/... ./internal/notify/... -race && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C19 — the ledger's state machine and its
   scopes are unchanged; this card fills states that existed but were never written. No adapter interface method is
-  added or removed. · **Status:** ⬜ Not started
+  added or removed. · **Status:** ✅ 2026-07-31
 
 ### Task 121 (MMR-01) — Durable portfolio scheduler: restart-proof, fair, budget-isolated
 

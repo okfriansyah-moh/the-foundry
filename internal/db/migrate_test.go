@@ -25,7 +25,7 @@ func TestNewMigrator_EmbeddedSourcesParse(t *testing.T) {
 	}
 
 	sources := m.provider.ListSources()
-	wantVersions := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
+	wantVersions := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}
 	if len(sources) != len(wantVersions) {
 		t.Fatalf("got %d migration sources, want %d", len(sources), len(wantVersions))
 	}

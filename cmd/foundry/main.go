@@ -6,13 +6,24 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 )
 
+// hasIdeaFlag reports whether args request the intake path (`--idea`/`-idea`).
+func hasIdeaFlag(args []string) bool {
+	for _, a := range args {
+		if a == "--idea" || a == "-idea" || strings.HasPrefix(a, "--idea=") || strings.HasPrefix(a, "-idea=") {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|product|promotions>")
+		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|intake|product|promotions|opportunity>")
 		os.Exit(1)
 	}
 
@@ -190,13 +201,15 @@ func main() {
 		}
 	case "cost":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry cost <show>")
+			fmt.Fprintln(os.Stderr, "usage: foundry cost <show|reconcile>")
 			os.Exit(1)
 		}
 		var err error
 		switch os.Args[2] {
 		case "show":
 			err = runCostShow(os.Args[3:])
+		case "reconcile":
+			err = runCostReconcile(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown cost subcommand: %s\n", os.Args[2])
 			os.Exit(1)
@@ -251,7 +264,13 @@ func main() {
 		case "show":
 			err = runMissionShow(os.Args[3:])
 		case "start":
-			err = runMissionStart(os.Args[3:])
+			// Task 111: `mission start --idea` routes to the intake pipeline;
+			// the existing id-based (human-authored) path is preserved.
+			if hasIdeaFlag(os.Args[3:]) {
+				err = runIntakeStart(os.Args[3:])
+			} else {
+				err = runMissionStart(os.Args[3:])
+			}
 		case "resume":
 			err = runMissionResume(os.Args[3:])
 		case "list":
@@ -295,6 +314,27 @@ func main() {
 			os.Exit(1)
 		}
 		if err := runPromotions(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "intake":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry intake <show|resume|list>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "show":
+			err = runIntakeShow(os.Args[3:])
+		case "resume":
+			err = runIntakeResume(os.Args[3:])
+		case "list":
+			err = runIntakeList(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown intake subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
