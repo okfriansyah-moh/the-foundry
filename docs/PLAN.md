@@ -207,7 +207,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 108  | RTC-04 | 10x branch-handoff workflow + durable integration queue (C15)     | M5/V1      | 27,58,60,61,105,137        | None |
 | ✅  | 109  | INT-01 | Free-text → labeled requirements (real CandidateSource) (C16)      | M5/V2      | 42,43,101                  | None |
 | ✅  | 110  | INT-02 | PLAN generator v2 + static topology validator                     | M5/V3      | 44,45,109                  | None |
-| ⬜  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
+| ✅  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
 | ⬜  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
 | ⬜  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
 | ⬜  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
@@ -2931,7 +2931,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** orchestration only — the pipeline calls
   the kernel's gate (102), the classifier (45), the approval surface (25) and the starter (105); it makes no
   authority decision of its own, never sets `declared_tier`, and never approves a plan it generated (C6). ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-31
 
 ### Task 112 (INT-04) — Telegram inbound transport: real receiver, durable retry and offset (C11)
 
