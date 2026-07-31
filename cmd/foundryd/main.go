@@ -247,6 +247,9 @@ func run() error {
 		return fmt.Errorf("load executor routing table: %w", err)
 	}
 	activities.CapabilityRegistry = capRegistry
+	// Task 115 (SEC-01): wire the production sandbox runner so ExecuteTask runs
+	// sandbox-required executors inside the sandbox and refuses host execution.
+	wireSandbox(activities)
 	// docs/PLAN.md Task 108 (RTC-04): wire the durable Postgres integration
 	// queue so the 10x IntegrateChangeSet activity has a real reader/writer.
 	// The Integrator's CAS pusher is supplied once Task 140 selects a

@@ -76,7 +76,7 @@ This reuses the product's own A0/A1/A2/H admission-tier logic (`docs/foundry/doc
   | ---------------------------- | ------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
   | `dev`                        | Task 1  | toolchain to build/test/run Foundry itself                  | long-running compose service                                                      | full outbound internet (Docker's default) — needed for module/package fetches, GitHub, Anthropic, Stripe, Fly, Telegram, OIDC |
   | `postgres`, `temporal`       | Task 4  | `dev`'s runtime dependencies                                | long-running compose services, same file as `dev`                                 | internal compose network only; no outbound needed                                                                             |
-  | `foundry-executor-sandbox`   | Task 34 | isolates AI-agent-executed task code                        | ephemeral, one per task execution, spawned by kernel Go code — **not** in compose (factual note, M5: as of the M5 audit no non-test code constructs `sandbox.Runner`; **Task 115** makes this row's "spawned by kernel Go code" true — the row states the contract, not the pre-Task-115 state) | default-deny egress + narrow explicit allowlist (least privilege — see Task 34)                                               |
+  | `foundry-executor-sandbox`   | Task 34 | isolates AI-agent-executed task code                        | ephemeral, one per task execution, spawned by kernel Go code — **not** in compose (Task 115 makes this contract true: the kernel's `ExecuteTask` runs every sandbox-required executor through the `SandboxRunner` seam and refuses host execution when the sandbox is unavailable) | default-deny egress + narrow explicit allowlist (least privilege — see Task 34)                                               |
   | product template's own image | Task 46 | the venture product's own runtime, built/deployed by Fly.io | belongs to the generated product repo, not the platform                           | governed by the product, not by Foundry                                                                                       |
   | `foundry` (release)          | Task 73 | the shipped `foundry`/`foundryd` binaries                   | versioned release artifact                                                        | not applicable — not run as a dev/CI container                                                                                |
 
@@ -211,7 +211,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
 | ✅  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
 | ✅  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
-| ⬜  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
+| ✅  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
 | ⬜  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
 | ⬜  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
 | ⬜  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
@@ -3133,7 +3133,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R4** · **Boundary:** C4/C24 — no fifth image
   lineage and no second compose file (§C unchanged apart from the corrected wording); the sandbox's default-deny
   egress and narrow allowlist are unchanged; rollback is a config flag that *cannot* re-enable host execution for a
-  profile whose policy requires sandboxing. · **Status:** ⬜ Not started
+  profile whose policy requires sandboxing. · **Status:** ✅ 2026-07-31
 
 ### Task 116 (SEC-02) — No fail-open policy: four-layer loading, deny-when-absent (C24)
 

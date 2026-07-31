@@ -62,6 +62,13 @@ type Activities struct {
 	ExecutorSelector   ExecutorSelector
 	CapabilityRegistry capability.Registry
 
+	// Sandbox is the mandatory-sandbox execution seam (docs/PLAN.md Task 115 /
+	// SEC-01). When a task's ExecuteTaskInput.RequireSandbox is set, ExecuteTask
+	// runs the resolved executor inside this sandbox and refuses to execute at
+	// all when it is unavailable — never a host fallback (C24). Zero-valued by
+	// default so pre-Task-115 callers (RequireSandbox=false) are unaffected.
+	Sandbox SandboxRunner
+
 	// Integrator and IntegrationQueue back the 10x IntegrateChangeSet activity
 	// (docs/PLAN.md Task 108 / RTC-04). Both are zero-valued by default; only
 	// the 10x path sets them, so DeliverPlan callers are unaffected.
@@ -399,6 +406,14 @@ type ExecuteTaskInput struct {
 	// ExecutorName; when non-nil (even if empty), ExecuteTask runs
 	// kernel-owned, policy-checked selection and fails closed on violation.
 	ExecutorAllowlist []string
+	// RequireSandbox is set from the task's resolved profile policy when that
+	// policy demands the mandatory executor sandbox (docs/PLAN.md Task 115 /
+	// SEC-01). When true, ExecuteTask runs the executor inside the sandbox and
+	// refuses (named classification) rather than falling back to host
+	// execution if the sandbox is unavailable or the executor is incompatible.
+	// A rollback cannot set this false for a profile whose policy demands
+	// sandboxing — the workflow derives it from policy, not from a flag.
+	RequireSandbox bool
 }
 
 // ExecuteTaskOutput is ExecuteTask's output. Failed/ErrorMessage carry the
@@ -467,13 +482,36 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 			return ExecuteTaskOutput{}, fmt.Errorf("kernel: prepare task %s/%s: %w", in.WorkflowID, in.TaskID, err)
 		}
 
+		// Task 115 (SEC-01): decide whether this task must run sandboxed. A
+		// sandbox-required task that cannot be sandboxed is refused with a named
+		// classification — never a host fallback (C24).
+		decision := a.decideSandbox(execName, in.RequireSandbox)
+		if decision.refusal != "" {
+			return refuseSandbox(execName, decision.refusal, decision.reason), nil
+		}
+
 		// provider_waiting_time (docs/PLAN.md Task 31): STUB per the card
 		// ("stub source is acceptable") — adapter.Run's wall-clock duration
 		// conflates real provider wait time with the adapter's own local
 		// work; see observe.ProviderWaitingTimeSeconds's doc comment.
 		runStart := time.Now()
 		stopHeartbeat := startHeartbeat(ctx)
-		summary, runErr := adapter.Run(ctx)
+		var summary executor.Summary
+		var runErr error
+		if decision.required {
+			// Run INSIDE the sandbox. A refusal (unwired/unavailable/incompatible
+			// sandbox) or a sandbox run failure returns fail-closed here.
+			var out ExecuteTaskOutput
+			var okRun bool
+			summary, out, okRun = a.runSandboxed(ctx, execName, adapter, ws, in.Packet)
+			if !okRun {
+				stopHeartbeat()
+				observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
+				return out, nil
+			}
+		} else {
+			summary, runErr = adapter.Run(ctx)
+		}
 		stopHeartbeat()
 		observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
 

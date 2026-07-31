@@ -21,6 +21,10 @@ executors:
     availability: supported
     profile_allow: []
     profile_deny: []
+    # Task 115 (SEC-01): autonomous coding executors run inside the mandatory
+    # sandbox. requires_sandbox defaults true when omitted; stated here
+    # explicitly for the primary autonomous executor.
+    requires_sandbox: true
     last_verified_at: 2026-07-28T00:00:00Z
   - provider: opencode
     execution_class: cli-agentic

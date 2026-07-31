@@ -42,6 +42,22 @@ type Record struct {
 	// against the real provider. Records older than StalenessLimit fail
 	// `make fitness` (docs/PLAN.md Task 84 staleness lint).
 	LastVerifiedAt time.Time `yaml:"last_verified_at"`
+	// RequiresSandbox declares whether this executor MUST run inside the
+	// mandatory executor sandbox (docs/PLAN.md Task 115 / SEC-01). It
+	// defaults to true (nil == true): an autonomous coding executor is
+	// sandboxed unless it explicitly opts out. An executor that sets it false
+	// must name SandboxOptOutReason and is refused for any profile whose
+	// policy demands sandboxing.
+	RequiresSandbox *bool `yaml:"requires_sandbox,omitempty"`
+	// SandboxOptOutReason is the mandatory justification when RequiresSandbox
+	// is explicitly false.
+	SandboxOptOutReason string `yaml:"sandbox_optout_reason,omitempty"`
+}
+
+// SandboxRequired reports whether this executor must run inside the sandbox.
+// The default (unset) is true — sandboxing is opt-out, not opt-in (C24).
+func (r Record) SandboxRequired() bool {
+	return r.RequiresSandbox == nil || *r.RequiresSandbox
 }
 
 // StalenessLimit is how old a Record.LastVerifiedAt may be before the

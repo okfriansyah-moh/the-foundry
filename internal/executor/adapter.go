@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/worktree"
 )
@@ -67,6 +68,31 @@ type Summary struct {
 // executor produced or touched during Run, for Collect to gather.
 type Artifacts struct {
 	Paths []string
+}
+
+// SandboxSpec is the command an adapter would run, expressed so the kernel can
+// run it INSIDE the mandatory sandbox instead of on the host (docs/PLAN.md Task
+// 115 / SEC-01). No shell is invoked — Argv is executed directly.
+type SandboxSpec struct {
+	// Argv is the command and its arguments (argv[0] is the binary).
+	Argv []string
+	// Stdin is written to the command's standard input, if any.
+	Stdin []byte
+	// EnvAllowlist names the host environment variables copied into the
+	// sandboxed command's environment (the scrub discipline, applied at the
+	// container boundary).
+	EnvAllowlist []string
+	// Timeout bounds the command; zero means the sandbox default.
+	Timeout time.Duration
+}
+
+// SandboxSpecProvider is an OPTIONAL Adapter capability (additive to the
+// three-method contract): an adapter that can express its work as a
+// SandboxSpec, so the kernel runs it inside the sandbox. An adapter that does
+// not implement it cannot run under a profile whose policy demands sandboxing —
+// the kernel refuses rather than falling back to host execution (C24).
+type SandboxSpecProvider interface {
+	SandboxSpec(ctx context.Context, ws worktree.Workspace, packet TaskPacket) (SandboxSpec, error)
 }
 
 // Adapter is the seam every task executor implements: prepare a workspace,

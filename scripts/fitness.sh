@@ -85,4 +85,7 @@ echo "== fitness (l): plan validation-command declaration (Task 104 / SKP-11R2, 
 echo "== fitness (m): plan topology (Task 110 / INT-02) =="
 "${fitlint_bin}" plan-topology docs/PLAN.md examples internal/admission/testdata
 
+echo "== fitness (n): kernel bare-subprocess ban (Task 115 / SEC-01, Constitution C4/C24) =="
+"${fitlint_bin}" subprocess ./internal/kernel
+
 echo "fitness OK"

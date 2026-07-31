@@ -59,6 +59,12 @@ func (r Registry) validate() error {
 		if rec.LastVerifiedAt.IsZero() {
 			return fmt.Errorf("provider %q: missing last_verified_at", rec.Provider)
 		}
+		// Task 115: a sandbox opt-out must be justified — the default is to
+		// sandbox, and silently disabling it is exactly the fail-open this
+		// card closes.
+		if rec.RequiresSandbox != nil && !*rec.RequiresSandbox && rec.SandboxOptOutReason == "" {
+			return fmt.Errorf("provider %q: requires_sandbox=false must name a sandbox_optout_reason", rec.Provider)
+		}
 	}
 	return nil
 }

@@ -196,8 +196,10 @@ func renderPrompt(p executor.TaskPacket) string {
 // answer it and the run stalls. This is safe only because Prepare has
 // already confined cmd.Dir to the isolated worktree (C8) and allowedEnv
 // strips every credential except Claude Code's own; the executor sandbox
-// (Task 34, default-deny egress) is the intended stronger boundary once it
-// exists.
+// (Task 34, default-deny egress) is the stronger boundary, and Task 115 wires
+// it: the kernel's ExecuteTask runs this executor through the mandatory
+// SandboxRunner seam for any sandbox-demanding profile, refusing host execution
+// when the sandbox is unavailable.
 func (a *Adapter) Run(ctx context.Context) (executor.Summary, error) {
 	f, err := os.Open(a.promptPath)
 	if err != nil {
