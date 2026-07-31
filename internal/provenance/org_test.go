@@ -19,7 +19,7 @@ func TestOrgValidate_ValidPath(t *testing.T) {
 
 	v := &provenance.OrgValidator{
 		RequiredApproverRoles: []string{"engineering", "qa"},
-		RefValidator:          provenance.DefaultRefValidator(),
+		RefValidator:          mustValidator(t, `^https://docs\.example\.com/`),
 	}
 	src := provenance.OrgPlanSource{
 		Repo:     "https://github.com/example/repo",
@@ -106,5 +106,25 @@ func TestComputeDigest_Deterministic(t *testing.T) {
 	d2 := provenance.ComputeDigest([]byte("test"))
 	if d1 != d2 {
 		t.Errorf("digest not deterministic: %q != %q", d1, d2)
+	}
+}
+
+// mustValidator builds a URL pattern validator or fails the test. Task 116's
+// deny-when-absent rule means a valid-path test must supply a real allowlist.
+func mustValidator(t *testing.T, patterns ...string) provenance.RefValidator {
+	t.Helper()
+	v, err := provenance.NewURLPatternValidator(patterns...)
+	if err != nil {
+		t.Fatalf("NewURLPatternValidator: %v", err)
+	}
+	return v
+}
+
+// TestValidateRef_EmptyAllowlistDenies proves the closed fail-open: an empty
+// allowlist refuses rather than permitting any URL (Task 116 / SEC-02).
+func TestValidateRef_EmptyAllowlistDenies(t *testing.T) {
+	v := provenance.DefaultRefValidator()
+	if err := v.ValidateRef(provenance.OrgRef{Kind: "prd", URL: "https://anything.example.com/x"}); err == nil {
+		t.Fatal("empty allowlist must deny, not allow any URL")
 	}
 }

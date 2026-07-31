@@ -10,8 +10,11 @@ import (
 )
 
 // NoopPolicyView is a zero-behavior PolicyView stub: empty policy digest, no
-// required controls for any tier. It stands in for real policy-store
-// integration, which is out of scope for this task.
+// required controls for any tier. It is the CLEARLY-NAMED, TEST-ONLY no-op
+// seam (docs/PLAN.md Task 116 / SEC-02): production code must pass a compiled
+// PolicyView so required controls are actually applied. It exists only so tests
+// and read-only classification helpers keep a policy seam; a nil view is a
+// fail-closed error, never a silent substitution of this stub.
 type NoopPolicyView struct{}
 
 // Digest implements PolicyView.
@@ -50,12 +53,19 @@ func riskScoreFor(t Tier) float64 {
 // fixed Explanation — the caller is expected to map this to
 // FAILED/ADMISSION_REJECTED and must not fall through to treat any other
 // field of the returned Decision as authoritative.
+//
+// docs/PLAN.md Task 116 (SEC-02): a nil policy view is a FAIL-CLOSED error, not
+// a silent substitution of a no-op view. The previous behavior
+// (policy == nil → NoopPolicyView) meant required controls were never applied
+// whenever a caller forgot to pass a real policy. Callers must pass a real
+// (compiled) PolicyView in production, or the explicit, clearly-named
+// NoopPolicyView in tests.
 func Classify(doc *plan.Document, policy PolicyView) (Decision, error) {
 	if doc == nil {
 		return Decision{}, fmt.Errorf("admission: nil document")
 	}
 	if policy == nil {
-		policy = NoopPolicyView{}
+		return Decision{}, fmt.Errorf("admission: nil policy view — pass a compiled PolicyView (or the explicit test-only NoopPolicyView); refusing to fail open (Task 116/C24)")
 	}
 
 	if doc.SelfClassified {

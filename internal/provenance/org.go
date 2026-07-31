@@ -88,13 +88,18 @@ type URLPatternValidator struct {
 
 // ValidateRef checks URL syntax and allowlist patterns.
 // OWASP A03: input validated before use in any downstream fetch.
+//
+// docs/PLAN.md Task 116 (SEC-02): an EMPTY pattern list DENIES. A validator
+// with no configured allowlist is a fail-open that permitted any URL; it now
+// refuses, so a missing/misconfigured allowlist can never silently allow an
+// arbitrary fetch target.
 func (v *URLPatternValidator) ValidateRef(ref OrgRef) error {
 	u, err := url.Parse(ref.URL)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
 		return fmt.Errorf("ref %q: invalid or non-http(s) URL", ref.URL)
 	}
 	if len(v.AllowedPatterns) == 0 {
-		return nil // no allowlist: any URL passes
+		return fmt.Errorf("ref %q: no URL allowlist configured — refusing (deny-when-absent, Task 116/C24)", ref.URL)
 	}
 	for _, pat := range v.AllowedPatterns {
 		if pat.MatchString(ref.URL) {
@@ -104,8 +109,23 @@ func (v *URLPatternValidator) ValidateRef(ref OrgRef) error {
 	return fmt.Errorf("ref %q: URL does not match any allowed pattern", ref.URL)
 }
 
-// DefaultRefValidator returns a URLPatternValidator with no pattern restrictions.
-// Callers may narrow it by adding patterns.
+// NewURLPatternValidator compiles the given regex patterns into a
+// URLPatternValidator. An empty set yields an explicit deny-all validator.
+func NewURLPatternValidator(patterns ...string) (*URLPatternValidator, error) {
+	compiled := make([]*regexp.Regexp, 0, len(patterns))
+	for _, p := range patterns {
+		re, err := regexp.Compile(p)
+		if err != nil {
+			return nil, fmt.Errorf("provenance: compile URL pattern %q: %w", p, err)
+		}
+		compiled = append(compiled, re)
+	}
+	return &URLPatternValidator{AllowedPatterns: compiled}, nil
+}
+
+// DefaultRefValidator returns an explicit deny-all validator (no patterns). A
+// caller with real org allowlist patterns constructs one via
+// NewURLPatternValidator; the default refuses rather than fails open (Task 116).
 func DefaultRefValidator() RefValidator {
 	return &URLPatternValidator{}
 }
