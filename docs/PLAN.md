@@ -216,7 +216,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
 | ✅  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
 | ✅  | 119  | COST-01 | Budgets fail closed for unattended missions (C19/C24)            | M5/V2      | 29,69,106,116              | None |
-| ⬜  | 120  | COST-02 | Actual-cost reconciliation + bounded shadow accounting (C19)      | M5/V3      | 17,69,85,119               | None |
+| ✅  | 120  | COST-02 | Actual-cost reconciliation + bounded shadow accounting (C19)      | M5/V3      | 17,69,85,119               | None |
 | ⬜  | 121  | MMR-01 | Durable portfolio scheduler + restart proof                       | M5/V3      | 65,81,106,119              | None |
 | ⬜  | 122  | MMR-02 | Mission-activity idempotency + crash protection (C9)              | M5/V2      | 26,106                     | [P]  |
 | ⬜  | 123  | MMR-03 | Poisoned-task / infinite-retry recovery closure (C22)             | M5/V0      | 32,64,94                   | [P]  |
@@ -3391,7 +3391,7 @@ flowchart LR
 - **Validation:** `go test ./internal/ledger/cost/... ./internal/executor/... ./internal/kernel/... ./internal/notify/... -race && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C19 — the ledger's state machine and its
   scopes are unchanged; this card fills states that existed but were never written. No adapter interface method is
-  added or removed. · **Status:** ⬜ Not started
+  added or removed. · **Status:** ✅ 2026-07-31
 
 ### Task 121 (MMR-01) — Durable portfolio scheduler: restart-proof, fair, budget-isolated
 

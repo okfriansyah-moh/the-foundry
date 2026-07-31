@@ -202,13 +202,15 @@ func main() {
 		}
 	case "cost":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: foundry cost <show>")
+			fmt.Fprintln(os.Stderr, "usage: foundry cost <show|reconcile>")
 			os.Exit(1)
 		}
 		var err error
 		switch os.Args[2] {
 		case "show":
 			err = runCostShow(os.Args[3:])
+		case "reconcile":
+			err = runCostReconcile(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown cost subcommand: %s\n", os.Args[2])
 			os.Exit(1)
