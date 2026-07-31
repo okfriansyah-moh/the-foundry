@@ -76,14 +76,19 @@ func (f *fakeGateEvents) ResolveGateEvent(_ context.Context, _ string, _ string,
 	return nil
 }
 
-// fakeBudgetStore always reports cost.ErrBudgetNotFound (unmetered)
-// unless a ceiling has been set via SetExhausted for a given kind.
+// fakeBudgetStore returns a healthy provisioned envelope by default (Task 119:
+// a mission has an envelope). setExhausted makes a kind exhausted;
+// setNoEnvelope makes a kind report cost.ErrBudgetNotFound so the fail-closed
+// no-envelope path can be exercised.
 type fakeBudgetStore struct {
-	mu        sync.Mutex
-	exhausted map[cost.Kind]bool
+	mu         sync.Mutex
+	exhausted  map[cost.Kind]bool
+	noEnvelope map[cost.Kind]bool
 }
 
-func newFakeBudgetStore() *fakeBudgetStore { return &fakeBudgetStore{exhausted: map[cost.Kind]bool{}} }
+func newFakeBudgetStore() *fakeBudgetStore {
+	return &fakeBudgetStore{exhausted: map[cost.Kind]bool{}, noEnvelope: map[cost.Kind]bool{}}
+}
 
 func (f *fakeBudgetStore) setExhausted(kind cost.Kind, v bool) {
 	f.mu.Lock()
@@ -91,13 +96,22 @@ func (f *fakeBudgetStore) setExhausted(kind cost.Kind, v bool) {
 	f.exhausted[kind] = v
 }
 
+func (f *fakeBudgetStore) setNoEnvelope(kind cost.Kind, v bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.noEnvelope[kind] = v
+}
+
 func (f *fakeBudgetStore) GetBudget(_ context.Context, _ cost.Scope, _ string, kind cost.Kind, _ string) (cost.Budget, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if !f.exhausted[kind] {
+	if f.noEnvelope[kind] {
 		return cost.Budget{}, cost.ErrBudgetNotFound
 	}
-	return cost.Budget{CeilingUSD: 100, IncurredUSD: 100}, nil // ceiling - incurred == 0: exhausted
+	if f.exhausted[kind] {
+		return cost.Budget{CeilingUSD: 100, IncurredUSD: 100}, nil // ceiling - incurred == 0: exhausted
+	}
+	return cost.Budget{CeilingUSD: 100, IncurredUSD: 0}, nil // healthy provisioned envelope
 }
 
 // fakeNetMRRSource returns a fixed, pre-built queue of samples in order,

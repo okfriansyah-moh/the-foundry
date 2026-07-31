@@ -213,6 +213,18 @@ type ReserveBudgetInput struct {
 	TaskID       string
 	ExecutorName string
 	Attempt      int
+	// MissionID, when set, aligns the reservation scope with the scope a
+	// mission's budget is actually provisioned at (docs/PLAN.md Task 119 /
+	// COST-01): the kernel previously reserved at ScopeWorkflow/WorkflowID
+	// while mission budgets are provisioned and read at ScopeMission/missionID,
+	// so a correctly-provisioned mission envelope was never consulted. When
+	// MissionID is set the reservation is made at ScopeMission/MissionID.
+	MissionID string
+	// Unattended marks a reservation for an unattended (autonomous) mission.
+	// An unattended reservation with no budget envelope is REFUSED, never run
+	// unmetered (C19/C24). An attended/interactive reservation without an
+	// envelope stays unmetered, preserving interactive use.
+	Unattended bool
 }
 
 // ReserveBudgetOutput is ReserveBudget's output. Exhausted reports a
@@ -224,6 +236,10 @@ type ReserveBudgetOutput struct {
 	EntryID   string
 	Exhausted bool
 	Shadow    bool
+	// Refused reports a fail-closed refusal (Task 119): an unattended mission
+	// with no budget envelope must not execute. Classification names why.
+	Refused        bool
+	Classification string
 }
 
 // ReserveBudget reserves this task's estimated cost against its
@@ -257,26 +273,38 @@ func (a *Activities) ReserveBudget(ctx context.Context, in ReserveBudgetInput) (
 		amountUSD := a.CostDefaults.DefaultUSD
 		meta := map[string]string{"task_id": in.TaskID}
 
+		// Task 119 (COST-01): align the reservation scope with the scope the
+		// budget is actually provisioned at. A mission task reserves at
+		// ScopeMission/MissionID (where mission budgets live), not
+		// ScopeWorkflow/WorkflowID (where nothing was ever provisioned).
+		scope, scopeID := cost.ScopeWorkflow, in.WorkflowID
+		if in.MissionID != "" {
+			scope, scopeID = cost.ScopeMission, in.MissionID
+		}
+
 		if isSubscriptionExecutor(in.ExecutorName) {
-			entry, err := a.CostStore.RecordShadow(ctx, cost.ScopeWorkflow, in.WorkflowID, amountUSD, in.ExecutorName, costPricingVersion, meta)
+			entry, err := a.CostStore.RecordShadow(ctx, scope, scopeID, amountUSD, in.ExecutorName, costPricingVersion, meta)
 			if err != nil {
 				return ReserveBudgetOutput{}, fmt.Errorf("kernel: record shadow cost %s/%s: %w", in.WorkflowID, in.TaskID, err)
 			}
-			// cost_per_task (docs/PLAN.md Task 31): the reservation/shadow
-			// amount is the only per-task cost-ledger figure this codebase
-			// records anywhere today — no activity calls CostStore.Incur
-			// with an actual observed amount yet (that wiring is a Task 29
-			// follow-up, out of this task's Scope), so this is the estimate,
-			// not a reconciled actual.
 			observe.ObserveCostPerTask(in.ExecutorName, entry.AmountUSD)
 			return ReserveBudgetOutput{EntryID: entry.ID, Shadow: true}, nil
 		}
 
-		entry, err := a.CostStore.Reserve(ctx, cost.ScopeWorkflow, in.WorkflowID, cost.KindMissionMonthly, currentPeriod(time.Now()), amountUSD, in.ExecutorName, costPricingVersion, meta)
+		entry, err := a.CostStore.Reserve(ctx, scope, scopeID, cost.KindMissionMonthly, currentPeriod(time.Now()), amountUSD, in.ExecutorName, costPricingVersion, meta)
 		switch {
 		case errors.Is(err, cost.ErrBudgetExhausted):
 			return ReserveBudgetOutput{Exhausted: true}, nil
 		case errors.Is(err, cost.ErrBudgetNotFound):
+			// Task 119 (COST-01): "no envelope" is a REFUSAL for an unattended
+			// mission, not "unmetered". Attended/interactive use without an
+			// envelope stays unmetered (a human is present).
+			if in.Unattended {
+				return ReserveBudgetOutput{
+					Refused:        true,
+					Classification: "budget-envelope-absent",
+				}, nil
+			}
 			return ReserveBudgetOutput{}, nil
 		case err != nil:
 			return ReserveBudgetOutput{}, fmt.Errorf("kernel: reserve budget %s/%s: %w", in.WorkflowID, in.TaskID, err)

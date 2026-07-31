@@ -20,6 +20,11 @@ const (
 	ScopeWorkflow Scope = "workflow"
 	ScopeProduct  Scope = "product"
 	ScopeMission  Scope = "mission"
+	// ScopeSession is the per-session budget scope (docs/PLAN.md Task 119 /
+	// COST-01): a single unattended execution session within a mission, so a
+	// runaway session cannot consume the whole mission envelope before the
+	// mission-level ceiling notices.
+	ScopeSession Scope = "session"
 )
 
 // Kind enumerates budgets.kind — the envelope categories from
