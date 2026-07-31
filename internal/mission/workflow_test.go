@@ -15,6 +15,7 @@ import (
 
 	"github.com/okfriansyah-moh/the-foundry/internal/admission"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/fake"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
@@ -631,12 +632,19 @@ func deliveryFixture(t *testing.T) (kernel.DeliverPlanInput, *kernel.Activities,
 		cost.Defaults{DefaultUSD: 0.10},
 		verify.NewRunner(validationAllow),
 	)
+	// Task 116 (SEC-02): ExecuteTask fails closed without an allowlist, so the
+	// child DeliverPlan must route through real, policy-checked selection.
+	acts.ExecutorSelector = kernel.ExecutorSelector{Default: "fake"}
+	acts.CapabilityRegistry = capability.Registry{Executors: []capability.Record{
+		{Provider: "fake", ExecutionClass: "test", Availability: capability.AvailabilitySupported, LastVerifiedAt: time.Now()},
+	}}
 
 	return kernel.DeliverPlanInput{
-		PlanID:       doc.ID,
-		PlanFilePath: planFilePath,
-		RepoPath:     repoPath,
-		ExecutorName: "fake",
+		PlanID:            doc.ID,
+		PlanFilePath:      planFilePath,
+		RepoPath:          repoPath,
+		ExecutorName:      "fake",
+		ExecutorAllowlist: []string{"fake"},
 	}, acts, transitions
 }
 

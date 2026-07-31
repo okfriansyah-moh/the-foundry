@@ -45,6 +45,7 @@ func TestDeliverPlan_HelloWorld(t *testing.T) {
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {
@@ -99,6 +100,7 @@ func TestDeliverPlan_FailingTask(t *testing.T) {
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {
@@ -157,6 +159,7 @@ func TestDeliverPlan_LyingExecutorFailingValidation(t *testing.T) {
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {
@@ -211,6 +214,7 @@ func TestDeliverPlan_ValidationClassificationPassesThrough(t *testing.T) {
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {
@@ -257,6 +261,7 @@ func TestDeliverPlan_TamperedPlan(t *testing.T) {
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {
@@ -315,6 +320,7 @@ func TestDeliverPlan_BudgetExhausted_WaitsThenResumes(t *testing.T) {
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 
 	if !env.IsWorkflowCompleted() {

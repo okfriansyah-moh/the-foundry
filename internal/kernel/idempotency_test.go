@@ -54,6 +54,7 @@ func TestExecuteTask_ReceiptShortCircuitsSecondRun(t *testing.T) {
 	execIn := kernel.ExecuteTaskInput{
 		WorkflowID: "wf1", TaskID: "t1", Attempt: 1,
 		ExecutorName: "fake", WorkspacePath: ws.Path,
+		ExecutorAllowlist: []string{"fake"},
 	}
 	execIn.Packet.Goal = fx.ScriptPath
 
@@ -106,6 +107,7 @@ func TestExecuteTask_WithoutReceiptGuardActuallyReRuns(t *testing.T) {
 	execIn := kernel.ExecuteTaskInput{
 		WorkflowID: "wf1", TaskID: "t1", Attempt: 1,
 		ExecutorName: "fake", WorkspacePath: ws.Path,
+		ExecutorAllowlist: []string{"fake"},
 	}
 	execIn.Packet.Goal = fx.ScriptPath
 
@@ -118,6 +120,7 @@ func TestExecuteTask_WithoutReceiptGuardActuallyReRuns(t *testing.T) {
 	// task, attempt) key from the call above has no receipt here. Every
 	// other collaborator is nil because ExecuteTask never touches them.
 	freshActivities := kernel.NewActivities(nil, nil, nil, nil, kernel.NewMemReceiptStore(), nil, nil, cost.Defaults{}, verify.Runner{})
+	wireTestSelection(freshActivities, "fake")
 
 	execIn.Packet.Goal = "/no/such/script.yaml"
 	if _, err := freshActivities.ExecuteTask(ctx, execIn); err == nil {

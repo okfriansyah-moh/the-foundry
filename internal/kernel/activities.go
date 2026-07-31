@@ -435,10 +435,11 @@ type ExecuteTaskInput struct {
 	// TaskClass is the plan task's routing class (plan.Task.Class), used by
 	// the selector's routing table (Task 90) when no executor is explicit.
 	TaskClass string
-	// ExecutorAllowlist is the resolved policy's executor_allowlist. When
-	// nil, ExecuteTask keeps the pre-Task-85 unchecked lookup of
-	// ExecutorName; when non-nil (even if empty), ExecuteTask runs
-	// kernel-owned, policy-checked selection and fails closed on violation.
+	// ExecutorAllowlist is the resolved policy's executor_allowlist. Task 116
+	// (SEC-02): an ABSENT or EMPTY allowlist is a fail-closed refusal
+	// (ClassificationPolicyViolation) — no executor runs without a policy that
+	// names it. A non-empty allowlist drives kernel-owned, policy-checked,
+	// capability-gated selection (Task 85 / PRV-02, Constitution C4).
 	ExecutorAllowlist []string
 	// RequireSandbox is set from the task's resolved profile policy when that
 	// policy demands the mandatory executor sandbox (docs/PLAN.md Task 115 /
@@ -484,29 +485,33 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 
 	key := IdempotencyKey{in.WorkflowID, in.TaskID, "ExecuteTask", in.Attempt}.String()
 	return withReceipt(ctx, a.ReceiptStore, key, func() (ExecuteTaskOutput, error) {
-		// Task 85 (PRV-02, Constitution C4): the kernel — not an unchecked
-		// env var, not PEC, not the executor itself — decides which adapter
-		// runs, and validates that decision against the policy allowlist and
-		// capability registry. When no allowlist is supplied (pre-Task-85
-		// callers), fall back to the historical unchecked lookup.
-		execName := in.ExecutorName
-		if in.ExecutorAllowlist != nil {
-			task := plan.Task{ID: in.TaskID, Executor: in.ExplicitExecutor, Class: in.TaskClass}
-			pol := compiler.Resolved{Effective: compiler.Policy{ExecutorAllowlist: in.ExecutorAllowlist}}
-			selected, selErr := a.ExecutorSelector.Select(ctx, task, pol, a.CapabilityRegistry)
-			if selErr != nil {
-				var se *SelectionError
-				if errors.As(selErr, &se) {
-					return ExecuteTaskOutput{
-						Failed:         true,
-						ErrorMessage:   se.Error(),
-						ExecutorUsed:   se.Executor,
-						Classification: string(se.Classification),
-					}, nil
-				}
-				return ExecuteTaskOutput{}, fmt.Errorf("kernel: select executor %s/%s: %w", in.WorkflowID, in.TaskID, selErr)
+		// Task 85 (PRV-02, Constitution C4) + Task 116 (SEC-02): the kernel —
+		// not an unchecked env var, not PEC, not the executor itself — decides
+		// which adapter runs, and validates that decision against the policy
+		// allowlist and capability registry. An ABSENT or EMPTY allowlist is a
+		// fail-closed refusal (not the historical unchecked lookup): no
+		// executor may run without a policy that names it.
+		if len(in.ExecutorAllowlist) == 0 {
+			return ExecuteTaskOutput{
+				Failed:         true,
+				ErrorMessage:   fmt.Sprintf("kernel: no executor allowlist for %s/%s — refusing (deny-when-absent, Task 116/C4/C24)", in.WorkflowID, in.TaskID),
+				Classification: string(verify.ClassificationPolicyViolation),
+			}, nil
+		}
+		task := plan.Task{ID: in.TaskID, Executor: in.ExplicitExecutor, Class: in.TaskClass}
+		pol := compiler.Resolved{Effective: compiler.Policy{ExecutorAllowlist: in.ExecutorAllowlist}}
+		execName, selErr := a.ExecutorSelector.Select(ctx, task, pol, a.CapabilityRegistry)
+		if selErr != nil {
+			var se *SelectionError
+			if errors.As(selErr, &se) {
+				return ExecuteTaskOutput{
+					Failed:         true,
+					ErrorMessage:   se.Error(),
+					ExecutorUsed:   se.Executor,
+					Classification: string(se.Classification),
+				}, nil
 			}
-			execName = selected
+			return ExecuteTaskOutput{}, fmt.Errorf("kernel: select executor %s/%s: %w", in.WorkflowID, in.TaskID, selErr)
 		}
 
 		adapter, err := executor.Get(execName)

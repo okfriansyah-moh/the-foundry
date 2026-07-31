@@ -212,7 +212,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
 | ✅  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
 | ✅  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
-| ⬜  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
+| ✅  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
 | ✅  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
 | ⬜  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
 | ✅  | 119  | COST-01 | Budgets fail closed for unattended missions (C19/C24)            | M5/V2      | 29,69,106,116              | None |
@@ -3190,7 +3190,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R4** · **Boundary:** C24 — every change here
   makes a permissive path refuse; none widens anything. The merge algebra, the tier logic and the policy field set
   are untouched. Rollback is per-branch config, and no rollback may restore the nil-allowlist bypass. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-31
 
 ### Task 117 (SEC-03) — Concurrency-safe credential passing: no process-global env on the executor path
 

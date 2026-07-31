@@ -67,6 +67,7 @@ func generateOne(t *testing.T, ctx context.Context, c client.Client, script, out
 		PlanFilePath: fx.PlanFilePath,
 		RepoPath:     fx.RepoPath,
 		ExecutorName: "fake",
+		ExecutorAllowlist: []string{"fake"},
 	})
 	if err != nil {
 		t.Fatalf("execute workflow: %v", err)
