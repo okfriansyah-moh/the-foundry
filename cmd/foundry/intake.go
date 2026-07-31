@@ -188,7 +188,7 @@ func runIntakeShow(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx, done := cancel()
 	defer done()
 	run, err := store.GetRun(ctx, fs.Arg(0))
@@ -256,7 +256,7 @@ func runIntakeList(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx, done := cancel()
 	defer done()
 	runs, err := store.ListRuns(ctx, *limit)
