@@ -390,10 +390,11 @@ func run() error {
 //     generated on first run if absent — the same key `foundry login`
 //     must be pointed at for a token this server issues to verify
 //     anywhere else (an existing Task 25 assumption, not a new one).
-//   - WebAuthn: an in-memory credential store (authn.NewMemUserStore) —
-//     Task 25 shipped no Postgres-backed UserStore yet; credentials
-//     registered against this process do not survive a restart, an
-//     existing gap this task does not expand its own scope to close.
+//   - WebAuthn: a Postgres-backed credential store (authn.NewPGUserStore) and a
+//     durable, single-use challenge-session store (authn.NewPGSessionStore) —
+//     Task 114 (INT-06) makes registered passkeys, in-flight challenges and
+//     signature counters survive a foundryd restart, preserving clone detection
+//     across it.
 func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN string, rawStore *provenance.PGRawStore, approverKeys *provenance.KeyPair) (*api.Server, error) {
 	platform, err := compiler.PlatformDefaults()
 	if err != nil {
@@ -426,11 +427,18 @@ func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN str
 		return nil, fmt.Errorf("load session signing key: %w", err)
 	}
 
-	waSvc, err := authn.NewService(&webauthn.Config{
+	// Task 114 (INT-06): a startup check that names the missing IdP variable
+	// when strong auth is enabled but no issuer is configured, rather than
+	// failing at first login with a bare error.
+	if err := checkStrongAuthIdP(); err != nil {
+		return nil, err
+	}
+
+	waSvc, err := authn.NewServiceWithSessions(&webauthn.Config{
 		RPID:          envOr("FOUNDRY_WEBAUTHN_RPID", "localhost"),
 		RPDisplayName: "Foundry",
 		RPOrigins:     []string{envOr("FOUNDRY_WEBAUTHN_ORIGIN", "http://localhost:8081")},
-	}, authn.NewMemUserStore())
+	}, authn.NewPGUserStore(db), authn.NewPGSessionStore(db))
 	if err != nil {
 		return nil, fmt.Errorf("construct webauthn service: %w", err)
 	}

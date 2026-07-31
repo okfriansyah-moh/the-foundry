@@ -97,17 +97,72 @@ type Service struct {
 	wa    *webauthn.WebAuthn
 	users UserStore
 
+	sessions SessionStore
+}
+
+// SessionStore persists in-flight WebAuthn challenge sessions with single-use
+// semantics (docs/PLAN.md Task 114 / INT-06). Pop returns a session exactly
+// once and deletes it, so a replay — or a restart followed by a replay — fails
+// with "session not found". The in-memory implementation backs tests; the
+// Postgres implementation (PGSessionStore) backs foundryd so challenges survive
+// a restart.
+type SessionStore interface {
+	// Put records session under a freshly minted id and returns the id.
+	Put(session webauthn.SessionData) (string, error)
+	// Pop returns and deletes the session for id (single-use). ok is false
+	// when the id is unknown, already consumed, or expired.
+	Pop(id string) (webauthn.SessionData, bool)
+}
+
+// memSessionStore is the in-memory SessionStore (tests, and any deployment that
+// accepts losing in-flight challenges on restart).
+type memSessionStore struct {
 	mu       sync.Mutex
 	sessions map[string]webauthn.SessionData
 }
 
-// NewService builds a Service from a go-webauthn Config and a UserStore.
+func newMemSessionStore() *memSessionStore {
+	return &memSessionStore{sessions: make(map[string]webauthn.SessionData)}
+}
+
+func (m *memSessionStore) Put(session webauthn.SessionData) (string, error) {
+	id, err := newSessionID()
+	if err != nil {
+		return "", err
+	}
+	m.mu.Lock()
+	m.sessions[id] = session
+	m.mu.Unlock()
+	return id, nil
+}
+
+func (m *memSessionStore) Pop(id string) (webauthn.SessionData, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	session, ok := m.sessions[id]
+	if ok {
+		delete(m.sessions, id)
+	}
+	return session, ok
+}
+
+// NewService builds a Service from a go-webauthn Config and a UserStore, using
+// the in-memory single-use session store.
 func NewService(cfg *webauthn.Config, users UserStore) (*Service, error) {
+	return NewServiceWithSessions(cfg, users, newMemSessionStore())
+}
+
+// NewServiceWithSessions builds a Service with an explicit SessionStore — the
+// durable (Postgres) store in foundryd, the in-memory one in tests.
+func NewServiceWithSessions(cfg *webauthn.Config, users UserStore, sessions SessionStore) (*Service, error) {
 	wa, err := webauthn.New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("authn: init webauthn: %w", err)
 	}
-	return &Service{wa: wa, users: users, sessions: make(map[string]webauthn.SessionData)}, nil
+	if sessions == nil {
+		sessions = newMemSessionStore()
+	}
+	return &Service{wa: wa, users: users, sessions: sessions}, nil
 }
 
 // BeginRegistration starts a registration ceremony for principal (creating
@@ -242,24 +297,11 @@ func (s *Service) getOrNewUser(principal string) (*CredentialUser, error) {
 }
 
 func (s *Service) putSession(session webauthn.SessionData) (string, error) {
-	id, err := newSessionID()
-	if err != nil {
-		return "", err
-	}
-	s.mu.Lock()
-	s.sessions[id] = session
-	s.mu.Unlock()
-	return id, nil
+	return s.sessions.Put(session)
 }
 
 func (s *Service) popSession(id string) (webauthn.SessionData, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	session, ok := s.sessions[id]
-	if ok {
-		delete(s.sessions, id)
-	}
-	return session, ok
+	return s.sessions.Pop(id)
 }
 
 func replaceCredential(creds []webauthn.Credential, updated webauthn.Credential) []webauthn.Credential {

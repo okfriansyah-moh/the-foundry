@@ -91,3 +91,25 @@ func hashBotID(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return "bot-" + hex.EncodeToString(sum[:8])
 }
+
+// checkStrongAuthIdP names the missing OIDC variable when strong auth is enabled
+// but no issuer is configured (docs/PLAN.md Task 114 / INT-06, step 3a). The
+// identity provider is configuration, not code: FOUNDRY_OIDC_ISSUER and
+// FOUNDRY_OIDC_CLIENT_ID default (in .env.example / deploy) to a hosted
+// Zitadel-class free tier; the fake IdP remains the CI path. Strong auth is
+// treated as enabled whenever a WebAuthn RP origin is explicitly configured.
+func checkStrongAuthIdP() error {
+	strongAuthEnabled := os.Getenv("FOUNDRY_WEBAUTHN_ORIGIN") != "" || os.Getenv("FOUNDRY_OIDC_ISSUER") != ""
+	if !strongAuthEnabled {
+		return nil
+	}
+	if os.Getenv("FOUNDRY_OIDC_ISSUER") == "" {
+		return fmt.Errorf(
+			"strong auth is enabled but FOUNDRY_OIDC_ISSUER is unset: set it (and FOUNDRY_OIDC_CLIENT_ID) " +
+				"to your IdP — see .env.example for the hosted Zitadel-class default, or point it at test/fakes/oidc in CI")
+	}
+	if os.Getenv("FOUNDRY_OIDC_CLIENT_ID") == "" {
+		return fmt.Errorf("FOUNDRY_OIDC_ISSUER is set but FOUNDRY_OIDC_CLIENT_ID is unset — both are required for `foundry login`")
+	}
+	return nil
+}
