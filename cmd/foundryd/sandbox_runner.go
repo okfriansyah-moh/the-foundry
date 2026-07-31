@@ -59,6 +59,13 @@ func (r *ociSandboxRunner) Preflight(_ context.Context) error {
 
 // RunSpec runs spec inside a fresh sandbox bound to workspacePath.
 func (r *ociSandboxRunner) RunSpec(ctx context.Context, workspacePath string, spec executor.SandboxSpec) (executor.CommandResult, error) {
+	// The OCI runner has no stdin plumbing. SandboxSpec.Stdin promises stdin
+	// is written, so silently ignoring it would run a different command than
+	// the adapter specified. Fail closed rather than degrade silently (C24:
+	// sandbox-required work never falls back to altered behavior).
+	if len(spec.Stdin) > 0 {
+		return executor.CommandResult{}, fmt.Errorf("sandbox runner: SandboxSpec.Stdin is set but the OCI runner does not support stdin")
+	}
 	cfg := sandbox.Config{
 		Engine:            r.engine,
 		Image:             r.image,

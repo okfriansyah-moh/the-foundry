@@ -15,8 +15,9 @@ var ErrRunNotFound = errors.New("intake: run not found")
 // Postgres). Stage records are append-only and unique per (run, stage), which
 // is what makes stage re-execution idempotent.
 type Store interface {
-	// CreateRun persists a new run and returns it with server-assigned
-	// timestamps.
+	// CreateRun persists a new run and returns it as stored. The caller
+	// (Pipeline.Start) sets CreatedAt/UpdatedAt from its clock before calling;
+	// the store persists those values verbatim rather than assigning its own.
 	CreateRun(ctx context.Context, r Run) (Run, error)
 	// GetRun returns the run, or ErrRunNotFound.
 	GetRun(ctx context.Context, runID string) (Run, error)

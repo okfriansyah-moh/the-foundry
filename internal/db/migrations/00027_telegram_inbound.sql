@@ -12,7 +12,7 @@ ALTER TABLE notifications
     ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS notifications_pending_ready_idx
-    ON notifications (created_at ASC)
+    ON notifications (next_attempt_at ASC NULLS FIRST, created_at ASC)
     WHERE state = 'pending';
 
 CREATE TABLE IF NOT EXISTS telegram_offsets (

@@ -11,6 +11,11 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 )
 
+// scheduleRetryTimeout bounds the persistence write in scheduleBackoff so a
+// slow or unavailable store cannot hang the delivery loop (the in-memory
+// schedule still paces this process regardless).
+const scheduleRetryTimeout = 5 * time.Second
+
 // Config sizes Engine's batching and retry/backoff behavior.
 type Config struct {
 	// MaxAttempts is how many send attempts a notification gets before
@@ -222,14 +227,21 @@ func (e *Engine) scheduleBackoff(id string, attempt int, retryAfter time.Duratio
 			}
 		}
 	}
+	// Compute the not-before time once so the in-memory schedule and the
+	// persisted schedule below are byte-for-byte the same instant (no drift
+	// from a second time.Now() call).
+	notBefore := time.Now().Add(delay)
 	e.mu.Lock()
-	e.nextAttempt[id] = time.Now().Add(delay)
+	e.nextAttempt[id] = notBefore
 	e.mu.Unlock()
 	// Persist the not-before time so the backoff (and Telegram's
 	// authoritative retry_after) survives a daemon restart (Task 112). A
 	// persistence failure must not block delivery — the in-memory schedule
-	// above still paces this process; log and continue.
-	if err := e.store.ScheduleRetry(context.Background(), id, time.Now().Add(delay)); err != nil {
+	// above still paces this process; log and continue. The write is bounded
+	// so a slow or unavailable store cannot hang the delivery loop.
+	ctx, cancel := context.WithTimeout(context.Background(), scheduleRetryTimeout)
+	defer cancel()
+	if err := e.store.ScheduleRetry(ctx, id, notBefore); err != nil {
 		e.cfg.Logger.Error("notify: persist retry schedule", "id", id, "error", err)
 	}
 }
