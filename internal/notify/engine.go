@@ -225,6 +225,13 @@ func (e *Engine) scheduleBackoff(id string, attempt int, retryAfter time.Duratio
 	e.mu.Lock()
 	e.nextAttempt[id] = time.Now().Add(delay)
 	e.mu.Unlock()
+	// Persist the not-before time so the backoff (and Telegram's
+	// authoritative retry_after) survives a daemon restart (Task 112). A
+	// persistence failure must not block delivery — the in-memory schedule
+	// above still paces this process; log and continue.
+	if err := e.store.ScheduleRetry(context.Background(), id, time.Now().Add(delay)); err != nil {
+		e.cfg.Logger.Error("notify: persist retry schedule", "id", id, "error", err)
+	}
 }
 
 func (e *Engine) clearBackoff(id string) {

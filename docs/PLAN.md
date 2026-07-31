@@ -208,7 +208,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 109  | INT-01 | Free-text → labeled requirements (real CandidateSource) (C16)      | M5/V2      | 42,43,101                  | None |
 | ✅  | 110  | INT-02 | PLAN generator v2 + static topology validator                     | M5/V3      | 44,45,109                  | None |
 | ✅  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
-| ⬜  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
+| ✅  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
 | ⬜  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
 | ⬜  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
 | ⬜  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
@@ -2976,7 +2976,7 @@ flowchart LR
 - **Validation:** `go test ./internal/notify/... -race && bash test/telegram_inbound_e2e.sh && bash test/soak/telegram/... && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** C11 — inbound Telegram may carry
   notifications, low-risk commands and veto responses only; it may never carry a high-risk approval (Task 114 owns
-  the escalation path). All inbound text is untrusted data. · **Status:** ⬜ Not started
+  the escalation path). All inbound text is untrusted data. · **Status:** ✅ 2026-07-31
 
 ### Task 113 (INT-05) — Telegram idea intake → mission draft, confirmation-required (C11)
 

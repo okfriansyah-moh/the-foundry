@@ -307,6 +307,10 @@ func run() error {
 	)
 	go notifyEngine.Run(bgCtx, notifyTickInterval, notifyClaimLimit)
 
+	// Task 112 (INT-04): the inbound half — a real CommandRouter fed by a
+	// durable-offset getUpdates receiver. Env-gated (inert without a bot token).
+	startTelegramInbound(bgCtx, db, c, envOr("TEMPORAL_NAMESPACE", "default"))
+
 	supervisor := &recovery.Supervisor{
 		Source: &recovery.CompositeProjectionSource{
 			PG:         &recovery.PostgresProjectionSource{DB: db},
