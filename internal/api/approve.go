@@ -33,16 +33,11 @@ func (s *Server) handleApprovePlan(w http.ResponseWriter, r *http.Request) {
 // classification ApproveHandler needs to decide whether WebAuthn step-up
 // is required.
 //
-// decision (no-gaps rule): ApprovedPlan (internal/provenance/artifacts.go)
-// records RiskTier() as the classifier's tier label but carries no
-// profile-kind field — no task has yet linked an ApprovedPlan to the
-// profile.Profile it was approved under. Tier is parsed back from that
-// label (the real, already-classified value); Profile is the smallest
-// reversible default, profile.Personal, so this resolver never invents an
-// organization-tier elevation that isn't actually known. This only
-// affects the OR side of RequiresStrongAuth that isn't already covered by
-// Tier==H, so it cannot be used to weaken step-up for a plan that is
-// genuinely H-tier.
+// Task 118 (SEC-04): the profile kind is read from the ApprovedPlan's own
+// re-signed provenance field, not hardcoded to profile.Personal — so an
+// organization-profile plan requires WebAuthn step-up even below tier H,
+// closing the "Profile == Organization half of RequiresStrongAuth can never
+// fire" gap the audit found.
 func (s *Server) resolvePlanContext(ctx context.Context, planID string) (authn.PlanContext, error) {
 	approved, err := s.deps.Provenance.Load(ctx, planID)
 	if err != nil {
@@ -52,7 +47,7 @@ func (s *Server) resolvePlanContext(ctx context.Context, planID string) (authn.P
 	if err != nil {
 		return authn.PlanContext{}, fmt.Errorf("api: plan %s: %w", planID, err)
 	}
-	return authn.PlanContext{Tier: tier, Profile: profile.Personal}, nil
+	return authn.PlanContext{Tier: tier, Profile: profile.Kind(approved.ProfileKind())}, nil
 }
 
 // parseTier reverses admission.Tier.String() ("A0".."H") back into a

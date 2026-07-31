@@ -69,6 +69,7 @@ type ApprovedPlan struct {
 	granted             []plan.Permission
 	scope               Scope
 	riskTier            string
+	profileKind         string
 	budgetEnvelope      BudgetEnvelope
 	dataClass           string
 	approvers           []Approver
@@ -94,11 +95,17 @@ type ApprovedPlanInput struct {
 	Requested           []plan.Permission
 	Scope               Scope
 	RiskTier            admission.Tier
-	BudgetEnvelope      BudgetEnvelope
-	DataClass           string
-	Approvers           []Approver
-	ApprovedAt          time.Time
-	ExpiresAt           time.Time
+	// ProfileKind records the profile the plan was approved under (docs/PLAN.md
+	// Task 118 / SEC-04): "personal" or "organization". It lets
+	// RequiresStrongAuth read a real profile kind instead of a hardcoded
+	// default, so an organization-profile plan requires WebAuthn even below
+	// tier H. Empty is treated as personal for backward compatibility.
+	ProfileKind    string
+	BudgetEnvelope BudgetEnvelope
+	DataClass      string
+	Approvers      []Approver
+	ApprovedAt     time.Time
+	ExpiresAt      time.Time
 }
 
 // NewApprovedPlan builds an unsigned ApprovedPlan, computing Granted as
@@ -122,6 +129,7 @@ func NewApprovedPlan(in ApprovedPlanInput, allow AllowList) (*ApprovedPlan, erro
 		granted:             allow.Intersect(in.Requested),
 		scope:               in.Scope,
 		riskTier:            in.RiskTier.String(),
+		profileKind:         in.ProfileKind,
 		budgetEnvelope:      in.BudgetEnvelope,
 		dataClass:           in.DataClass,
 		approvers:           append([]Approver{}, in.Approvers...),
@@ -140,6 +148,16 @@ func (a *ApprovedPlan) PlanDigest() string { return a.planDigest }
 
 // RiskTier returns the classifier-assigned tier label ("A0".."H").
 func (a *ApprovedPlan) RiskTier() string { return a.riskTier }
+
+// ProfileKind returns the profile the plan was approved under ("personal" or
+// "organization"). Empty means personal (backward compatibility for plans
+// approved before Task 118 added the field).
+func (a *ApprovedPlan) ProfileKind() string {
+	if a.profileKind == "" {
+		return "personal"
+	}
+	return a.profileKind
+}
 
 // Requested returns a copy of the requested permissions.
 func (a *ApprovedPlan) Requested() []plan.Permission {
@@ -190,6 +208,7 @@ type approvedPlanWire struct {
 	Granted             []plan.Permission `json:"granted_permissions"`
 	Scope               Scope             `json:"scope"`
 	RiskTier            string            `json:"risk_tier"`
+	ProfileKind         string            `json:"profile_kind,omitempty"`
 	BudgetEnvelope      BudgetEnvelope    `json:"budget_envelope"`
 	DataClass           string            `json:"data_classification"`
 	Approvers           []Approver        `json:"approvers"`
@@ -214,6 +233,7 @@ func (a *ApprovedPlan) toWire() approvedPlanWire {
 		Granted:             a.granted,
 		Scope:               a.scope,
 		RiskTier:            a.riskTier,
+		ProfileKind:         a.profileKind,
 		BudgetEnvelope:      a.budgetEnvelope,
 		DataClass:           a.dataClass,
 		Approvers:           a.approvers,
@@ -261,6 +281,7 @@ func (a *ApprovedPlan) UnmarshalJSON(data []byte) error {
 		granted:             w.Granted,
 		scope:               w.Scope,
 		riskTier:            w.RiskTier,
+		profileKind:         w.ProfileKind,
 		budgetEnvelope:      w.BudgetEnvelope,
 		dataClass:           w.DataClass,
 		approvers:           w.Approvers,

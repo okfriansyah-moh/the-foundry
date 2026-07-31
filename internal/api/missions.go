@@ -95,9 +95,11 @@ func (s *Server) missionStore() *mission.Store { return mission.NewStore(s.deps.
 
 // handleListMissions implements GET /v1/missions.
 func (s *Server) handleListMissions(w http.ResponseWriter, r *http.Request) {
+	// Task 118 (SEC-04) tenancy: a principal lists only its own missions.
 	items, err := s.missionStore().ListMissions(r.Context(), mission.MissionFilter{
-		Status:  r.URL.Query().Get("status"),
-		Profile: r.URL.Query().Get("profile"),
+		Status:      r.URL.Query().Get("status"),
+		Profile:     r.URL.Query().Get("profile"),
+		PrincipalID: principalFromContext(r.Context()),
 	})
 	if err != nil {
 		s.logger().Error("api: list missions failed", "error", err)

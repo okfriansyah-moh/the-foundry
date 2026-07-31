@@ -383,3 +383,40 @@ func TestStore_CeremonyReadiness_SaveAndRequire_RealPostgres(t *testing.T) {
 		t.Fatalf("LatestReadinessArtifact.ApprovedBy = %q, want %q", rec.Artifact.ApprovedBy, principalID)
 	}
 }
+
+// TestStore_ListMissions_PrincipalTenancy_RealPostgres proves Task 118
+// (SEC-04): ListMissions filtered by principal returns only that principal's
+// missions — a principal cannot list another's.
+func TestStore_ListMissions_PrincipalTenancy_RealPostgres(t *testing.T) {
+	db := openTestDB(t)
+	store := mission.NewStore(db)
+	ctx := context.Background()
+	s := randSuffix(t)
+
+	alice := "principal-alice-" + s
+	bob := "principal-bob-" + s
+	insertTestPrincipal(t, db, alice)
+	insertTestPrincipal(t, db, bob)
+
+	aliceMission := mission.Mission{ID: "m-alice-" + s, PrincipalID: alice, WorkflowID: "wf-a-" + s, Contract: minimalContract(s)}
+	bobMission := mission.Mission{ID: "m-bob-" + s, PrincipalID: bob, WorkflowID: "wf-b-" + s, Contract: minimalContract(s)}
+	if err := store.CreateMission(ctx, aliceMission); err != nil {
+		t.Fatalf("create alice mission: %v", err)
+	}
+	if err := store.CreateMission(ctx, bobMission); err != nil {
+		t.Fatalf("create bob mission: %v", err)
+	}
+
+	got, err := store.ListMissions(ctx, mission.MissionFilter{PrincipalID: alice})
+	if err != nil {
+		t.Fatalf("ListMissions: %v", err)
+	}
+	for _, it := range got {
+		if it.PrincipalID != alice {
+			t.Fatalf("tenancy leak: alice's list returned a mission owned by %q", it.PrincipalID)
+		}
+		if it.ID == bobMission.ID {
+			t.Fatal("tenancy leak: alice can see bob's mission")
+		}
+	}
+}

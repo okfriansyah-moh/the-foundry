@@ -99,3 +99,40 @@ func TestHandleApprovePlan_WiredEndToEnd(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
 }
+
+// TestResolvePlanContext_OrgProfileRequiresStrongAuthBelowH proves Task 118
+// (SEC-04): an organization-profile plan requires WebAuthn step-up even at a
+// non-H tier — the hardcoded profile.Personal that made the Organization half
+// of RequiresStrongAuth unreachable is gone.
+func TestResolvePlanContext_OrgProfileRequiresStrongAuthBelowH(t *testing.T) {
+	f := newTestFixture(t)
+
+	ap, err := provenance.NewApprovedPlan(provenance.ApprovedPlanInput{
+		PlanID:      "plan-org",
+		PlanDigest:  "sha256:plan-org",
+		RiskTier:    admission.TierA2, // deliberately below H
+		ProfileKind: "organization",
+		ApprovedAt:  time.Now(),
+		ExpiresAt:   time.Now().Add(time.Hour),
+	}, provenance.AllowList{})
+	if err != nil {
+		t.Fatalf("NewApprovedPlan: %v", err)
+	}
+	if err := provenance.Sign(f.signingKey.Private, ap); err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	if err := f.provStore.Insert(context.Background(), ap); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	planCtx, err := f.server.resolvePlanContext(context.Background(), "plan-org")
+	if err != nil {
+		t.Fatalf("resolvePlanContext: %v", err)
+	}
+	if planCtx.Tier == admission.TierH {
+		t.Fatal("test setup bug: tier must be below H to prove the org-profile path")
+	}
+	if !planCtx.RequiresStrongAuth() {
+		t.Error("an organization-profile plan must require strong auth even below tier H")
+	}
+}
