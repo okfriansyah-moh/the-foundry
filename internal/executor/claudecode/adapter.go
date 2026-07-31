@@ -87,16 +87,17 @@ func New() *Adapter {
 	return &Adapter{binary: bin}
 }
 
-// applySecretsEnv fetches a's configured auth secret (if Secrets is set)
-// and sets it into the process environment under SecretsEnvVar for the
-// duration of Run, returning a func that restores whatever value (or
-// absence) was there beforehand. When Secrets is nil this is a no-op —
-// Run's env passthrough behaves exactly as before Task 35.
-func (a *Adapter) applySecretsEnv(ctx context.Context) (func(), error) {
+// resolveSecretEnv fetches a's configured auth secret (if Secrets is set) and
+// returns it as a per-invocation env entry (name→value) for the child process
+// ONLY. It never mutates the shared daemon process environment (Task 117 /
+// SEC-03): the credential reaches the executor through its own process env, so
+// two concurrent tasks in different secret scopes can never observe each other's
+// credential. When Secrets is nil this returns an empty map — Run's env
+// passthrough behaves exactly as before.
+func (a *Adapter) resolveSecretEnv(ctx context.Context) (map[string]string, error) {
 	if a.Secrets == nil {
-		return func() {}, nil
+		return nil, nil
 	}
-
 	envVar := a.SecretsEnvVar
 	if envVar == "" {
 		envVar = defaultSecretsEnvVar
@@ -105,23 +106,11 @@ func (a *Adapter) applySecretsEnv(ctx context.Context) (func(), error) {
 	if name == "" {
 		name = strings.ToLower(envVar)
 	}
-
 	v, err := a.Secrets.Get(ctx, a.SecretsScope, name)
 	if err != nil {
 		return nil, fmt.Errorf("claudecode: read %s from secrets store: %w", envVar, err)
 	}
-
-	prev, hadPrev := os.LookupEnv(envVar)
-	if err := os.Setenv(envVar, v); err != nil {
-		return nil, fmt.Errorf("claudecode: set %s: %w", envVar, err)
-	}
-	return func() {
-		if hadPrev {
-			_ = os.Setenv(envVar, prev)
-		} else {
-			_ = os.Unsetenv(envVar)
-		}
-	}, nil
+	return map[string]string{envVar: v}, nil
 }
 
 // Prepare writes the task packet's content to a fixed-name prompt file
@@ -212,14 +201,13 @@ func (a *Adapter) Run(ctx context.Context) (executor.Summary, error) {
 		timeout = time.Duration(a.packet.TimeoutSec) * time.Second
 	}
 
-	restore, err := a.applySecretsEnv(ctx)
+	secretEnv, err := a.resolveSecretEnv(ctx)
 	if err != nil {
 		return executor.Summary{}, err
 	}
-	defer restore()
 
 	cmdLine := a.binary + " -p --output-format json --permission-mode bypassPermissions"
-	result, err := executor.RunSubprocessWithStdin(ctx, a.ws.Path, cmdLine, f, allowedEnv, timeout)
+	result, err := executor.RunSubprocessWithEnv(ctx, a.ws.Path, cmdLine, f, allowedEnv, secretEnv, timeout)
 	if err != nil {
 		return executor.Summary{}, fmt.Errorf("claudecode: run: %w", err)
 	}

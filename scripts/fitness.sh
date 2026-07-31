@@ -88,4 +88,7 @@ echo "== fitness (m): plan topology (Task 110 / INT-02) =="
 echo "== fitness (n): kernel bare-subprocess ban (Task 115 / SEC-01, Constitution C4/C24) =="
 "${fitlint_bin}" subprocess ./internal/kernel
 
+echo "== fitness (o): no process-global credential env on the executor/kernel path (Task 117 / SEC-03) =="
+"${fitlint_bin}" env ./internal/executor ./internal/kernel
+
 echo "fitness OK"

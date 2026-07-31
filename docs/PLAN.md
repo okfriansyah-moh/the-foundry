@@ -213,7 +213,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
 | ✅  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
 | ⬜  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
-| ⬜  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
+| ✅  | 117  | SEC-03 | Concurrency-safe credential passing (no process-global env)        | M5/V2      | 17,35,98,115               | None |
 | ⬜  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
 | ⬜  | 119  | COST-01 | Budgets fail closed for unattended missions (C19/C24)            | M5/V2      | 29,69,106,116              | None |
 | ⬜  | 120  | COST-02 | Actual-cost reconciliation + bounded shadow accounting (C19)      | M5/V3      | 17,69,85,119               | None |
@@ -3234,7 +3234,7 @@ flowchart LR
 - **Validation:** `go test ./internal/executor/... ./internal/kernel/... -race -count=5 && go run ./cmd/fitlint env ./internal/... && bash scripts/fitness.sh` (incl. the existing secrets-leak scan).
 - **Risk:** High · **Exec:** go-kernel+security-review · **Rev:** **R3** · **Boundary:** no change to secret
   storage, encryption or entitlement; the fix changes *how* a credential reaches a child process, not *which*
-  credential or *who* may have it. · **Status:** ⬜ Not started
+  credential or *who* may have it. · **Status:** ✅ 2026-07-31
 
 ### Task 118 (SEC-04) [P] — Personal vs organization isolation, proven (C13/C14)
 
