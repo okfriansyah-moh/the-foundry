@@ -249,7 +249,25 @@ func parseSummary(stdout string) executor.Summary {
 		"session_id=%s num_turns=%d duration_ms=%d total_cost_usd=%.4f usage=%s",
 		r.SessionID, r.NumTurns, r.DurationMS, r.TotalCostUSD, string(r.Usage),
 	)
-	return executor.Summary{Claimed: r.Result, ExitNotes: notes}
+	// Task 120: parse the usage object into structured Usage for reconciliation
+	// instead of only stuffing it into ExitNotes.
+	var u struct {
+		InputTokens     int `json:"input_tokens"`
+		OutputTokens    int `json:"output_tokens"`
+		CacheReadTokens int `json:"cache_read_input_tokens"`
+	}
+	_ = json.Unmarshal(r.Usage, &u)
+	return executor.Summary{
+		Claimed:   r.Result,
+		ExitNotes: notes,
+		Usage: executor.Usage{
+			InputTokens:         u.InputTokens,
+			OutputTokens:        u.OutputTokens,
+			CachedTokens:        u.CacheReadTokens,
+			ProviderReportedUSD: r.TotalCostUSD,
+			Provider:            "claude-code",
+		},
+	}
 }
 
 // Collect reports the prompt file as the only artifact this adapter itself

@@ -69,6 +69,12 @@ type Activities struct {
 	// default so pre-Task-115 callers (RequireSandbox=false) are unaffected.
 	Sandbox SandboxRunner
 
+	// ModelRates prices token usage into dollars for actual-cost reconciliation
+	// (docs/PLAN.md Task 120 / COST-02). Zero-valued by default; RecordCost
+	// records "unknown" for a model with no rate rather than a fabricated
+	// figure.
+	ModelRates cost.RateTable
+
 	// Integrator and IntegrationQueue back the 10x IntegrateChangeSet activity
 	// (docs/PLAN.md Task 108 / RTC-04). Both are zero-valued by default; only
 	// the 10x path sets them, so DeliverPlan callers are unaffected.
@@ -465,6 +471,9 @@ type ExecuteTaskOutput struct {
 	// policy violation). It is surfaced to ValidateTask as the task's real
 	// classification instead of the generic executor-failed default.
 	Classification string
+	// Usage is the executor's structured resource usage (docs/PLAN.md Task 120
+	// / COST-02), carried out so a RecordCost step can incur the real cost.
+	Usage executor.Usage
 }
 
 // ExecuteTask runs packet inside the already-acquired worktree via the
@@ -543,7 +552,7 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 		stopHeartbeat()
 		observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
 
-		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName}
+		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName, Usage: summary.Usage}
 		if runErr != nil {
 			out.Failed = true
 			out.ErrorMessage = runErr.Error()

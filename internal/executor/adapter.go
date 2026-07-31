@@ -62,6 +62,30 @@ type Summary struct {
 	Claimed string
 	// ExitNotes is free-form self-reported detail accompanying Claimed.
 	ExitNotes string
+	// Usage is the executor's structured, parseable resource usage
+	// (docs/PLAN.md Task 120 / COST-02). Adapters that can report real
+	// provider usage populate it; those that cannot leave it zero. It replaces
+	// discarding these numbers into ExitNotes as free text nothing parses back.
+	Usage Usage
+}
+
+// Usage is structured executor resource usage for cost reconciliation
+// (docs/PLAN.md Task 120 / COST-02). ProviderReportedUSD is the provider's own
+// dollar figure when available; token counts let the rate table price a call
+// deterministically when the provider reports no dollar figure. A zero Usage
+// means the executor could not report usage (e.g. a subscription-seat CLI).
+type Usage struct {
+	InputTokens         int
+	OutputTokens        int
+	CachedTokens        int
+	ProviderReportedUSD float64
+	Model               string
+	Provider            string
+}
+
+// HasSignal reports whether this Usage carries any reconcilable figure.
+func (u Usage) HasSignal() bool {
+	return u.ProviderReportedUSD > 0 || u.InputTokens > 0 || u.OutputTokens > 0
 }
 
 // Artifacts lists the filesystem paths (relative to the workspace) an

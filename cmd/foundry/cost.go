@@ -28,9 +28,9 @@ func parseScopeArg(raw string) (cost.Scope, string, error) {
 	}
 	scope := cost.Scope(parts[0])
 	switch scope {
-	case cost.ScopeWorkflow, cost.ScopeProduct, cost.ScopeMission:
+	case cost.ScopeWorkflow, cost.ScopeProduct, cost.ScopeMission, cost.ScopeSession:
 	default:
-		return "", "", fmt.Errorf("invalid --scope %q: scope must be one of workflow, product, mission", raw)
+		return "", "", fmt.Errorf("invalid --scope %q: scope must be one of workflow, product, mission, session", raw)
 	}
 	return scope, parts[1], nil
 }

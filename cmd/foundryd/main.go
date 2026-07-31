@@ -247,6 +247,14 @@ func run() error {
 		return fmt.Errorf("load executor routing table: %w", err)
 	}
 	activities.CapabilityRegistry = capRegistry
+	// Task 120 (COST-02): load the per-model rate table so completed tasks
+	// incur a real, reconcilable cost (unknown when a model has no rate, never
+	// a fabricated default).
+	if rates, rerr := cost.LoadRateTable(envOr("FOUNDRY_MODEL_RATES", "config/executor-model-rates.yaml")); rerr != nil {
+		log.Printf("foundryd: model rate table unavailable (costs recorded as unknown): %v", rerr)
+	} else {
+		activities.ModelRates = rates
+	}
 	// Task 115 (SEC-01): wire the production sandbox runner so ExecuteTask runs
 	// sandbox-required executors inside the sandbox and refuses host execution.
 	wireSandbox(activities)
@@ -508,6 +516,7 @@ func registerActivities(w worker.Worker, a *kernel.Activities) {
 	w.RegisterActivityWithOptions(a.ValidateTask, activity.RegisterOptions{Name: kernel.ActivityValidateTask})
 	w.RegisterActivityWithOptions(a.RecordEvidence, activity.RegisterOptions{Name: kernel.ActivityRecordEvidence})
 	w.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
+	w.RegisterActivityWithOptions(a.RecordCost, activity.RegisterOptions{Name: kernel.ActivityRecordCost})
 }
 
 // registerMissionActivities registers MissionLoop's eight activities under the

@@ -59,6 +59,10 @@ type BudgetStore interface {
 	// RecordShadow records a subscription-priced entry with no ceiling
 	// check at all (cost-accounting.md §1).
 	RecordShadow(ctx context.Context, scope cost.Scope, scopeID string, amountUSD float64, provider, pricingVersion string, meta any) (cost.Entry, error)
+	// Incur transitions a reserved entry to incurred with the real observed
+	// amount (docs/PLAN.md Task 120 / COST-02): the reserve→incur half of the
+	// cost ledger.
+	Incur(ctx context.Context, entryID string, actualAmountUSD float64) (cost.Entry, error)
 }
 
 // budgetKey identifies one in-memory envelope for MemBudgetStore.
@@ -78,10 +82,11 @@ type budgetKey struct {
 // via go.temporal.io/sdk/testsuite, which never runs two activities of the
 // same workflow concurrently in the first place.
 type MemBudgetStore struct {
-	mu      sync.Mutex
-	ceiling map[budgetKey]float64
-	spent   map[budgetKey]float64
-	seq     int
+	incurred map[string]float64
+	mu       sync.Mutex
+	ceiling  map[budgetKey]float64
+	spent    map[budgetKey]float64
+	seq      int
 }
 
 // NewMemBudgetStore returns a MemBudgetStore with no envelopes configured —
@@ -138,4 +143,25 @@ func (s *MemBudgetStore) RecordShadow(_ context.Context, scope cost.Scope, scope
 		Provider:       provider,
 		PricingVersion: pricingVersion,
 	}, nil
+}
+
+// Incur implements BudgetStore for MemBudgetStore: it records the real amount as
+// incurred (Task 120). The in-memory store tracks incurred totals per entry so
+// tests can assert reserve→incur without a live Postgres.
+func (s *MemBudgetStore) Incur(_ context.Context, entryID string, actualAmountUSD float64) (cost.Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.incurred == nil {
+		s.incurred = map[string]float64{}
+	}
+	s.incurred[entryID] = actualAmountUSD
+	return cost.Entry{ID: entryID, State: cost.StateIncurred, AmountUSD: actualAmountUSD}, nil
+}
+
+// IncurredFor returns the incurred amount recorded for an entry (test helper).
+func (s *MemBudgetStore) IncurredFor(entryID string) (float64, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, ok := s.incurred[entryID]
+	return v, ok
 }

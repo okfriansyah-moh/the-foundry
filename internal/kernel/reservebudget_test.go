@@ -144,3 +144,7 @@ func (f *fakeExhaustedStore) Reserve(_ context.Context, _ cost.Scope, _ string, 
 func (f *fakeExhaustedStore) RecordShadow(_ context.Context, scope cost.Scope, scopeID string, amountUSD float64, provider, pricingVersion string, _ any) (cost.Entry, error) {
 	return cost.Entry{ID: "shadow-1", Scope: scope, ScopeID: scopeID, State: cost.StateShadow, AmountUSD: amountUSD, Provider: provider, PricingVersion: pricingVersion}, nil
 }
+
+func (f *fakeExhaustedStore) Incur(_ context.Context, entryID string, actualAmountUSD float64) (cost.Entry, error) {
+	return cost.Entry{ID: entryID, State: cost.StateIncurred, AmountUSD: actualAmountUSD}, nil
+}

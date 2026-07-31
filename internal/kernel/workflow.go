@@ -29,6 +29,9 @@ const (
 	ActivityValidateTask     = "ValidateTask"
 	ActivityRecordEvidence   = "RecordEvidence"
 	ActivityAppendTransition = "AppendTransition"
+	// ActivityRecordCost incurs a completed task's real cost against its
+	// reservation (docs/PLAN.md Task 120 / COST-02).
+	ActivityRecordCost = "RecordCost"
 )
 
 // defaultTaskTimeout bounds a single task's ExecuteTask activity. plan.Task
@@ -352,6 +355,22 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		},
 	}).Get(execCtx, &execOut); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
+	}
+
+	// Task 120 (COST-02): incur the task's real cost against its reservation on
+	// completion. Cost accounting must never fail the plan — a recording error
+	// is logged by the activity and the plan proceeds; the reservation stands.
+	if reserved.EntryID != "" {
+		recordCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
+		var recorded RecordCostOutput
+		_ = workflow.ExecuteActivity(recordCtx, ActivityRecordCost, RecordCostInput{
+			WorkflowID:   workflowID,
+			TaskID:       task.ID,
+			Attempt:      budgetAttempt,
+			EntryID:      reserved.EntryID,
+			ExecutorName: execOut.ExecutorUsed,
+			Usage:        execOut.Usage,
+		}).Get(recordCtx, &recorded)
 	}
 
 	validateCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
