@@ -78,8 +78,8 @@ func (f *fakeGateEvents) ResolveGateEvent(_ context.Context, _ string, _ string,
 }
 
 // fakeBudgetStore returns a healthy provisioned envelope by default (Task 119:
-// a mission has an envelope). setExhausted makes a kind exhausted;
-// setNoEnvelope makes a kind report cost.ErrBudgetNotFound so the fail-closed
+// a mission has an envelope). setExhausted makes a kind exhausted; the
+// noEnvelope map makes a kind report cost.ErrBudgetNotFound so the fail-closed
 // no-envelope path can be exercised.
 type fakeBudgetStore struct {
 	mu         sync.Mutex
@@ -95,12 +95,6 @@ func (f *fakeBudgetStore) setExhausted(kind cost.Kind, v bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.exhausted[kind] = v
-}
-
-func (f *fakeBudgetStore) setNoEnvelope(kind cost.Kind, v bool) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.noEnvelope[kind] = v
 }
 
 func (f *fakeBudgetStore) GetBudget(_ context.Context, _ cost.Scope, _ string, kind cost.Kind, _ string) (cost.Budget, error) {

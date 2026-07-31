@@ -18,13 +18,16 @@ type sandboxCapableAdapter struct{ ranOnHost bool }
 func (a *sandboxCapableAdapter) Prepare(context.Context, worktree.Workspace, executor.TaskPacket) error {
 	return nil
 }
+
 func (a *sandboxCapableAdapter) Run(context.Context) (executor.Summary, error) {
 	a.ranOnHost = true
 	return executor.Summary{Claimed: "ran on host"}, nil
 }
+
 func (a *sandboxCapableAdapter) Collect(context.Context) (executor.Artifacts, error) {
 	return executor.Artifacts{}, nil
 }
+
 func (a *sandboxCapableAdapter) SandboxSpec(context.Context, worktree.Workspace, executor.TaskPacket) (executor.SandboxSpec, error) {
 	return executor.SandboxSpec{Argv: []string{"echo", "hi"}}, nil
 }
@@ -35,10 +38,12 @@ type plainAdapter struct{ ranOnHost bool }
 func (a *plainAdapter) Prepare(context.Context, worktree.Workspace, executor.TaskPacket) error {
 	return nil
 }
+
 func (a *plainAdapter) Run(context.Context) (executor.Summary, error) {
 	a.ranOnHost = true
 	return executor.Summary{}, nil
 }
+
 func (a *plainAdapter) Collect(context.Context) (executor.Artifacts, error) {
 	return executor.Artifacts{}, nil
 }

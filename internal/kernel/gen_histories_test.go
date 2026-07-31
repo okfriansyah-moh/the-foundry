@@ -63,10 +63,10 @@ func generateOne(t *testing.T, ctx context.Context, c client.Client, script, out
 	defer w.Stop()
 
 	run, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{TaskQueue: taskQueue}, kernel.DeliverPlan, kernel.DeliverPlanInput{
-		PlanID:       fx.PlanID,
-		PlanFilePath: fx.PlanFilePath,
-		RepoPath:     fx.RepoPath,
-		ExecutorName: "fake",
+		PlanID:            fx.PlanID,
+		PlanFilePath:      fx.PlanFilePath,
+		RepoPath:          fx.RepoPath,
+		ExecutorName:      "fake",
 		ExecutorAllowlist: []string{"fake"},
 	})
 	if err != nil {

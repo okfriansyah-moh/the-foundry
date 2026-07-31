@@ -228,10 +228,10 @@ func TestDeliverPlan_MidFlightRevocation(t *testing.T) {
 	})
 
 	env.ExecuteWorkflow(kernel.DeliverPlan, kernel.DeliverPlanInput{
-		PlanID:       fx.PlanID,
-		PlanFilePath: fx.PlanFilePath,
-		RepoPath:     fx.RepoPath,
-		ExecutorName: "fake",
+		PlanID:            fx.PlanID,
+		PlanFilePath:      fx.PlanFilePath,
+		RepoPath:          fx.RepoPath,
+		ExecutorName:      "fake",
 		ExecutorAllowlist: []string{"fake"},
 	})
 

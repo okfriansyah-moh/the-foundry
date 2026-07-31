@@ -278,7 +278,3 @@ func wireTestSelection(acts *kernel.Activities, defaultExecutor string) {
 	acts.ExecutorSelector = kernel.ExecutorSelector{Default: defaultExecutor}
 	acts.CapabilityRegistry = testCapabilityRegistry()
 }
-
-// fakeAllowlist is the executor allowlist every fixture-driven test task carries
-// now that ExecuteTask fails closed without one.
-func fakeAllowlist() []string { return []string{"fake"} }

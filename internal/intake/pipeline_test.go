@@ -208,8 +208,10 @@ func TestPipeline_Resume_FromInterruptedStage(t *testing.T) {
 	f := &fakeSeams{verdict: "BUILD", researchUSD: 1.0}
 	store := NewMemStore()
 	clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	deps := Deps{Store: store, Validator: f, Synth: f, PlanGen: f, Admitter: f,
-		Approver: f, Readiness: f, Starter: f, Clock: func() time.Time { return clock }}
+	deps := Deps{
+		Store: store, Validator: f, Synth: f, PlanGen: f, Admitter: f,
+		Approver: f, Readiness: f, Starter: f, Clock: func() time.Time { return clock },
+	}
 
 	// First pipeline instance: interrupt by making the approver stop the run
 	// after admission (simulate a crash before approval by using a starter that

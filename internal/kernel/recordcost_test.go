@@ -80,8 +80,10 @@ func TestRecordCost_UnknownModelRecordsUnknownNotDefault(t *testing.T) {
 func TestRecordCost_IdempotentPerAttempt(t *testing.T) {
 	store := kernel.NewMemBudgetStore()
 	a := newRecordCostActivities(store, cost.NewRateTable())
-	in := kernel.RecordCostInput{WorkflowID: "wf1", TaskID: "t1", Attempt: 1, EntryID: "entry-1",
-		Usage: executor.Usage{ProviderReportedUSD: 1.0, Model: "gpt-4o"}}
+	in := kernel.RecordCostInput{
+		WorkflowID: "wf1", TaskID: "t1", Attempt: 1, EntryID: "entry-1",
+		Usage: executor.Usage{ProviderReportedUSD: 1.0, Model: "gpt-4o"},
+	}
 	first, _ := a.RecordCost(context.Background(), in)
 	second, _ := a.RecordCost(context.Background(), in)
 	if first.IncurredUSD != second.IncurredUSD {
