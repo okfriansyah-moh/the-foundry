@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     last_error TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    sent_at    TIMESTAMPTZ
+    sent_at    TIMESTAMPTZ,
+    next_attempt_at TIMESTAMPTZ
 )`
 	if _, err := db.Exec(createTable); err != nil {
 		t.Fatalf("create notifications table: %v", err)
