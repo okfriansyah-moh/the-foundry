@@ -209,7 +209,7 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 110  | INT-02 | PLAN generator v2 + static topology validator                     | M5/V3      | 44,45,109                  | None |
 | ✅  | 111  | INT-03 | `foundry mission start --idea`: staged intake pipeline             | M5/V4      | 41,102,105,107,109,110     | None |
 | ✅  | 112  | INT-04 | Telegram inbound transport, durable retry/offset (C11)            | M5/V0      | 30,72,94,95                | None |
-| ⬜  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
+| ✅  | 113  | INT-05 | Telegram idea intake → mission draft (confirm-required) (C11)      | M5/V5      | 111,112                    | None |
 | ⬜  | 114  | INT-06 | Durable strong-auth escalation from Telegram (C12)                | M5/V1      | 20,25,112                  | None |
 | ⬜  | 115  | SEC-01 | Mandatory sandbox on the real executor path (C24)                 | M5/V1      | 34,85,97,105               | None |
 | ⬜  | 116  | SEC-02 | No fail-open policy: four-layer loading + deny-when-absent (C24)   | M5/V1      | 7,22,23,85,105             | None |
@@ -3019,7 +3019,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-backend+security-review · **Rev:** **R4** · **Boundary:** C11 — Telegram is a
   low-risk command and veto surface; this card adds one low-risk command and one confirmation, and grants no new
   authority. Message text is never an instruction; budgets are never granted by message content. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-07-31
 
 ### Task 114 (INT-06) — Durable strong-auth escalation from Telegram, proven across restart (C12)
 
