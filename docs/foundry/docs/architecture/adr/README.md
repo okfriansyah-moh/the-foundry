@@ -2,7 +2,8 @@
 
 [← Back to Delivery Foundry master index](../../../delivery_foundry.md) · [Migration map](../../../docs/MIGRATION_MAP_V11_TO_V12.md)
 
-ADR-000 (build-versus-buy) is in this directory. Preserved V11 ADRs follow.
+ADR-000 (build-versus-buy) and ADR-001 (OpenHands / 9Router disposition) are in this directory. Preserved V11 ADRs
+follow.
 
 
 ---

@@ -17,3 +17,10 @@ routes:
   frontend: [cursor, opencode]
   review: [copilot, claude-code]
   docs: [copilot, claude-code]
+
+# Task 129 (INF-02): the per-task provider-fallback attempt budget. When the
+# selected executor is unavailable/rate-limited/at-capacity, the kernel falls
+# over to the next policy-allowed candidate, bounded to at most this many
+# attempts per task attempt — never unbounded, never outside the allowlist. 0
+# uses the kernel's built-in default.
+fallback_attempt_budget: 3

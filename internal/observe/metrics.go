@@ -95,20 +95,25 @@ var (
 		Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25},
 	}, []string{"provider"})
 
-	// ProviderWaitingTimeSeconds implements provider_waiting_time. STUB
-	// per this task's card ("stub source is acceptable"): today it
-	// records the wall-clock duration of an executor adapter's Run()
-	// call as a whole (internal/kernel/activities.go's ExecuteTask), which
-	// conflates genuine provider wait time with the adapter's own local
-	// work — a true wait-vs-work split needs per-call instrumentation
-	// inside internal/executor's adapters that does not exist yet. Kept
-	// as a distinct metric (not folded into a general "task duration")
-	// so a future task can replace only this call site's source without
-	// touching the metric's name or consumers.
+	// ProviderWaitingTimeSeconds implements provider_waiting_time. As of
+	// docs/PLAN.md Task 129 (INF-02) it measures only the executor adapter's
+	// Run() call window (the closest per-call provider-wait signal available
+	// without adapter-internal instrumentation), by provider name — no longer
+	// the whole ExecuteTask wall clock. Kept as a distinct metric so a future
+	// task can refine the source without touching the metric's name or
+	// consumers.
 	ProviderWaitingTimeSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "foundry_provider_waiting_time_seconds",
-		Help:    "provider_waiting_time: STUB — approximated as the wall-clock duration of an executor adapter's Run() call, by provider name, pending real per-call wait instrumentation in internal/executor (docs/foundry/docs/operations/observability-and-alerts.md §1).",
+		Help:    "provider_waiting_time: the wall-clock duration of an executor adapter's Run() call window, by provider name (docs/foundry/docs/operations/observability-and-alerts.md §1).",
 		Buckets: prometheus.DefBuckets,
+	}, []string{"provider"})
+
+	// ProviderSkipped counts how many times a provider was skipped during Task
+	// 129's bounded fallback (tripped health breaker or a provider fault), by
+	// provider name — the "provider skip counter" the card requires.
+	ProviderSkipped = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "foundry_provider_skipped_total",
+		Help: "provider skip/trip counter: times a provider was skipped or fell over during bounded fallback, by provider (docs/PLAN.md Task 129 / INF-02).",
 	}, []string{"provider"})
 )
 
@@ -123,6 +128,7 @@ func init() {
 		ExternalOperationDivergence,
 		CostPerTaskUSD,
 		ProviderWaitingTimeSeconds,
+		ProviderSkipped,
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
@@ -209,4 +215,10 @@ func ObserveCostPerTask(provider string, amountUSD float64) {
 // why this is a documented stub, not a true wait-time measurement.
 func ObserveProviderWaitingTime(provider string, seconds float64) {
 	ProviderWaitingTimeSeconds.WithLabelValues(provider).Observe(seconds)
+}
+
+// IncProviderSkipped records one provider skip/trip during bounded fallback
+// (docs/PLAN.md Task 129 / INF-02).
+func IncProviderSkipped(provider string) {
+	ProviderSkipped.WithLabelValues(provider).Inc()
 }

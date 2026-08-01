@@ -133,9 +133,25 @@ func (s *Store) RecordState(ctx context.Context, snap StateSnapshot) error {
 	if err != nil {
 		return err
 	}
-	const q = `
+	return s.recordStateWithID(ctx, id, snap, false)
+}
+
+// RecordStateWithID persists snap under a caller-supplied deterministic id,
+// idempotently: a retry addressing the same (missionID, loop iteration) writes
+// the SAME id, and ON CONFLICT DO NOTHING makes the retry a no-op instead of a
+// duplicate audit row (docs/PLAN.md Task 122, C9). This closes the crash gap
+// RecordMissionState's MaximumAttempts:3 retry policy made reachable.
+func (s *Store) RecordStateWithID(ctx context.Context, id string, snap StateSnapshot) error {
+	return s.recordStateWithID(ctx, id, snap, true)
+}
+
+func (s *Store) recordStateWithID(ctx context.Context, id string, snap StateSnapshot, idempotent bool) error {
+	q := `
 INSERT INTO mission_state (id, mission_id, cycle, net_mrr_usd, no_progress_cycles, confirming, confirmed_since, status, reason, result_code, observed_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	if idempotent {
+		q += "\nON CONFLICT (id) DO NOTHING"
+	}
 	if _, err := s.db.ExecContext(ctx, q, id, snap.MissionID, snap.Cycle, snap.NetMRRUSD, snap.NoProgressCycles, snap.Confirming, snap.ConfirmedSince, snap.Status, snap.Reason, snap.ResultCode, snap.ObservedAt); err != nil {
 		return fmt.Errorf("mission: record state for %s: %w", snap.MissionID, err)
 	}
@@ -186,6 +202,22 @@ VALUES ($1, $2, $3, $4)`
 		return "", fmt.Errorf("mission: record gate event for %s: %w", missionID, err)
 	}
 	return id, nil
+}
+
+// RecordGateEventWithID persists a gate event under a caller-supplied
+// deterministic id, idempotently. A retried escalation derives the SAME id from
+// (missionID, loop iteration, gate kind), so ON CONFLICT DO NOTHING addresses
+// the same gate_events row instead of orphaning the prior one — and the gateID
+// the workflow later resolves closes exactly this row (docs/PLAN.md Task 122).
+func (s *Store) RecordGateEventWithID(ctx context.Context, id, missionID, action string, occurredAt time.Time) error {
+	const q = `
+INSERT INTO gate_events (id, mission_id, action, occurred_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (id) DO NOTHING`
+	if _, err := s.db.ExecContext(ctx, q, id, missionID, action, occurredAt); err != nil {
+		return fmt.Errorf("mission: record gate event for %s: %w", missionID, err)
+	}
+	return nil
 }
 
 // ResolveGateEvent marks a previously-raised gate event resolved.

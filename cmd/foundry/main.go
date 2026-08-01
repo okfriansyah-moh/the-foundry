@@ -291,6 +291,25 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "portfolio":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry portfolio <show|list>")
+			os.Exit(1)
+		}
+		var err error
+		switch os.Args[2] {
+		case "show":
+			err = runPortfolioShow(os.Args[3:])
+		case "list":
+			err = runPortfolioList(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "unknown portfolio subcommand: %s\n", os.Args[2])
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "product":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: foundry product <new>")

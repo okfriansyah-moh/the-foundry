@@ -47,6 +47,56 @@ func TestGenerateHistories(t *testing.T) {
 
 	generateOne(t, ctx, srv.Client(), scriptSuccess, filepath.Join(historiesDir, "hello_world.json"))
 	generateOne(t, ctx, srv.Client(), scriptFailure, filepath.Join(historiesDir, "failing_task.json"))
+	generateMultiWave(t, ctx, srv.Client(), filepath.Join(historiesDir, "multi_wave.json"))
+}
+
+// generateMultiWave records a history for a two-independent-task plan executed
+// as a single concurrent wave (docs/PLAN.md Task 124), so TestReplayRecordedHistories
+// proves the concurrent wave-dispatch path is replay-deterministic.
+func generateMultiWave(t *testing.T, ctx context.Context, c client.Client, outPath string) {
+	t.Helper()
+	fx := newConcurrencyFixture(t)
+
+	taskQueue := "gen-histories-multiwave-" + t.Name()
+	w := worker.New(c, taskQueue, worker.Options{})
+	w.RegisterWorkflow(kernel.DeliverPlan)
+	registerWorkerActivities(w, fx.Activities)
+	if err := w.Start(); err != nil {
+		t.Fatalf("start worker: %v", err)
+	}
+	defer w.Stop()
+
+	run, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{TaskQueue: taskQueue}, kernel.DeliverPlan, kernel.DeliverPlanInput{
+		PlanID:             fx.PlanID,
+		PlanFilePath:       fx.PlanFilePath,
+		RepoPath:           fx.RepoPath,
+		ExecutorName:       "fake",
+		ExecutorAllowlist:  []string{"fake"},
+		MaxWaveConcurrency: 2,
+	})
+	if err != nil {
+		t.Fatalf("execute multi-wave workflow: %v", err)
+	}
+	var result kernel.DeliverPlanResult
+	_ = run.Get(ctx, &result)
+
+	hist := &historypb.History{}
+	iter := c.GetWorkflowHistory(ctx, run.GetID(), run.GetRunID(), false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+	for iter.HasNext() {
+		ev, err := iter.Next()
+		if err != nil {
+			t.Fatalf("read history event: %v", err)
+		}
+		hist.Events = append(hist.Events, ev)
+	}
+	raw, err := protojson.Marshal(hist)
+	if err != nil {
+		t.Fatalf("marshal history: %v", err)
+	}
+	if err := os.WriteFile(outPath, raw, 0o644); err != nil {
+		t.Fatalf("write %s: %v", outPath, err)
+	}
+	t.Logf("wrote %s (%d events)", outPath, len(hist.Events))
 }
 
 func generateOne(t *testing.T, ctx context.Context, c client.Client, script, outPath string) {
@@ -109,4 +159,5 @@ func registerWorkerActivities(w worker.Worker, a *kernel.Activities) {
 	w.RegisterActivityWithOptions(a.ValidateTask, activity.RegisterOptions{Name: kernel.ActivityValidateTask})
 	w.RegisterActivityWithOptions(a.RecordEvidence, activity.RegisterOptions{Name: kernel.ActivityRecordEvidence})
 	w.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
+	w.RegisterActivityWithOptions(a.RecordFailureSignature, activity.RegisterOptions{Name: kernel.ActivityRecordFailureSignature})
 }

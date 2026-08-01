@@ -941,6 +941,22 @@ var missionLoopFuncPattern = regexp.MustCompile(`^func MissionLoop\(`)
 // is enforced as a hard refusal-to-start, not merely documented.
 const requiredLoopContractCall = "ActivityRequireLoopContract"
 
+// receiptWrappedMissionActivities are the state-mutating Activities methods
+// docs/PLAN.md Task 122 requires be wrapped in kernel.WithReceipt, so a
+// commit-then-retry produces exactly one audit row. Listing them here makes the
+// gap impossible to silently reopen: adding a new state-mutating activity means
+// adding it to this list (and wrapping it) or failing `make fitness`.
+var receiptWrappedMissionActivities = []string{
+	"AppendMissionTransition",
+	"RecordMissionState",
+	"RecordGateEvent",
+	"ResolveGateEvent",
+}
+
+// missionActivityMethodPattern matches a "func (a *Activities) Name(" method
+// declaration on internal/mission's Activities type.
+var missionActivityMethodPattern = regexp.MustCompile(`^func \(a \*Activities\) ([A-Za-z0-9_]+)\(`)
+
 // checkMissionLoopContract implements docs/PLAN.md Task 40's fitness rule:
 // MissionLoop refuses to start without a registered loop contract. This is
 // a structural proof, not a runtime one -- it parses MissionLoop's own
@@ -987,7 +1003,94 @@ func checkMissionLoopContract(roots []string) ([]string, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return violations, err
+	}
+
+	// docs/PLAN.md Task 122: every state-mutating mission Activities method must
+	// be receipt-wrapped (kernel.WithReceipt), so the crash/retry idempotency
+	// gap cannot silently reopen. Scan internal/mission/activities.go for each
+	// required method and assert its body references kernel.WithReceipt.
+	receiptViolations, rerr := checkMissionActivityReceipts(roots)
+	if rerr != nil {
+		return violations, rerr
+	}
+	violations = append(violations, receiptViolations...)
 	sort.Strings(violations)
+	return violations, nil
+}
+
+// checkMissionActivityReceipts asserts each of receiptWrappedMissionActivities
+// is wrapped in kernel.WithReceipt in the file that defines it, and that any
+// *Activities method using the deterministic-write convention (a *WithID store
+// call) is likewise wrapped -- so a newly-added state-mutating activity that
+// forgets the wrapper fails `make fitness` (docs/PLAN.md Task 122).
+func checkMissionActivityReceipts(roots []string) ([]string, error) {
+	var violations []string
+	err := walkFiles(roots, ".go", func(path string) error {
+		if !strings.HasSuffix(filepath.ToSlash(path), "internal/mission/activities.go") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		lines := strings.Split(string(data), "\n")
+
+		// Index each *Activities method to its body.
+		type methodSpan struct {
+			name       string
+			start, end int
+		}
+		var methods []methodSpan
+		for i, line := range lines {
+			if m := missionActivityMethodPattern.FindStringSubmatch(line); m != nil {
+				methods = append(methods, methodSpan{name: m[1], start: i})
+			}
+		}
+		for i := range methods {
+			methods[i].end = len(lines)
+			for j := methods[i].start + 1; j < len(lines); j++ {
+				if strings.HasPrefix(lines[j], "func ") {
+					methods[i].end = j
+					break
+				}
+			}
+		}
+		bodyOf := func(name string) (string, bool) {
+			for _, ms := range methods {
+				if ms.name == name {
+					return strings.Join(lines[ms.start:ms.end], "\n"), true
+				}
+			}
+			return "", false
+		}
+
+		// Required named activities must be present and receipt-wrapped.
+		for _, name := range receiptWrappedMissionActivities {
+			body, ok := bodyOf(name)
+			if !ok {
+				violations = append(violations, fmt.Sprintf(
+					"%s: required state-mutating activity %s is missing -- Task 122 receipt-wrapping cannot be verified", path, name))
+				continue
+			}
+			if !strings.Contains(body, "kernel.WithReceipt") {
+				violations = append(violations, fmt.Sprintf(
+					"%s: activity %s is not wrapped in kernel.WithReceipt -- every state-mutating mission activity must be receipt-keyed (docs/PLAN.md Task 122, C9)", path, name))
+			}
+		}
+		// Heuristic guard against a newly-added state-mutating activity: any
+		// method that calls a deterministic-write store method (*WithID) must
+		// also be receipt-wrapped.
+		for _, ms := range methods {
+			body := strings.Join(lines[ms.start:ms.end], "\n")
+			if strings.Contains(body, "WithID(") && !strings.Contains(body, "kernel.WithReceipt") {
+				violations = append(violations, fmt.Sprintf(
+					"%s: activity %s performs a deterministic state write but is not wrapped in kernel.WithReceipt (docs/PLAN.md Task 122)", path, ms.name))
+			}
+		}
+		return nil
+	})
 	return violations, err
 }
 

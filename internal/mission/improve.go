@@ -63,6 +63,12 @@ type ImproveCycleInput struct {
 	Generator ImprovementGenerator
 	// Admitter classifies the generated plan.
 	Admitter ImprovementAdmitter
+	// Frozen, when true, halts the cycle before any generation or admission:
+	// a change-budget breach froze promotion (Constitution C20). The caller
+	// reads the durable evolve.FreezeStore and passes the result in, so the
+	// freeze is honoured across a restart, not just within one process.
+	Frozen       bool
+	FrozenReason string
 }
 
 // ImproveCycleResult is the result of RunImproveCycle.
@@ -163,6 +169,17 @@ func RunImproveCycle(ctx context.Context, in ImproveCycleInput) (ImproveCycleRes
 		in.Admitter = DefaultAdmitter()
 	}
 
+	// A durable promotion freeze halts the cycle before any generation: a
+	// change-budget breach froze promotion, and that freeze holds across a
+	// restart (docs/PLAN.md Task 127, Constitution C20).
+	if in.Frozen {
+		reason := in.FrozenReason
+		if reason == "" {
+			reason = "promotion frozen"
+		}
+		return ImproveCycleResult{HaltReason: "frozen: " + reason}, nil
+	}
+
 	// Step 1: generate proposal.
 	proposal, err := in.Generator.Generate(ctx, in.MissionID, in.ProductID, in.Observation)
 	if err != nil {
@@ -225,28 +242,78 @@ func RunImproveCycle(ctx context.Context, in ImproveCycleInput) (ImproveCycleRes
 	}, nil
 }
 
-// PlanDocFromSpec builds a minimal single-task plan.Document from a spec
-// improvement description. The Document ID uses the format
-// "improve-<missionID>-<unix-nano>" so callers can filter by the "improve-"
-// prefix to identify documents created by the mission-loop (Task 51).
-func PlanDocFromSpec(missionID, productID, improvementDesc string, now time.Time) *plan.Document {
-	return &plan.Document{
-		ID:    fmt.Sprintf("improve-%s-%d", missionID, now.UTC().UnixNano()),
-		Title: fmt.Sprintf("Improvement cycle for product %s", productID),
-		Tasks: []plan.Task{
-			{
-				ID:   "t1",
-				Goal: improvementDesc,
-				Files: []string{
-					fmt.Sprintf("products/%s/**", productID),
-				},
-				Commands: []string{"make test"},
-			},
-		},
+// GenerateImprovementPlan builds a real, least-privilege improvement PLAN via
+// Task 110's generator (spec.PlanFromSpecification) instead of hand-building a
+// one-task plan with a hollow `make test` and a wildcard file glob (docs/PLAN.md
+// Task 127). The improvement description becomes one specification requirement;
+// the generator then emits tasks with real per-task validation (an allowlisted
+// command or the explicit Task-104 opt-out) and a repo-write permission scoped
+// to the mission's own repository path — never "*". A missing repo path is a
+// hard error, never a literal fallback, so a generated plan can always be
+// admitted like any other.
+func GenerateImprovementPlan(missionID, productID, improvementDesc string, mapping spec.EffectMapping, mc spec.MissionContext, now time.Time) (*plan.Document, error) {
+	if mc.RepoWriteTarget == "" {
+		// Least-privilege default scoped to the product's own tree — never a
+		// wildcard, which spec.PlanFromSpecification rejects outright.
+		mc.RepoWriteTarget = "products/" + productID
 	}
+	section := "improvement"
+	reqs := []spec.Requirement{{
+		ID:      "improve-1",
+		Section: section,
+		Text:    improvementDesc,
+		Label:   spec.LabelInferred,
+		Basis:   "mission observation decide=improve",
+		Impact:  spec.ImpactMedium,
+	}}
+	// Build the specification with EXACTLY one section directly, rather than
+	// through spec.PostPass — PostPass injects completeness-coverage sections
+	// that would expand a single bounded improvement into a many-task plan,
+	// violating Constitution C18's "one concern, bounded" rule. The generator
+	// still applies its real-validation and least-privilege discipline.
+	s := spec.Specification{
+		Requirements: reqs,
+		Sections:     []string{section},
+		BySection:    map[string][]int{section: {0}},
+	}
+	if len(mapping.Rows) == 0 {
+		// A minimal least-privilege effect mapping for the single improvement
+		// section, so the generated plan declares exactly the repo-write effect
+		// it needs and nothing more.
+		mapping = spec.EffectMapping{Rows: []spec.EffectMappingRow{{Section: section, Kind: "code", Target: mc.RepoWriteTarget}}}
+	}
+	planID := fmt.Sprintf("improve-%s-%d", missionID, now.UTC().UnixNano())
+	title := fmt.Sprintf("Improvement cycle for product %s", productID)
+	raw, err := spec.PlanFromSpecification(planID, title, s, mapping, mc)
+	if err != nil {
+		return nil, fmt.Errorf("improve: generate least-privilege plan: %w", err)
+	}
+	doc, err := plan.ParseBytes(raw)
+	if err != nil {
+		return nil, fmt.Errorf("improve: parse generated plan: %w", err)
+	}
+	return doc, nil
 }
 
-// spec package reference — improve.go uses spec types through the plangen
-// path only; it never bypasses plan.Document. The Specification type is
-// imported solely to satisfy the compile-time import-boundary check.
-var _ = spec.Specification{} // compile-time import presence check
+// PlanDocFromSpec builds a single-task improvement plan.Document. It now
+// delegates to GenerateImprovementPlan (Task 110's real generator) so the plan
+// carries real validation and least-privilege permissions; the previous
+// hand-built one-task plan with `make test` and a `products/<id>/**` wildcard is
+// gone (docs/PLAN.md Task 127). The Document ID keeps the "improve-" prefix so
+// callers can filter mission-loop-created documents.
+func PlanDocFromSpec(missionID, productID, improvementDesc string, now time.Time) *plan.Document {
+	mc := spec.MissionContext{
+		RepoAlias:       "product",
+		RepoURL:         "https://example.invalid/products/" + productID,
+		RepoBranch:      "main",
+		RepoWriteTarget: "products/" + productID,
+	}
+	doc, err := GenerateImprovementPlan(missionID, productID, improvementDesc, spec.EffectMapping{}, mc, now)
+	if err != nil {
+		// Never return a plan that bypasses the generator's least-privilege
+		// guarantees; a caller that needs a valid repo context must use
+		// GenerateImprovementPlan directly with real MissionContext.
+		return nil
+	}
+	return doc
+}

@@ -43,6 +43,8 @@ tasks:
       - README.md
   - id: t2
     goal: %[1]s
+    depends_on:
+      - t1
     commands:
       - noop
     validation_commands:
@@ -51,6 +53,8 @@ tasks:
       - README.md
   - id: t3
     goal: %[1]s
+    depends_on:
+      - t2
     commands:
       - noop
     validation_commands:

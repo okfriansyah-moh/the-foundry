@@ -6,11 +6,10 @@
 // bundle can never assert its own integrity.
 //
 // This package performs no side effects beyond writing/reading its own
-// content-addressed filesystem tree under $FOUNDRY_DATA_DIR/evidence; it
-// does not decide when evidence is recorded (internal/kernel does, per
-// Constitution C4) and it is not a network object store — FSStore is the
-// only implementation; a remote Store (e.g. S3-backed) is a documented
-// future extension, not something this package provides.
+// content-addressed evidence stores; it does not decide when evidence is
+// recorded (internal/kernel does, per Constitution C4). FSStore stores bundles
+// under $FOUNDRY_DATA_DIR/evidence, while S3Store stores the same layout under a
+// per-profile S3/MinIO namespace.
 //
 // Exec role: go-backend (docs/PLAN.md Task 11 / SKP-09).
 package evidence

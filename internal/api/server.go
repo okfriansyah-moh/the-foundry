@@ -85,6 +85,10 @@ type Dependencies struct {
 	// its read/resume routes (docs/PLAN.md Task 111). Nil-safe: a daemon that
 	// has not wired the pipeline serves 503 on those routes.
 	Intake IntakeService
+
+	// StripeWebhook is the optional public Stripe webhook endpoint. Stripe
+	// authenticates this path with its signature, not a bearer session.
+	StripeWebhook http.Handler
 }
 
 // Route names one registered (method, pattern) pair, in the same syntax
@@ -229,6 +233,10 @@ func (s *Server) registerRoutes() {
 	s.register(http.MethodPost, "/v1/intake", staticResource("intake:create"), s.handleCreateIntake)
 	s.register(http.MethodGet, "/v1/intake/{id}", pathResource("intake", "read"), s.handleShowIntake)
 	s.register(http.MethodPost, "/v1/intake/{id}/resume", pathResource("intake", "resume"), s.handleResumeIntake)
+
+	if s.deps.StripeWebhook != nil {
+		s.registerPublic(http.MethodPost, "/v1/stripe/webhook", s.handleStripeWebhook)
+	}
 }
 
 func staticResource(name string) func(*http.Request) string {

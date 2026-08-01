@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // PortfolioMission is one supervised mission within a portfolio. Each carries
@@ -17,6 +18,14 @@ type PortfolioMission struct {
 	// is a Tier-H decision requiring human approval (touchpoint inventory).
 	RevenueBearing bool
 	Active         bool
+	// BudgetScope is the cost-ledger scope_id (Task 29 ScopeMission) this
+	// mission's envelope is attributed to. Empty defaults to the mission ID.
+	// It lets budget isolation be proven against cost_entries/budgets rather
+	// than only against this struct (docs/PLAN.md Task 121).
+	BudgetScope string
+	// LastScheduledAt records when the fair scheduler last picked this
+	// mission; persisted so the schedule survives a restart.
+	LastScheduledAt *time.Time
 	// scheduled counts how many times this mission has been picked, used by
 	// the fair scheduler to keep every active mission within one turn of
 	// every other.

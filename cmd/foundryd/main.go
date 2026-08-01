@@ -13,10 +13,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	enums "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	temporalotel "go.temporal.io/sdk/contrib/opentelemetry"
@@ -25,6 +29,8 @@ import (
 
 	"github.com/okfriansyah-moh/the-foundry/internal/api"
 	"github.com/okfriansyah-moh/the-foundry/internal/authn"
+	"github.com/okfriansyah-moh/the-foundry/internal/billing"
+	"github.com/okfriansyah-moh/the-foundry/internal/deploy"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/claudecode"
@@ -39,6 +45,7 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel/integrator"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
+	"github.com/okfriansyah-moh/the-foundry/internal/ledger/extops"
 	"github.com/okfriansyah-moh/the-foundry/internal/mission"
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
@@ -184,11 +191,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("load validation allowlist: %w", err)
 	}
+	evidenceStore, err := buildEvidenceStore(bgCtx, evidenceRoot)
+	if err != nil {
+		return err
+	}
 
 	activities := kernel.NewActivities(
 		provenance.NewStore(rawStore, approverKeys.Public),
 		&worktree.Manager{Root: worktreeRoot},
-		evidence.NewFSStore(evidenceRoot),
+		evidenceStore,
 		kernel.NewPGLeaseStore(db),
 		kernel.NewPGReceiptStore(db),
 		kernel.NewPGTransitionStore(db),
@@ -220,6 +231,35 @@ func run() error {
 	// `foundry mission pause|kill|start|resume` signal a workflow a production
 	// worker is actually running (Constitution C2/C18).
 	missionStore := mission.NewStore(db)
+	// docs/PLAN.md Task 126 (VEN-16): when a Stripe test-mode key is present,
+	// wire the real revenue reconciler and feed mission observation from real
+	// revenue rows; otherwise mission observation stays on the unimplemented
+	// source. Test mode only — a live-mode key refuses to load while maturity
+	// is immature (enforced in internal/billing).
+	var netMRRSource mission.NetMRRSource = mission.UnimplementedNetMRRSource{}
+	if stripeKey := os.Getenv("STRIPE_TEST_KEY"); stripeKey != "" {
+		stripeClient, serr := billing.NewStripeClient(billing.ClientConfig{SecretKey: stripeKey, MaturityCriteria: billing.DefaultMaturityCriteria()})
+		if serr != nil {
+			return fmt.Errorf("construct Stripe client: %w", serr)
+		}
+		revenueStore := billing.NewRevenueStore(db)
+		reconciler := billing.NewReconciler(stripeClient, revenueStore)
+		netMRRSource = billing.MissionNetMRRSource{Store: revenueStore}
+		go func() {
+			ticker := time.NewTicker(15 * time.Minute)
+			defer ticker.Stop()
+			for {
+				if rerr := reconciler.Run(bgCtx); rerr != nil && !errors.Is(rerr, context.Canceled) {
+					log.Printf("foundryd: Stripe revenue reconcile: %v", rerr)
+				}
+				select {
+				case <-bgCtx.Done():
+					return
+				case <-ticker.C:
+				}
+			}
+		}()
+	}
 	missionActs := mission.NewActivities(
 		missionStore, // LoopContractChecker
 		missionStore, // ReadinessChecker
@@ -228,8 +268,18 @@ func run() error {
 		missionStore, // GateEventResolver
 		kernel.NewPGTransitionStore(db),
 		cost.NewStore(db),
-		mission.UnimplementedNetMRRSource{},
+		netMRRSource,
+		kernel.NewPGReceiptStore(db),
 	)
+
+	// docs/PLAN.md Task 121 (MMR-01): the durable portfolio supervisor. All
+	// mutable portfolio state (activation, spend-to-date, fair-schedule
+	// counter) lives in Postgres via PortfolioStore, so the active-mission
+	// cap, per-mission budget isolation and the fairness bound survive a
+	// foundryd restart instead of resetting to zero. ReconcilePortfolio is the
+	// single durable step PortfolioLoop drives.
+	portfolioStore := mission.NewPortfolioStore(db)
+	portfolioActs := &mission.PortfolioActivities{Portfolio: portfolioStore, Missions: missionStore}
 
 	// docs/PLAN.md Tasks 84/85/90 (PRV-01/02/07): wire the kernel-owned
 	// executor selector so that when a DeliverPlanInput carries a resolved
@@ -258,6 +308,24 @@ func run() error {
 	// Task 115 (SEC-01): wire the production sandbox runner so ExecuteTask runs
 	// sandbox-required executors inside the sandbox and refuses host execution.
 	wireSandbox(activities)
+	// Task 123 (MMR-03): wire the failure-signature store so runTask records a
+	// normalized signature per failed attempt, giving the liveness supervisor's
+	// PoisonedTask/InfiniteRetry conditions live data to classify against.
+	activities.FailureSignatures = kernel.NewPGFailureSignatureStore(db)
+	// Task 125 (VEN-15): wire the kernel-owned production deploy path — the
+	// real Fly adapter (only when a scoped token is present), the extops ledger
+	// for idempotency/receipts, and the profile quota enforcer so deploys are
+	// bounded. A missing FLY_API_TOKEN leaves DeployProduct unwired; it errors
+	// if ever invoked rather than deploying with no credential.
+	activities.ExternalOps = extops.NewStore(db)
+	if flyToken := os.Getenv("FLY_API_TOKEN"); flyToken != "" {
+		activities.DeployAdapter = deploy.FlyAdapter{Token: flyToken}
+	}
+	if deployQuotas, qerr := deploy.LoadQuotas(envOr("FOUNDRY_QUOTAS", "config/quotas.yaml")); qerr != nil {
+		log.Printf("foundryd: deploy quota enforcer unavailable: %v", qerr)
+	} else {
+		activities.DeployQuota = deploy.NewQuotaEnforcer(deployQuotas)
+	}
 	// docs/PLAN.md Task 108 (RTC-04): wire the durable Postgres integration
 	// queue so the 10x IntegrateChangeSet activity has a real reader/writer.
 	// The Integrator's CAS pusher is supplied once Task 140 selects a
@@ -268,11 +336,20 @@ func run() error {
 		Routing: routingTable,
 		Profile: envOr("FOUNDRY_PROFILE", "personal"),
 	}
+	// Task 129 (INF-02): the provider-fallback health circuit-breaker and the
+	// per-task attempt budget, so an unavailable/rate-limited provider fails
+	// over to the next policy-allowed candidate (bounded, fail-closed).
+	activities.ExecutorHealth = capability.NewHealthTracker()
+	if budget, berr := kernel.LoadFallbackAttemptBudget(envOr("FOUNDRY_EXECUTOR_ROUTING", "config/executor-routing.yaml")); berr != nil {
+		log.Printf("foundryd: fallback attempt budget unavailable (using default): %v", berr)
+	} else {
+		activities.FallbackAttemptBudget = budget
+	}
 
 	// docs/PLAN.md Task 36 (FND-17): foundryd's HTTP API, served
 	// alongside the Temporal worker for this process's lifetime, bound
 	// to bgCtx the same way the metrics server above is.
-	apiServer, err := buildAPIServer(bgCtx, db, temporalHostPort, pgDSN, rawStore, approverKeys)
+	apiServer, err := buildAPIServer(bgCtx, db, temporalHostPort, pgDSN, rawStore, approverKeys, evidenceStore)
 	if err != nil {
 		return fmt.Errorf("build api server: %w", err)
 	}
@@ -370,6 +447,33 @@ func run() error {
 		}
 		workers = append(workers, lw)
 	}
+
+	// docs/PLAN.md Task 121 (MMR-01): the portfolio supervisor runs on its own
+	// dedicated Temporal task queue ("its own lane"), so portfolio supervision
+	// can neither starve nor be starved by product delivery. A single worker
+	// registers PortfolioLoop + its one durable activity.
+	portfolioWorker := worker.New(c, mission.PortfolioTaskQueue, worker.Options{
+		Interceptors: []interceptor.WorkerInterceptor{tracingInterceptor},
+	})
+	portfolioWorker.RegisterWorkflow(mission.PortfolioLoop)
+	portfolioWorker.RegisterActivityWithOptions(portfolioActs.ReconcilePortfolio, activity.RegisterOptions{Name: mission.ActivityPortfolioReconcile})
+	if err := portfolioWorker.Start(); err != nil {
+		return fmt.Errorf("start portfolio supervisor worker (task queue %q): %w", mission.PortfolioTaskQueue, err)
+	}
+	workers = append(workers, portfolioWorker)
+
+	// Ensure the default portfolio exists (cap from the personal profile's
+	// max_active_missions quota) and start its supervisor idempotently: a
+	// deterministic workflow ID plus ALLOW_DUPLICATE_FAILED_ONLY reuse means a
+	// restart re-adopts the running supervisor rather than starting a second
+	// one that could race the cap. decision (no-gaps rule, docs/PLAN.md §A):
+	// the card leaves portfolio→profile identity unspecified; the smallest
+	// reversible choice is one "default" portfolio bounded by the personal
+	// quota, recorded here rather than inventing a broader profile-enumeration
+	// scheme.
+	if err := ensurePortfolioSupervisor(bgCtx, c, portfolioStore, deliveryLaneQueue(queueCfg)); err != nil {
+		log.Printf("foundryd: portfolio supervisor not started (portfolio supervision disabled this run): %v", err)
+	}
 	defer func() {
 		for _, lw := range workers {
 			lw.Stop()
@@ -382,6 +486,111 @@ func run() error {
 	// deferred Stop() loop, since Start() (unlike the prior single Run())
 	// does not block on it itself.
 	<-worker.InterruptCh()
+	return nil
+}
+
+// stripeWebhookHandler returns the signature-verified Stripe webhook handler
+// when STRIPE_WEBHOOK_SECRET is configured (docs/PLAN.md Task 126), else nil so
+// the route is not mounted.
+func stripeWebhookHandler(db *sql.DB) http.Handler {
+	secret := os.Getenv("STRIPE_WEBHOOK_SECRET")
+	if secret == "" {
+		return nil
+	}
+	h, err := billing.NewWebhookHandler(secret, billing.NewEventStore(db))
+	if err != nil {
+		log.Printf("foundryd: Stripe webhook disabled: %v", err)
+		return nil
+	}
+	return h
+}
+
+func buildEvidenceStore(ctx context.Context, evidenceRoot string) (evidence.Store, error) {
+	profileID := envOr("FOUNDRY_PROFILE", "personal")
+	backend := evidence.Backend(envOr("FOUNDRY_EVIDENCE_BACKEND", string(evidence.BackendFilesystem)))
+	requireObjectStore := profileID == "production" || os.Getenv("FOUNDRY_EVIDENCE_REQUIRE_OBJECT_STORE") == "1"
+
+	opts := evidence.StoreForProfileOptions{
+		Policy: evidence.StorePolicy{
+			ProfileID:          profileID,
+			Backend:            backend,
+			RequireObjectStore: requireObjectStore,
+		},
+		FilesystemRoot: evidenceRoot,
+		S3: evidence.S3StoreOptions{
+			Endpoint:        envOr("FOUNDRY_EVIDENCE_S3_ENDPOINT", "minio:9000"),
+			AccessKeyID:     envOr("FOUNDRY_EVIDENCE_S3_ACCESS_KEY", "minioadmin"),
+			SecretAccessKey: envOr("FOUNDRY_EVIDENCE_S3_SECRET_KEY", "minioadmin"),
+			SessionToken:    os.Getenv("FOUNDRY_EVIDENCE_S3_SESSION_TOKEN"),
+			Secure:          os.Getenv("FOUNDRY_EVIDENCE_S3_SECURE") == "1" || strings.EqualFold(os.Getenv("FOUNDRY_EVIDENCE_S3_SECURE"), "true"),
+			Bucket:          envOr("FOUNDRY_EVIDENCE_S3_BUCKET", "foundry-evidence"),
+			Region:          os.Getenv("FOUNDRY_EVIDENCE_S3_REGION"),
+			ProfileID:       profileID,
+			CacheDir:        filepath.Join(evidenceRoot, "cache"),
+		},
+	}
+	store, err := evidence.NewStoreForProfile(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("build evidence store: %w", err)
+	}
+	return store, nil
+}
+
+// defaultPortfolioID is the single portfolio the foundryd startup supervises
+// by default (see ensurePortfolioSupervisor's no-gaps decision).
+const defaultPortfolioID = "default"
+
+// deliveryLaneQueue returns the delivery lane's Temporal task queue so
+// MissionLoop children (and their DeliverPlan grandchildren) run on the
+// delivery lane rather than the portfolio supervisor's own lane.
+func deliveryLaneQueue(cfg observe.QueueConfig) string {
+	for _, lane := range cfg.Lanes {
+		if lane.Name == "delivery" {
+			return lane.TaskQueue
+		}
+	}
+	if len(cfg.Lanes) > 0 {
+		return cfg.Lanes[0].TaskQueue
+	}
+	return ""
+}
+
+// ensurePortfolioSupervisor ensures the default portfolio_state row exists
+// (cap from the personal profile's max_active_missions quota) and starts its
+// PortfolioLoop supervisor idempotently. A deterministic workflow ID plus
+// ALLOW_DUPLICATE_FAILED_ONLY reuse means a restart re-adopts the already
+// running supervisor rather than starting a second one that could race the cap
+// (docs/PLAN.md Task 121).
+func ensurePortfolioSupervisor(ctx context.Context, c client.Client, store *mission.PortfolioStore, missionQueue string) error {
+	quotas, err := deploy.LoadQuotas(envOr("FOUNDRY_QUOTAS", "config/quotas.yaml"))
+	if err != nil {
+		return fmt.Errorf("load quotas: %w", err)
+	}
+	cap := 0
+	if q, ok := quotas["personal"]; ok {
+		cap = q.MaxActiveMissions
+	}
+	if err := store.EnsurePortfolio(ctx, defaultPortfolioID, cap); err != nil {
+		return fmt.Errorf("ensure portfolio: %w", err)
+	}
+	_, err = c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
+		ID:                    mission.PortfolioWorkflowID(defaultPortfolioID),
+		TaskQueue:             mission.PortfolioTaskQueue,
+		WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+	}, mission.PortfolioLoop, mission.PortfolioLoopInput{
+		PortfolioID:       defaultPortfolioID,
+		MissionTaskQueue:  missionQueue,
+		DeliveryTaskQueue: missionQueue,
+	})
+	if err != nil {
+		// An already-running supervisor is success, not an error: the restart
+		// re-adopted it rather than double-activating.
+		var already *serviceerror.WorkflowExecutionAlreadyStarted
+		if errors.As(err, &already) {
+			return nil
+		}
+		return fmt.Errorf("start portfolio supervisor: %w", err)
+	}
 	return nil
 }
 
@@ -406,7 +615,7 @@ func run() error {
 //     Task 114 (INT-06) makes registered passkeys, in-flight challenges and
 //     signature counters survive a foundryd restart, preserving clone detection
 //     across it.
-func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN string, rawStore *provenance.PGRawStore, approverKeys *provenance.KeyPair) (*api.Server, error) {
+func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN string, rawStore *provenance.PGRawStore, approverKeys *provenance.KeyPair, evidenceStore evidence.Store) (*api.Server, error) {
 	// Task 116 (SEC-02): compile all four policy layers for the profile in
 	// force, not platform-only. The org layer (and its kernel-only push rule)
 	// and the profile layer are loaded from their real sources; a configured
@@ -487,7 +696,7 @@ func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN str
 		DB:                       db,
 		TemporalHostPort:         temporalHostPort,
 		TemporalNamespace:        envOr("TEMPORAL_NAMESPACE", "default"),
-		Evidence:                 evidence.NewFSStore(envOr("FOUNDRY_EVIDENCE_ROOT", "/var/lib/foundry/evidence")),
+		Evidence:                 evidenceStore,
 		Profiles:                 profile.NewStore(profileRaw),
 		Provenance:               provenance.NewStore(rawStore, approverKeys.Public),
 		QueueConfig:              deliverQueueCfg,
@@ -497,6 +706,10 @@ func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN str
 		WebAuthn:                 waSvc,
 		Decider:                  decider,
 		PolicyDigest:             resolved.Digest,
+		// docs/PLAN.md Task 126 (VEN-16): the signature-verified, durable
+		// Stripe webhook endpoint, mounted only when a signing secret is
+		// configured (test mode).
+		StripeWebhook: stripeWebhookHandler(db),
 		// docs/PLAN.md Task 95: mount observe.Middleware's rate limit +
 		// bounded admission in front of this server's real routes — Task
 		// 33's own internal/observe middleware protected nothing until
@@ -521,6 +734,8 @@ func registerActivities(w worker.Worker, a *kernel.Activities) {
 	w.RegisterActivityWithOptions(a.RecordEvidence, activity.RegisterOptions{Name: kernel.ActivityRecordEvidence})
 	w.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
 	w.RegisterActivityWithOptions(a.RecordCost, activity.RegisterOptions{Name: kernel.ActivityRecordCost})
+	w.RegisterActivityWithOptions(a.RecordFailureSignature, activity.RegisterOptions{Name: kernel.ActivityRecordFailureSignature})
+	w.RegisterActivityWithOptions(a.DeployProduct, activity.RegisterOptions{Name: kernel.ActivityDeployProduct})
 }
 
 // registerMissionActivities registers MissionLoop's eight activities under the

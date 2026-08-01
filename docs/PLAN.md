@@ -75,7 +75,7 @@ This reuses the product's own A0/A1/A2/H admission-tier logic (`docs/foundry/doc
   | Image                        | Owner   | Purpose                                                     | Lifecycle                                                                         | Network                                                                                                                       |
   | ---------------------------- | ------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
   | `dev`                        | Task 1  | toolchain to build/test/run Foundry itself                  | long-running compose service                                                      | full outbound internet (Docker's default) — needed for module/package fetches, GitHub, Anthropic, Stripe, Fly, Telegram, OIDC |
-  | `postgres`, `temporal`       | Task 4  | `dev`'s runtime dependencies                                | long-running compose services, same file as `dev`                                 | internal compose network only; no outbound needed                                                                             |
+  | `postgres`, `temporal`, `minio` | Task 4 / Task 128 | `dev`'s runtime dependencies                                | long-running compose services, same file as `dev`                                 | internal compose network only; no outbound needed                                                                             |
   | `foundry-executor-sandbox`   | Task 34 | isolates AI-agent-executed task code                        | ephemeral, one per task execution, spawned by kernel Go code — **not** in compose (Task 115 makes this contract true: the kernel's `ExecuteTask` runs every sandbox-required executor through the `SandboxRunner` seam and refuses host execution when the sandbox is unavailable) | default-deny egress + narrow explicit allowlist (least privilege — see Task 34)                                               |
   | product template's own image | Task 46 | the venture product's own runtime, built/deployed by Fly.io | belongs to the generated product repo, not the platform                           | governed by the product, not by Foundry                                                                                       |
   | `foundry` (release)          | Task 73 | the shipped `foundry`/`foundryd` binaries                   | versioned release artifact                                                        | not applicable — not run as a dev/CI container                                                                                |
@@ -3434,7 +3434,7 @@ flowchart LR
   the portfolio digest renders real data.
 - **Validation:** `go test ./internal/mission/... -race && RUN_PORTFOLIO_LIVE=1 PG_DSN=... TEMPORAL_HOSTPORT=... go test ./test/... -run PortfolioRestartLive -race && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C19 — caps and quotas keep their configured
-  values; this card makes them survive a restart. No new autonomy grant. · **Status:** ⬜ Not started
+  values; this card makes them survive a restart. No new autonomy grant. · **Status:** ✅ 2026-08-01 — Local CI-parity gate passed: `make bootstrap test lint fitness` green. Postgres-backed durable portfolio state, PortfolioLoop workflow, restart-proof fairness bound. Production-wired into foundryd.
 
 ### Task 122 (MMR-02) [P] — Mission-activity idempotency and crash protection (C9)
 
@@ -3474,7 +3474,7 @@ flowchart LR
 - **Validation:** `go test ./internal/mission/... -race -count=3 && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C9 — reuses the kernel's existing receipt
   store and key shape; no new idempotency mechanism, no change to the mission state vocabulary. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. Receipt-wrapped mission activities with deterministic gate IDs and replay-stable timestamps. Crash-resilient idempotency keying reuses kernel pattern.
 
 ### Task 123 (MMR-03) [P] — Poisoned-task and repeated-identical-failure recovery, closed (C22)
 
@@ -3513,7 +3513,7 @@ flowchart LR
 - **Validation:** `go test ./internal/recovery/... ./internal/kernel/... ./test/chaos/... -race && RUN_RECOVERY_LIVE=1 PG_DSN=... TEMPORAL_HOSTPORT=... go test ./test/... -run RecoveryPoisonedLive -race && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C22 — the supervisor's conditions and
   thresholds are Task 32/94's, unchanged; this card supplies the data they were written against.
-  `internal/recovery` still never imports `internal/kernel`. · **Status:** ⬜ Not started
+  `internal/recovery` still never imports `internal/kernel`. · **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. Failure-signature tracking in Postgres, PoisonedTask and InfiniteRetry detection from live data, escalation to supervisor.
 
 ### Task 124 (PAR-01) — True concurrent PEC wave execution (C5/C8)
 
@@ -3560,7 +3560,7 @@ flowchart LR
 - **Validation:** `go test ./internal/kernel/... ./internal/pec/... -race -count=3 && bash scripts/fitness.sh` + the replay suite on regenerated histories.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R4** · **Boundary:** C5/C8 — PEC still only *proposes*; the
   kernel decides dispatch, and a proposal it cannot validate is ignored. Worktree isolation is unchanged in
-  mechanism, now exercised concurrently. The integration/push step remains serialized. · **Status:** ⬜ Not started
+  mechanism, now exercised concurrently. The integration/push step remains serialized. · **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. Concurrent wave dispatch with deterministic Kahn order, per-wave barrier, bounded concurrency. Overlapping execution proven in evidence.
 
 ### Task 125 (VEN-15) — Real personal deploy adapter + extops receipts (C13)
 
@@ -3607,7 +3607,7 @@ flowchart LR
   trusted kernel-side activity with an idempotency key, receipt, policy/budget gate and scoped credential; neither
   Fly API calls nor `flyctl` may run in the executor sandbox. The personal profile's grant bounds it; no deploy
   capability is added to the 10x workflow (C15) and no new deploy target is introduced beyond B1's default. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. Real Fly.io adapter with health checks and rollback, extops-receipt wrapped, gate-gated. Production-wired into foundryd.
 
 ### Task 126 (VEN-16) — Real Stripe test-mode billing: signature-verified webhook, durable events (C19)
 
@@ -3662,7 +3662,7 @@ flowchart LR
 - **Validation:** `go test ./internal/billing/... ./internal/api/... -race && RUN_STRIPE=1 STRIPE_TEST_KEY=... go test ./internal/billing/... -run Live -race && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** integration+go-backend · **Rev:** **R4** · **Boundary:** C19/B6 — test mode only; no
   real-money path is enabled and Task 83's maturity gate is unchanged. No self-built signature verification (SDK
-  primitives only). · **Status:** ⬜ Not started
+  primitives only). · **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. Real Stripe test-mode client via official SDK, signature-verified webhook, durable event persistence. Reconciliation loop live and feeding MissionNetMRRSource. Production-wired into foundryd.
 
 ### Task 127 (VEN-17) — Bounded autonomous improvement wired to production (C20)
 
@@ -3708,7 +3708,7 @@ flowchart LR
 - **Validation:** `go test ./internal/evolve/... ./internal/mission/... -race && bash test/improvement_cycle_e2e.sh && bash test/freeze_matrix_e2e.sh && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C20 — L0 only; no L2–L4 promotion; no budget
   number changed; the improvement path is admitted like any other plan and never self-approves. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. Durable freeze state, MissionLoop calls improvement cycle with real generator. Change budget enforced. Out-of-envelope improvements halt for approval. Redeploy through Task 125.
 
 ### Task 128 (INF-01) [P] — S3/MinIO-compatible artifact store for production profiles
 
@@ -3746,7 +3746,7 @@ flowchart LR
 - **Validation:** `go test ./internal/evidence/... ./internal/retention/... -race && make up && make evidence-verify && bash scripts/fitness.sh`.
 - **Risk:** Med · **Exec:** go-backend · **Rev:** R2 · **Boundary:** the `Store` interface and manifest format are
   unchanged; no new image lineage and no second compose file; existing filesystem bundles are not rewritten. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. S3Store with content-addressing identical to FSStore. Profile-based backend selection, conformance suite. MinIO in compose (internal network). Production-wired into foundryd.
 
 ### Task 129 (INF-02) [P] — Provider fallback and capacity handling, fail-closed
 
@@ -3790,7 +3790,7 @@ flowchart LR
 - **Validation:** `go test ./internal/kernel/... ./internal/executor/... -race && bash scripts/fitness.sh` + the replay suite.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C4 — the kernel still decides; fallback is
   bounded, allowlist-constrained and fail-closed. No proxy, no 9Router, no allowlist widening. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. HealthTracker circuit breaker, ExecuteTask reselection loop bounded by budget. Provider-fault discrimination with typed sentinels. Fallback never escapes allowlist. Race tests green. Production-wired.
 
 ### Task 130 (ADR-01) [P] — OpenHands / 9Router disposition: decided and recorded, not silently omitted
 
@@ -3839,7 +3839,7 @@ flowchart LR
 - **Validation:** `make doclint && bash scripts/fitness.sh` (+ `go test ./internal/executor/... -race` if adopted).
 - **Risk:** Low · **Exec:** go-backend · **Rev:** R2 · **Boundary:** a decision, not a redesign; the existing
   `Adapter` seam and the organization-data proxy prohibition are unchanged either way. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — Local CI-parity gate passed. ADR-001 records decision: 9Router rejected (Task 129 satisfies intent), OpenHands deferred as optional external. No capability added. Normative docs annotated.
 
 ### Task 131 (DOC-01) [P] — Reconcile stale self-disclosed-gap comments and docs; lint against regression
 
@@ -4482,8 +4482,12 @@ and names what would reopen it):
   when `intermediate_branch_invariant: buildable-and-testable`; otherwise configuration is refused. Tasks 108 and
   133 reconcile both governing workflow documents and regression-test the rule. Reopened by: a new invariant with
   equivalent deterministic buildability/testability evidence, added through a new task rather than doc drift.
-- **D5 — OpenHands / 9Router disposition is Task 130's to decide, not this section's to assume.** Recorded here so
-  the question cannot be forgotten again; Task 130 writes the answer and the ADR.
+- **D5 — OpenHands / 9Router are deferred pluggable externals, not core architecture (2026-07-31).** B14's
+  resolution is recorded in `docs/foundry/docs/architecture/adr/ADR-001-openhands-9router.md`: 9Router adds no
+  capability beyond Task 129's in-allowlist bounded fallback, OpenHands adds no dispatch capability beyond the
+  existing CLI-adapter executor class plus PEC wave proposals and concurrent wave dispatch, and proxy routing for
+  organization data remains policy-forbidden without the operating organization's own security approval. Reopened
+  by: a concrete capability gap no in-allowlist executor or direct provider adapter can satisfy.
 
 ---
 

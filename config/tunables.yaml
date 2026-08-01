@@ -9,3 +9,14 @@ tunables:
     max: 100
     scope: notifier
     metric: throughput
+  # docs/PLAN.md Task 124 (PAR-01): per-wave concurrency bound. The kernel
+  # dispatches a wave's independent tasks concurrently up to this many runners.
+  # The value passed to DeliverPlan (DeliverPlanInput.MaxWaveConcurrency) is the
+  # TIGHTER of this bound and the profile's max_runners quota, resolved by the
+  # caller so the workflow itself stays deterministic. 0/unset uses the kernel's
+  # defaultWaveConcurrency.
+  - name: wave_concurrency
+    min: 1
+    max: 16
+    scope: workflow
+    metric: wave_throughput

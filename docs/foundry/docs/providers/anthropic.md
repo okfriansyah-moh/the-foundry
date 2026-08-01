@@ -549,6 +549,9 @@ Use cache diagnostics to detect prefix divergence rather than guessing why cachi
 
 Claude Managed Agents can replace parts of a hand-written loop for long-running and asynchronous tasks. Delivery Foundry should support it as an optional executor backend, alongside OpenHands and native CLIs.
 
+OpenHands is ADR-deferred as an optional pluggable external, not a core runtime requirement; see
+`../architecture/adr/ADR-001-openhands-9router.md`.
+
 Good candidates:
 
 - long-running personal research;
@@ -581,6 +584,9 @@ The Foundry state machine remains authoritative even when a provider-managed ses
 | Native context management + Headroom | Do not stack by default; benchmark for context-loss and evidence loss |
 | Native provider features + 9Router | Use direct provider adapter when the proxy cannot preserve the feature semantics |
 
+9Router in the interaction table is an ADR-deferred optional adapter example; see
+`../architecture/adr/ADR-001-openhands-9router.md`.
+
 ### 5.8.22 Headroom policy after native context capabilities
 
 Headroom remains optional.
@@ -611,6 +617,9 @@ For provider-native compaction sessions, double summarization is disabled by def
 ### 5.8.23 9Router policy for native capabilities
 
 9Router remains an overflow and generic-model route. It should not be the universal path for provider-native features.
+
+ADR-001 defers 9Router as an optional pluggable external; this section is a compatibility constraint for any future
+approved adapter, not a core routing mandate (`../architecture/adr/ADR-001-openhands-9router.md`).
 
 Direct Anthropic routing is required when a task depends on:
 
