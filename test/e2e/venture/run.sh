@@ -1,85 +1,56 @@
 #!/usr/bin/env bash
-# Task 53 (VEN-14) — Venture MLS e2e (Track A exit)
-#
-# Proves the full Track A loop unattended on fixtures. Runs:
-#   ceremony (fixture answers)
-#   → mockup fixture
-#   → spec synthesis
-#   → plan generation (plangen)
-#   → admission classification
-#   → build/instantiate product template
-#   → synthetic battery
-#   → (gated) deploy gate (profile check only — no live Fly deploy in CI)
-#   → stripe-mock activation simulation
-#   → observation (fixture trajectory)
-#   → one auto improvement (in-envelope)
-#   → digest capture
-#
-# Exit criteria per Task 53 Acceptance:
-#   - zero human touches between readiness-pass and digest
-#   - H-fixture halts pre-build
-#   - human-touch counter = 0 on happy path
-#
-# CI mode: uses all fixture/cassette paths. Live gated runs require
-# RUN_VENTURE_LIVE=1 and appropriate credentials.
-
+# docs/PLAN.md Task 132 (PRF-01) — Personal venture LIVE proof harness.
 set -euo pipefail
 
-HUMAN_TOUCHES=0
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+cd "${REPO_ROOT}"
 
-echo "==> [1] Ceremony: loading fixture answers"
-go test ./internal/mission/... -run "TestCeremony" -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
+EVIDENCE_ROOT="${FOUNDRY_VENTURE_EVIDENCE:-evidence/m5-personal}"
+mkdir -p "${EVIDENCE_ROOT}"
 
-echo "==> [2] Mockup: ingest fixture"
-go test ./internal/spec/mockup/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
+echo "==> Venture e2e: hermetic fixture tier"
+go test ./internal/mission/... ./internal/spec/mockup/... ./internal/admission/... \
+  ./internal/opportunity/... ./internal/observe/... -count=1 -race
 
-echo "==> [3] Spec: synthesis round-trip"
-go test ./internal/spec/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
+if [[ "${RUN_VENTURE_LIVE:-}" != "1" ]]; then
+  echo "OK: hermetic venture tier green (set RUN_VENTURE_LIVE=1 for live control-plane proof)"
+  cat > "${EVIDENCE_ROOT}/README.md" <<EOF
+# m5-personal evidence
 
-echo "==> [4] Plan generation: plangen round-trip"
-go test ./internal/spec/... -run "Plangen" -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [5] Admission: classify fixtures (A0+A1 in-envelope; H halt)"
-go test ./internal/admission/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [6] Product template: instantiate"
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-go test ./internal/product/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [7] Synthetic verification battery"
-go test ./internal/verify/synthetic/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [8] Deploy gate: profile check (no live deploy in CI)"
-go test ./internal/deploy/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [9] Billing: stripe-mock activation simulation"
-go test ./internal/billing/... -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [10] Observation: fixture trajectory → decide=improve"
-go test ./internal/mission/... -run "Observe" -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [11] Improvement cycle: in-envelope auto-admit (H halts)"
-go test ./internal/mission/... -run "Improve" -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo "==> [12] Veto digest: capture"
-go test ./internal/notify/... -run "Digest|Veto" -race -count=1 -v 2>&1 \
-  | grep -E "PASS|FAIL"
-
-echo ""
-echo "✅ venture_e2e: human_touches=${HUMAN_TOUCHES} (want 0)"
-if [ "${HUMAN_TOUCHES}" -ne 0 ]; then
-  echo "FAIL: human_touches != 0" && exit 1
+Hermetic tier completed. Live control-plane proof requires RUN_VENTURE_LIVE=1
+with real credentials (Postgres, Temporal, API-billed executor, Fly personal
+app, Stripe test mode, dedicated Telegram test bot).
+EOF
+  exit 0
 fi
-echo "venture_e2e: Track A exit criteria met"
+
+echo "==> Venture LIVE proof (Task 132)"
+for v in PG_DSN TEMPORAL_HOSTPORT; do
+  if [[ -z "${!v:-}" ]]; then
+    echo "FAIL: RUN_VENTURE_LIVE=1 requires ${v}" >&2
+    exit 1
+  fi
+done
+if ! go run ./cmd/foundry doctor >/dev/null 2>&1; then
+  echo "FAIL: foundry doctor failed — Temporal/Postgres must be reachable" >&2
+  exit 1
+fi
+
+export FOUNDRY_VENTURE_EVIDENCE="${EVIDENCE_ROOT}"
+go test ./test/e2e/venture/... -count=1 -race -run Live
+
+if [[ ! -f "${EVIDENCE_ROOT}/human-touches.json" ]]; then
+  echo "FAIL: live proof must write ${EVIDENCE_ROOT}/human-touches.json" >&2
+  exit 1
+fi
+
+python3 - <<'PY' "${EVIDENCE_ROOT}/human-touches.json"
+import json, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+if d.get("avoidable_count", 1) != 0:
+    raise SystemExit(f"avoidable_count={d.get('avoidable_count')}")
+print("avoidable_count=0")
+PY
+
+echo "OK: live venture proof archived under ${EVIDENCE_ROOT}"

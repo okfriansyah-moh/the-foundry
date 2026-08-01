@@ -26,8 +26,8 @@ const policyTimeout = 10 * time.Second
 // (that lands with a later workflow-graph task), so this command passes
 // empty org and workflow layers — every override in a real run today comes
 // from the profile layer alone. This is the smallest reversible option
-// (docs/PLAN.md §A no-gaps rule); a future task wiring an org-policy row or
-// workflow definitions plugs into the same Compile call unchanged.
+// (docs/PLAN.md §A no-gaps rule); org-policy rows or workflow-definition
+// sources plug into the same Compile call when those schema surfaces land.
 func runPolicyResolve(args []string) error {
 	fs := flag.NewFlagSet("policy resolve", flag.ContinueOnError)
 	profileID := fs.String("profile", "", "profile id to resolve (required)")

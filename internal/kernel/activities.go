@@ -21,6 +21,7 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel/integrator"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
+	"github.com/okfriansyah-moh/the-foundry/internal/opportunity/signals"
 	"github.com/okfriansyah-moh/the-foundry/internal/plan"
 	compiler "github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
@@ -105,6 +106,12 @@ type Activities struct {
 	DeployAdapter deploy.Adapter
 	ExternalOps   ExternalOpStore
 	DeployQuota   *deploy.QuotaEnforcer
+
+	// SignalStore and SignalAllowlist back Task 139 validation-signal
+	// ingestion/acquisition. Zero-valued by default; DenyRealSignal remains
+	// the OpportunityGate default until these are wired.
+	SignalStore     signals.Store
+	SignalAllowlist signals.Allowlist
 
 	mu         sync.Mutex
 	workspaces map[string]worktree.Workspace

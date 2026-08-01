@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "stage": "screen-components",
+      "text": "Landing headline and signup form are visible",
+      "section": "responsive",
+      "label": "Inferred",
+      "confidence": 0.92
+    },
+    {
+      "stage": "user-flow",
+      "text": "Primary CTA navigates to signup",
+      "section": "user-flow",
+      "label": "Inferred",
+      "confidence": 0.88
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "Auth may be required for account dashboard",
+      "section": "authentication",
+      "label": "Unresolved",
+      "confidence": 0.62
+    }
+  ]
+}

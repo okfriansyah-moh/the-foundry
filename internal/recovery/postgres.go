@@ -1,8 +1,6 @@
 // postgres.go: docs/PLAN.md Task 94 (FND-13R)'s live ProjectionSource —
-// see supervisor.go's own doc comment for why this adapter was
-// deliberately deferred out of Task 32 and is only being built now, once
-// this task's live Postgres+Temporal environment exists to verify it
-// against.
+// built once Task 94's live Postgres+Temporal environment existed to verify
+// it against (Task 32 delivered Classify/Supervisor; Task 94 wired foundryd).
 package recovery
 
 import (

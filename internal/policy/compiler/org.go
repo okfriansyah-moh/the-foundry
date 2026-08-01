@@ -19,6 +19,11 @@ type OrgGovernancePack struct {
 	// value is rejected at compile time (C4 enforcement: only go-kernel may
 	// write to shared branches).
 	PushAuthorization string `yaml:"push_authorization"`
+
+	// SCMProvider is the closed V1 provider selection (github | bitbucket).
+	// Absent or unknown values fail closed at kernel selection (Task 140);
+	// there is no default-to-GitHub.
+	SCMProvider string `yaml:"scm_provider"`
 }
 
 // AllowsPushBy reports whether the given principal is authorized to push to
@@ -45,6 +50,16 @@ func ValidateOrgGovernancePack(g OrgGovernancePack) error {
 			Layer:   LayerOrg,
 			Field:   "push_authorization",
 			Message: "unknown value " + g.PushAuthorization + "; only \"kernel-only\" is accepted",
+		}
+	}
+	switch g.SCMProvider {
+	case "", "github", "bitbucket":
+		// empty refused later by kernel SelectSCMProvider (fail-closed, no default).
+	default:
+		return &CompileError{
+			Layer:   LayerOrg,
+			Field:   "scm_provider",
+			Message: "unknown value " + g.SCMProvider + "; only \"github\" or \"bitbucket\" are accepted",
 		}
 	}
 	return nil

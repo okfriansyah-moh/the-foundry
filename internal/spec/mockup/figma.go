@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -130,7 +131,15 @@ func ExtractFigma(file FigmaFile) Extraction {
 	var items []ExtractedItem
 
 	// Component set: each declared component is a structurally-present fact.
-	for id, comp := range file.Components {
+	// Iterate in sorted key order so Extraction output is byte-deterministic
+	// across runs (Go map iteration order is randomized).
+	compIDs := make([]string, 0, len(file.Components))
+	for id := range file.Components {
+		compIDs = append(compIDs, id)
+	}
+	sort.Strings(compIDs)
+	for _, id := range compIDs {
+		comp := file.Components[id]
 		ref := comp.Key
 		if ref == "" {
 			ref = id
@@ -160,7 +169,7 @@ func ExtractFigma(file FigmaFile) Extraction {
 		})
 	}
 
-	return buildFigmaExtraction(items)
+	return BuildExtraction("figma", items)
 }
 
 func walkFigmaNodes(n FigmaNode, out *[]ExtractedItem) {
@@ -198,35 +207,4 @@ func walkFigmaNodes(n FigmaNode, out *[]ExtractedItem) {
 	for _, c := range n.Children {
 		walkFigmaNodes(c, out)
 	}
-}
-
-// buildFigmaExtraction runs the same normalization + requirement-seeding as
-// RunPipeline, but stamps Basis from each item's NodeRef so Figma-sourced
-// Observed items carry their node ref as Basis (Task 80 acceptance).
-func buildFigmaExtraction(items []ExtractedItem) Extraction {
-	reqs := make([]spec.Requirement, 0, len(items))
-	high := make([]spec.Requirement, 0)
-	normalized := make([]ExtractedItem, 0, len(items))
-	for i, item := range items {
-		item.Label = NormalizeLabel(item.Stage, item.Confidence, item.Label)
-		normalized = append(normalized, item)
-		basis := item.NodeRef
-		if basis == "" {
-			basis = string(item.Stage)
-		}
-		req := spec.Requirement{
-			ID:      fmt.Sprintf("figma-%d", i+1),
-			Section: item.Section,
-			Text:    item.Text,
-			Label:   item.Label,
-			Basis:   basis,
-			Impact:  spec.ImpactMedium,
-		}
-		if HighImpactUnresolved(item.Text, item.Label) {
-			req.Impact = spec.ImpactHigh
-			high = append(high, req)
-		}
-		reqs = append(reqs, req)
-	}
-	return Extraction{Items: normalized, HighImpactUnresolved: high, SeedRequirements: reqs}
 }

@@ -34,7 +34,7 @@ it, so an ad hoc `Dockerfile.whatever` fails CI, not just code review.
 | --- | --- | --- | --- |
 | `dev` | Task 1 | toolchain to build/test/run Foundry itself | full outbound internet |
 | `postgres`, `temporal` | Task 4 | `dev`'s runtime dependencies | internal compose network only |
-| `foundry-executor-sandbox` | Task 34 | isolates AI-agent-executed task code | default-deny egress + narrow allowlist |
+| `foundry-executor-sandbox` | Task 34 | isolates AI-agent-executed task code; ephemeral per-task container spawned by kernel Go code (not in compose — Task 115) | default-deny egress + narrow allowlist |
 | product template's own image | Task 46 | the venture product's own runtime | governed by the product, not Foundry |
 | `foundry` (release) | Task 73 | the shipped `foundry`/`foundryd` binaries | not applicable |
 

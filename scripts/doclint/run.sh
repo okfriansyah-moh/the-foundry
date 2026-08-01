@@ -38,4 +38,10 @@ echo "== doclint: container-inventory lint =="
 echo "== doclint: composed-file reproducibility (absorbs check-ai-harness.sh) =="
 bash scripts/doclint/ai-harness-repro.sh
 
+echo "== doclint: stale future-task comment lint (Task 131 / DOC-01) =="
+"${fitlint_bin}" stale-task-comment internal cmd
+
+echo "== doclint: test must not write package source tree (Task 131 / DOC-01) =="
+"${fitlint_bin}" test-source-write internal cmd
+
 echo "doclint OK"

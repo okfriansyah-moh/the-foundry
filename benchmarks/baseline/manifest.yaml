@@ -1,0 +1,33 @@
+# Control-arm baseline deliveries mined from this repo's git history (B12).
+# Each entry is a merged PR of comparable multi-task scope.
+version: "baseline-v1"
+
+deliveries:
+  - id: control-pr4-task40-50
+    merge_ref: a57783a98f6fe26257fd9ecb00047581e1204586
+    title: "PR #4: Tasks 40-50 (venture foundation)"
+  - id: control-pr5-task51-60
+    merge_ref: e84fb3165c913acc6eecce06793883903bfbed9f
+    title: "PR #5: Tasks 51-60 (mission/PEC evolution)"
+  - id: control-pr6-task61-75
+    merge_ref: c31ceb2f81fd5de216852ef18abf686af49bf8c9
+    title: "PR #6: Tasks 61-75 (Track B exit + M2 hardening)"
+
+# Human-reported fields git cannot see (B12). Operator log — not estimated
+# from commit timestamps.
+human_input:
+  control-pr4-task40-50:
+    orchestration_hours: 36
+    manual_prompts_touches: 95
+    reporter: operator
+    reported_at: "2026-07-28"
+  control-pr5-task51-60:
+    orchestration_hours: 18
+    manual_prompts_touches: 52
+    reporter: operator
+    reported_at: "2026-07-28"
+  control-pr6-task61-75:
+    orchestration_hours: 22
+    manual_prompts_touches: 61
+    reporter: operator
+    reported_at: "2026-07-28"

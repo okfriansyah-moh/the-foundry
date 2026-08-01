@@ -57,3 +57,4 @@ org_governance:
     - engineering
     - qa
   push_authorization: kernel-only   # only go-kernel may write to shared branches (C4)
+  scm_provider: bitbucket           # Task 140: fail-closed kernel selection (no default-to-GitHub)

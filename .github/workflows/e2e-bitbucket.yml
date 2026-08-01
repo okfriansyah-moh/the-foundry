@@ -1,0 +1,47 @@
+# docs/PLAN.md Task 137 (TX-11): gated real-Bitbucket write proof.
+# Manual / scheduled only — never runs against production organization remotes.
+# Live step requires repository secrets: BITBUCKET_API_TOKEN,
+# SCM_WRITE_TEST_BITBUCKET_REPO_URL, SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH
+# (disposable repository only). Do not reference secrets in job-level `if`
+# (GitHub rejects that as a workflow-file error on push).
+name: e2e-bitbucket
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+jobs:
+  bitbucket-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Match container UID/GID to this runner's checkout owner
+        run: |
+          echo "USER_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "USER_GID=$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Build dev image
+        run: docker compose -f deploy/docker-compose.yaml build dev
+
+      - name: Start postgres (ledger fixture parity)
+        run: docker compose -f deploy/docker-compose.yaml up -d postgres
+
+      - name: Local Bitbucket contract (always)
+        run: make e2e-bitbucket
+
+      - name: Live Bitbucket push (gated)
+        if: ${{ vars.RUN_BITBUCKET_LIVE_ENABLED == 'true' }}
+        env:
+          RUN_BITBUCKET_LIVE: "1"
+          BITBUCKET_API_TOKEN: ${{ secrets.BITBUCKET_API_TOKEN }}
+          SCM_WRITE_TEST_BITBUCKET_REPO_URL: ${{ secrets.SCM_WRITE_TEST_BITBUCKET_REPO_URL }}
+          SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH: ${{ secrets.SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH }}
+        run: |
+          docker compose -f deploy/docker-compose.yaml run --rm \
+            -e RUN_BITBUCKET_LIVE \
+            -e BITBUCKET_API_TOKEN \
+            -e SCM_WRITE_TEST_BITBUCKET_REPO_URL \
+            -e SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH \
+            dev go test ./internal/scm/write/... -count=1 -race -run Live

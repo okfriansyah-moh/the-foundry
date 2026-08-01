@@ -1,0 +1,10 @@
+# docs/PLAN.md Task 139 — closed allowlist of real validation-signal classes.
+# Unknown classes are refused at load time.
+version: 1
+classes:
+  - landing_page_conversion
+  - waitlist_signup
+  - pricing_cta
+  - qualified_inbound_interest
+  - bounded_traffic_experiment
+  - interview_prospect_evidence

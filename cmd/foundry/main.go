@@ -23,7 +23,7 @@ func hasIdeaFlag(args []string) bool {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|intake|product|promotions|opportunity>")
+		fmt.Fprintln(os.Stderr, "usage: foundry <doctor|keygen|login|plan|projection|status|principal|profile|policy|migrate|evidence|cost|budget|audit|mission|intake|product|promotions|opportunity|mockup|bench>")
 		os.Exit(1)
 	}
 
@@ -375,6 +375,20 @@ func main() {
 			os.Exit(1)
 		}
 		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "mockup":
+		if err := runMockup(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "bench":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: foundry bench <baseline|report>")
+			os.Exit(1)
+		}
+		if err := runBench(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

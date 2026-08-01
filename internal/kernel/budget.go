@@ -19,9 +19,9 @@ const SignalBudgetRaised = "budget-raised"
 // costPricingVersion is a placeholder pricing-catalog version stamped on
 // every cost_entries row this package writes. decision (no-gaps rule):
 // this task's card does not ask for a real pricing-version registry (a
-// mapping from provider/model to $/token); a future task can add one and
-// thread a real version through ReserveBudgetInput without changing this
-// package's contract.
+// mapping from provider/model to $/token); Task 120 can add one and thread a
+// real version through ReserveBudgetInput without changing this package's
+// contract.
 const costPricingVersion = "v1"
 
 // subscriptionExecutors names executor.Adapter implementations billed as a

@@ -74,26 +74,21 @@ func (s LedgerSample) plausible() bool {
 	return true
 }
 
-// NetMRRSource is the Task-49 payment-provider-ledger integration seam
-// (docs/PLAN.md Task 40 Step 2: "source = payment-provider ledger via a
-// Task-49 interface — Task 49 doesn't exist yet"). This package defines
-// the seam and leaves it unimplemented, matching Task 32/33/34's own
-// precedent for deferring not-yet-built integration points (see
-// internal/recovery/supervisor.go's ProjectionSource/WorkflowController
-// doc comment for the same pattern). workflow.go's Activities.NetMRR
-// method is the only caller; a future Task 49 supplies the real
-// implementation.
+// NetMRRSource is the payment-provider-ledger integration seam
+// (docs/PLAN.md Task 49). This package defines the interface;
+// UnimplementedNetMRRSource is the honest stub until cmd/foundryd wires a
+// real provider-backed implementation for a given deployment.
 type NetMRRSource interface {
 	Observe(ctx context.Context, missionID string, at time.Time) (LedgerSample, error)
 }
 
-// UnimplementedNetMRRSource is the Task-49 stub: every call reports
-// payment-data-unavailable rather than fabricating a figure. Wiring a real
-// NetMRRSource into cmd/foundryd is Task 49's job, not this task's --
-// until then, every mission using this stub simply pauses
-// WAITING/provider-outage (payment-data-unavailable) forever, which is the
-// honest behavior for "no ledger integration exists yet" rather than a
-// silent false success.
+// UnimplementedNetMRRSource is the default when no live ledger integration
+// is wired: every call reports payment-data-unavailable rather than
+// fabricating a figure. Wiring a real NetMRRSource into cmd/foundryd is
+// deployment-specific; until then, missions using this stub pause
+// WAITING/provider-outage (payment-data-unavailable), which is honest
+// behavior for "no ledger integration configured" rather than a silent
+// false success.
 type UnimplementedNetMRRSource struct{}
 
 // Observe implements NetMRRSource.

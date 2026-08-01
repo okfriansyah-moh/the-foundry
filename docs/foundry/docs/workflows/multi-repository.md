@@ -197,14 +197,20 @@ constraints:
 
 ### Step 4 — Inspect Bitbucket repositories
 
+> **Implementation note (Task 131):** the bullets below describe the target
+> organization workflow; they are **not** implemented today. Branch-restriction
+> checks, open-PR listing, and Pipelines observation are absent from
+> `internal/scm/read` and `internal/scm/write`; PR APIs are forbidden for the
+> 10x path (Constitution C15, `internal/scm/write/doc.go`).
+
 The Bitbucket adapter:
 
 - resolves repositories;
 - clones only allowed repositories;
 - checks default branches;
-- checks branch restrictions;
-- obtains open pull requests;
-- checks pipeline configuration;
+- checks branch restrictions *(not implemented)*;
+- obtains open pull requests *(not implemented; PR APIs forbidden on 10x path)*;
+- checks pipeline configuration *(not implemented)*;
 - maps task numbers to branches.
 
 ### Step 5 — Create engineering brief
@@ -324,10 +330,14 @@ The long-term goal is to standardize repository Make targets, not maintain endle
 
 ### Step 12 — Push and open Bitbucket pull request
 
+> **Implementation note (Task 131):** PR creation is **not** implemented in
+> `internal/scm/write` (Constitution C15 / Task 27 boundary). The 10x workflow
+> records a `pull-request` policy value but does not exercise it (Task 140).
+
 The adapter:
 
 - pushes the branch;
-- creates the pull request;
+- creates the pull request *(not implemented)*;
 - uses task number and assignee naming rules;
 - links Jira;
 - adds verification evidence;
@@ -335,6 +345,9 @@ The adapter:
 - records pipeline state.
 
 ### Step 13 — Observe Bitbucket Pipelines
+
+> **Implementation note (Task 131):** Pipelines observation and automated PR
+> updates are **not** implemented in the current adapters.
 
 On failure:
 

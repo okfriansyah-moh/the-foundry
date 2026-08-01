@@ -60,29 +60,5 @@ func RunPipeline(ctx context.Context, ex VisionExtractor, artifact Artifact) (Ex
 	if err != nil {
 		return Extraction{}, err
 	}
-	reqs := make([]spec.Requirement, 0, len(items))
-	high := make([]spec.Requirement, 0)
-	normalized := make([]ExtractedItem, 0, len(items))
-	for i, item := range items {
-		item.Label = NormalizeLabel(item.Stage, item.Confidence, item.Label)
-		normalized = append(normalized, item)
-		req := spec.Requirement{
-			ID:      fmt.Sprintf("mockup-%d", i+1),
-			Section: item.Section,
-			Text:    item.Text,
-			Label:   item.Label,
-			Basis:   string(item.Stage),
-			Impact:  spec.ImpactMedium,
-		}
-		if HighImpactUnresolved(item.Text, item.Label) {
-			req.Impact = spec.ImpactHigh
-			high = append(high, req)
-		}
-		reqs = append(reqs, req)
-	}
-	return Extraction{
-		Items:                normalized,
-		HighImpactUnresolved: high,
-		SeedRequirements:     reqs,
-	}, nil
+	return BuildExtraction("mockup", items), nil
 }

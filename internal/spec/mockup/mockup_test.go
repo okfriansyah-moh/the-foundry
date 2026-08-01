@@ -23,6 +23,7 @@ func TestRunPipeline_FixturesAuthBillingNotObserved(t *testing.T) {
 	}
 	for _, cassette := range cases {
 		t.Run(cassette, func(t *testing.T) {
+			SetRetentionRoot(t.TempDir())
 			replay, err := LoadReplayExtractor(cassette)
 			if err != nil {
 				t.Fatalf("LoadReplayExtractor: %v", err)

@@ -70,25 +70,38 @@ var sixStatusWords = map[string]bool{
 	"CANCELLED": true,
 }
 
-// termAllowlist is the fixed set of repo-relative files the superseded label
-// TEN_X_BRANCHES_READY is permitted to appear in (docs/foundry/docs/
-// governance/documentation-rules.md: "outside this mapping table, the
-// migration map, or the changelog"). docs/PLAN.md is included because it is
-// this repo's own task-history record and functions as a changelog entry for
-// Task 5/Task 18; docs/foundry/V12_REVIEW_REPORT.md is the dated review
-// record that first retired the term, functioning the same way.
-var termAllowlist = map[string]bool{
-	"internal/state/alias.go":                       true,
-	"internal/state/status.go":                      true,
-	"cmd/fitlint/main.go":                           true,
-	"docs/PLAN.md":                                  true,
-	"docs/foundry/CHANGELOG.md":                     true,
-	"docs/foundry/V12_REVIEW_REPORT.md":             true,
-	"docs/foundry/docs/architecture/state-model.md": true,
-	"docs/foundry/docs/MIGRATION_MAP_V11_TO_V12.md": true,
+// bannedTerm is one repository-wide prohibited string with its own allowlist.
+// Per-term allowlists prevent a newly-added term from silently inheriting
+// another term's exemptions (docs/PLAN.md Task 131 / DOC-01).
+type bannedTerm struct {
+	term      string
+	allowlist map[string]bool
 }
 
-const supersededTerm = "TEN_X_BRANCHES_READY"
+// bannedTerms is the authoritative list of prohibited labels/names scanned by
+// the `term` subcommand. Each entry carries its own allowlist keyed by
+// repo-relative file path.
+var bannedTerms = []bannedTerm{
+	{
+		term: "TEN_X_BRANCHES_READY",
+		allowlist: map[string]bool{
+			"internal/state/alias.go":                       true,
+			"internal/state/status.go":                      true,
+			"cmd/fitlint/main.go":                           true,
+			"docs/PLAN.md":                                  true,
+			"docs/foundry/CHANGELOG.md":                     true,
+			"docs/foundry/V12_REVIEW_REPORT.md":             true,
+			"docs/foundry/docs/architecture/state-model.md": true,
+			"docs/foundry/docs/MIGRATION_MAP_V11_TO_V12.md": true,
+		},
+	},
+	{
+		term: "Mekari",
+		allowlist: map[string]bool{
+			"cmd/fitlint/main.go": true, // documents the banned-term list itself
+		},
+	},
+}
 
 // skipDirNames are directories never walked by any fitlint check.
 var skipDirNames = map[string]bool{
@@ -138,6 +151,10 @@ func main() {
 		violations, err = checkKernelSubprocess(roots)
 	case "env":
 		violations, err = checkExecutorEnv(roots)
+	case "stale-task-comment":
+		violations, err = checkStaleTaskComments(roots)
+	case "test-source-write":
+		violations, err = checkTestSourceWrite(roots)
 	default:
 		usage()
 		os.Exit(2)
@@ -156,7 +173,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability|research-boundary|plan-validation|plan-topology|subprocess|env> <root>...")
+	fmt.Fprintln(os.Stderr, "usage: fitlint <enum|term|doclinks|authority|secretsleak|mermaidid|contract|containers|missionloop|capability|research-boundary|plan-validation|plan-topology|subprocess|env|stale-task-comment|test-source-write> <root>...")
 }
 
 // walkFiles walks roots, invoking fn for every regular file whose name
@@ -242,15 +259,12 @@ func joinKeys(m map[string]bool) string {
 	return strings.Join(keys, ",")
 }
 
-// checkTerm implements rule (b): the superseded label TEN_X_BRANCHES_READY
-// must not appear outside termAllowlist.
+// checkTerm implements rule (b): each banned term must not appear outside its
+// own per-term allowlist (docs/PLAN.md Task 131: per-term, not per-file).
 func checkTerm(roots []string) ([]string, error) {
 	var violations []string
 	err := walkFiles(roots, "", func(path string) error {
 		rel := strings.TrimPrefix(path, "./")
-		if termAllowlist[rel] {
-			return nil
-		}
 		if skipBinaryLike(path) {
 			return nil
 		}
@@ -264,8 +278,15 @@ func checkTerm(roots []string) ([]string, error) {
 		line := 0
 		for scanner.Scan() {
 			line++
-			if strings.Contains(scanner.Text(), supersededTerm) {
-				violations = append(violations, fmt.Sprintf("%s:%d: superseded term %s outside allowlist", rel, line, supersededTerm))
+			text := scanner.Text()
+			for _, bt := range bannedTerms {
+				if !strings.Contains(text, bt.term) {
+					continue
+				}
+				if bt.allowlist[rel] {
+					continue
+				}
+				violations = append(violations, fmt.Sprintf("%s:%d: banned term %s outside allowlist", rel, line, bt.term))
 			}
 		}
 		return nil
@@ -277,9 +298,34 @@ func checkTerm(roots []string) ([]string, error) {
 // check (git objects, images, compiled binaries) to keep the walk fast and
 // avoid scanning non-text bytes.
 func skipBinaryLike(path string) bool {
-	switch filepath.Ext(path) {
-	case ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".pdf", ".exe", ".so", ".a", ".o":
+	base := filepath.Base(path)
+	switch base {
+	case "fitlint", "foundry", "foundryd", "startplan", "execonce":
 		return true
+	}
+	switch filepath.Ext(path) {
+	case ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".pdf", ".exe", ".so", ".a", ".o", ".wasm":
+		return true
+	}
+	// Extensionless files that look like Mach-O/ELF binaries: skip on magic.
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	var hdr [4]byte
+	n, _ := f.Read(hdr[:])
+	if n >= 4 {
+		// ELF
+		if hdr[0] == 0x7f && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F' {
+			return true
+		}
+		// Mach-O 64-bit LE / BE / fat
+		if (hdr[0] == 0xcf && hdr[1] == 0xfa && hdr[2] == 0xed && hdr[3] == 0xfe) ||
+			(hdr[0] == 0xfe && hdr[1] == 0xed && hdr[2] == 0xfa && hdr[3] == 0xcf) ||
+			(hdr[0] == 0xca && hdr[1] == 0xfe && hdr[2] == 0xba && hdr[3] == 0xbe) {
+			return true
+		}
 	}
 	return false
 }
