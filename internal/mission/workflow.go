@@ -279,7 +279,7 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 			continue
 		}
 		if humanGateRequested {
-			killedWhilePaused, waitKillReq := EnterHumanGate(ctx, noRetryOpts, workflowID, in.MissionID, humanGateReq.Action, killCh, resumeCh)
+			killedWhilePaused, waitKillReq := EnterHumanGate(ctx, noRetryOpts, workflowID, in.MissionID, humanGateReq.Action, iteration, killCh, resumeCh)
 			if killedWhilePaused {
 				return finishKilled(ctx, noRetryOpts, workflowID, state.StatusWaiting, waitKillReq, evalState), nil
 			}
@@ -346,7 +346,10 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 		// Timer fired: run one observe/evaluate cycle.
 		obsCtx := workflow.WithActivityOptions(ctx, retryOpts)
 		var sample LedgerSample
-		if err := workflow.ExecuteActivity(obsCtx, ActivityObserveLedger, in.MissionID).Get(obsCtx, &sample); err != nil {
+		if err := workflow.ExecuteActivity(obsCtx, ActivityObserveLedger, observeLedgerInput{
+			MissionID: in.MissionID,
+			At:        workflow.Now(ctx),
+		}).Get(obsCtx, &sample); err != nil {
 			return MissionLoopResult{}, fmt.Errorf("mission: observe ledger: %w", err)
 		}
 
@@ -360,12 +363,14 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 		evalState = next
 
 		recCtx := workflow.WithActivityOptions(ctx, retryOpts)
-		_ = workflow.ExecuteActivity(recCtx, ActivityRecordMissionState, missionStateInput{
-			MissionID: in.MissionID,
-			EvalState: evalState,
-			Sample:    sample,
-			Outcome:   outcome,
-			At:        workflow.Now(ctx),
+		_ = workflow.ExecuteActivity(recCtx, ActivityRecordMissionState, MissionStateInput{
+			WorkflowID:    workflowID,
+			LoopIteration: iteration,
+			MissionID:     in.MissionID,
+			EvalState:     evalState,
+			Sample:        sample,
+			Outcome:       outcome,
+			At:            workflow.Now(ctx),
 		}).Get(recCtx, nil)
 
 		switch {
@@ -373,7 +378,7 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 			continue
 		case outcome.Status == state.StatusWaiting:
 			if outcome.Reason == state.ReasonUnforeseenHumanGate {
-				killedWhilePaused, waitKillReq := EnterHumanGate(ctx, noRetryOpts, workflowID, in.MissionID, PauseUnforeseenHumanGate, killCh, resumeCh)
+				killedWhilePaused, waitKillReq := EnterHumanGate(ctx, noRetryOpts, workflowID, in.MissionID, PauseUnforeseenHumanGate, iteration, killCh, resumeCh)
 				if killedWhilePaused {
 					return finishKilled(ctx, noRetryOpts, workflowID, state.StatusWaiting, waitKillReq, evalState), nil
 				}
@@ -396,14 +401,24 @@ func MissionLoop(ctx workflow.Context, in MissionLoopInput) (MissionLoopResult, 
 // EnterHumanGate handles an unforeseen human gate round-trip:
 // RUNNING->WAITING/unforeseen-human-gate with exact action recorded, then
 // resumes on SignalResumeMission.
-func EnterHumanGate(ctx workflow.Context, noRetryOpts workflow.ActivityOptions, workflowID, missionID, action string, killCh, resumeCh workflow.ReceiveChannel) (bool, KillRequest) {
+func EnterHumanGate(ctx workflow.Context, noRetryOpts workflow.ActivityOptions, workflowID, missionID, action string, iteration int, killCh, resumeCh workflow.ReceiveChannel) (bool, KillRequest) {
 	if action == "" {
 		action = PauseUnforeseenHumanGate
 	}
 	workflow.GetLogger(ctx).Warn("mission: unforeseen human gate", "workflow_id", workflowID, "action", action)
 	recCtx := workflow.WithActivityOptions(ctx, noRetryOpts)
-	var gateID string
-	if err := workflow.ExecuteActivity(recCtx, ActivityRecordGateEvent, gateEventInput{MissionID: missionID, Action: action}).Get(recCtx, &gateID); err != nil {
+	// Deterministic gate id from (workflowID, iteration): a retried escalation
+	// derives the same id and addresses the same gate_events row instead of
+	// orphaning one, and the resolve below closes exactly it (Task 122).
+	gateID := deterministicID("gate", workflowID, iteration)
+	if err := workflow.ExecuteActivity(recCtx, ActivityRecordGateEvent, GateEventInput{
+		WorkflowID:    workflowID,
+		LoopIteration: iteration,
+		GateEventID:   gateID,
+		MissionID:     missionID,
+		Action:        action,
+		OccurredAt:    workflow.Now(ctx),
+	}).Get(recCtx, &gateID); err != nil {
 		workflow.GetLogger(ctx).Error("mission: failed to record gate event", "workflow_id", workflowID, "error", err)
 	}
 	appendTransition(ctx, noRetryOpts, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonUnforeseenHumanGate, "")
@@ -413,9 +428,12 @@ func EnterHumanGate(ctx workflow.Context, noRetryOpts workflow.ActivityOptions, 
 	}
 	if gateID != "" {
 		resolveCtx := workflow.WithActivityOptions(ctx, noRetryOpts)
-		if err := workflow.ExecuteActivity(resolveCtx, ActivityResolveGateEvent, resolveGateInput{
-			GateEventID: gateID,
-			Resolution:  "resumed via mission-resume signal",
+		if err := workflow.ExecuteActivity(resolveCtx, ActivityResolveGateEvent, ResolveGateInput{
+			WorkflowID:    workflowID,
+			LoopIteration: iteration,
+			GateEventID:   gateID,
+			Resolution:    "resumed via mission-resume signal",
+			ResolvedAt:    workflow.Now(ctx),
 		}).Get(resolveCtx, nil); err != nil {
 			workflow.GetLogger(ctx).Error("mission: failed to resolve gate event", "gate_id", gateID, "error", err)
 		}
@@ -500,23 +518,44 @@ func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workf
 	}
 }
 
-// missionStateInput is RecordMissionState's activity input.
-type missionStateInput struct {
+// MissionStateInput is RecordMissionState's activity input. The
+// {WorkflowID, LoopIteration, Attempt} triple lets the activity build a
+// receipt key and a deterministic row id (docs/PLAN.md Task 122).
+type MissionStateInput struct {
+	WorkflowID    string
+	LoopIteration int
+	Attempt       int
+	MissionID     string
+	EvalState     EvalState
+	Sample        LedgerSample
+	Outcome       Outcome
+	At            time.Time
+}
+
+// observeLedgerInput is ObserveLedger's activity input. At is passed from
+// workflow.Now(ctx) so a retried observation samples the same instant.
+type observeLedgerInput struct {
 	MissionID string
-	EvalState EvalState
-	Sample    LedgerSample
-	Outcome   Outcome
 	At        time.Time
 }
 
-type gateEventInput struct {
-	MissionID string
-	Action    string
+type GateEventInput struct {
+	WorkflowID    string
+	LoopIteration int
+	Attempt       int
+	GateEventID   string
+	MissionID     string
+	Action        string
+	OccurredAt    time.Time
 }
 
-type resolveGateInput struct {
-	GateEventID string
-	Resolution  string
+type ResolveGateInput struct {
+	WorkflowID    string
+	LoopIteration int
+	Attempt       int
+	GateEventID   string
+	Resolution    string
+	ResolvedAt    time.Time
 }
 
 // validateDeliverInput rejects an empty or malformed DeliverPlanInput before

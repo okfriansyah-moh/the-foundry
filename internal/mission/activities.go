@@ -2,6 +2,8 @@ package mission
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +12,16 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/cost"
 )
+
+// deterministicID derives a stable row id from a workflow ID and loop
+// iteration (and prefix), so a retried mission activity writes the SAME id and
+// ON CONFLICT DO NOTHING turns the retry into a no-op rather than a duplicate
+// row (docs/PLAN.md Task 122). It is a pure function, safe to call from
+// deterministic workflow code as well as from the activity.
+func deterministicID(prefix, workflowID string, iteration int) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d", prefix, workflowID, iteration)))
+	return prefix + "-" + hex.EncodeToString(sum[:])[:24]
+}
 
 // BudgetStore is the subset of internal/ledger/cost.Store's read behavior
 // CheckBudget depends on (interfaces defined in the consuming package,
@@ -33,15 +45,20 @@ type ReadinessChecker interface {
 }
 
 // MissionStateRecorder is the subset of *Store's behavior
-// RecordMissionState depends on.
+// RecordMissionState depends on. RecordStateWithID is the idempotent,
+// deterministic-id variant docs/PLAN.md Task 122 uses.
 type MissionStateRecorder interface {
 	RecordState(ctx context.Context, snap StateSnapshot) error
+	RecordStateWithID(ctx context.Context, id string, snap StateSnapshot) error
 }
 
 // GateEventRecorder is the subset of *Store's behavior RecordGateEvent
-// depends on.
+// depends on. RecordGateEventWithID is the idempotent, deterministic-id
+// variant docs/PLAN.md Task 122 uses so a retried escalation addresses the
+// same gate_events row.
 type GateEventRecorder interface {
 	RecordGateEvent(ctx context.Context, missionID, action string, occurredAt time.Time) (string, error)
+	RecordGateEventWithID(ctx context.Context, id, missionID, action string, occurredAt time.Time) error
 }
 
 // GateEventResolver is the subset of *Store's behavior ResolveGateEvent
@@ -74,13 +91,24 @@ type Activities struct {
 	Transitions   kernel.TransitionStore
 	Budgets       BudgetStore
 	NetMRRSource  NetMRRSource
+	// Receipts is the kernel's idempotency-receipt store (Task 122): every
+	// state-mutating mission activity runs through kernel.WithReceipt keyed on
+	// {WorkflowID, loop iteration, activity, attempt}, so a Temporal-level
+	// retry of a call whose Postgres write already committed returns the
+	// recorded receipt instead of producing a duplicate audit row. A nil
+	// Receipts is treated as a MemReceiptStore so unit tests and any run
+	// without Postgres still exercise the wrapped path.
+	Receipts kernel.ReceiptStore
 }
 
 // NewActivities builds an Activities set from its dependencies. A single
 // *Store satisfies LoopContractChecker, MissionStateRecorder, and
 // GateEventRecorder simultaneously, so production wiring (cmd/foundryd)
 // passes the same *Store for all three.
-func NewActivities(loopContracts LoopContractChecker, readiness ReadinessChecker, missionState MissionStateRecorder, gateEvents GateEventRecorder, resolveGates GateEventResolver, transitions kernel.TransitionStore, budgets BudgetStore, netMRRSource NetMRRSource) *Activities {
+func NewActivities(loopContracts LoopContractChecker, readiness ReadinessChecker, missionState MissionStateRecorder, gateEvents GateEventRecorder, resolveGates GateEventResolver, transitions kernel.TransitionStore, budgets BudgetStore, netMRRSource NetMRRSource, receipts kernel.ReceiptStore) *Activities {
+	if receipts == nil {
+		receipts = kernel.NewMemReceiptStore()
+	}
 	return &Activities{
 		LoopContracts: loopContracts,
 		Readiness:     readiness,
@@ -90,7 +118,29 @@ func NewActivities(loopContracts LoopContractChecker, readiness ReadinessChecker
 		Transitions:   transitions,
 		Budgets:       budgets,
 		NetMRRSource:  netMRRSource,
+		Receipts:      receipts,
 	}
+}
+
+// receipts returns the configured receipt store, defaulting to an in-memory one
+// so an Activities built as a struct literal (tests) is still safe to call.
+func (a *Activities) receipts() kernel.ReceiptStore {
+	if a.Receipts == nil {
+		a.Receipts = kernel.NewMemReceiptStore()
+	}
+	return a.Receipts
+}
+
+// missionReceiptKey builds the idempotency key for one mission activity
+// invocation. The loop iteration is the mission analogue of the kernel's task
+// ID (docs/PLAN.md Task 122).
+func missionReceiptKey(workflowID string, iteration, attempt int, activity string) string {
+	return kernel.IdempotencyKey{
+		WorkflowID: workflowID,
+		TaskID:     fmt.Sprintf("iter-%d", iteration),
+		Activity:   activity,
+		Attempt:    attempt,
+	}.String()
 }
 
 // RequireLoopContract implements ActivityRequireLoopContract:
@@ -121,11 +171,18 @@ func (a *Activities) RequireReadiness(ctx context.Context, missionID string) err
 }
 
 // ObserveLedger implements ActivityObserveLedger: the one call site for
-// this mission's NetMRRSource (the Task-49 seam evaluator.go defines).
-func (a *Activities) ObserveLedger(ctx context.Context, missionID string) (LedgerSample, error) {
-	sample, err := a.NetMRRSource.Observe(ctx, missionID, time.Now().UTC())
+// this mission's NetMRRSource (the Task-49 seam evaluator.go defines). The
+// observation instant is passed IN from workflow.Now(ctx) rather than read
+// with time.Now() here, so a retried observation samples the same instant and
+// is reproducible on replay (docs/PLAN.md Task 122 step 4).
+func (a *Activities) ObserveLedger(ctx context.Context, in observeLedgerInput) (LedgerSample, error) {
+	at := in.At
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	sample, err := a.NetMRRSource.Observe(ctx, in.MissionID, at.UTC())
 	if err != nil {
-		return LedgerSample{}, fmt.Errorf("mission: observe ledger for %s: %w", missionID, err)
+		return LedgerSample{}, fmt.Errorf("mission: observe ledger for %s: %w", in.MissionID, err)
 	}
 	return sample, nil
 }
@@ -171,17 +228,33 @@ func (a *Activities) CheckBudget(ctx context.Context, missionID string) (Signal,
 	return sig, nil
 }
 
-// AppendMissionTransition implements ActivityAppendMissionTransition.
+// AppendMissionTransition implements ActivityAppendMissionTransition. It runs
+// through kernel.WithReceipt so a Temporal-level retry of a call whose
+// transition write already committed returns the recorded receipt instead of
+// appending a duplicate audit row (docs/PLAN.md Task 122).
 func (a *Activities) AppendMissionTransition(ctx context.Context, in AppendTransitionInput) error {
-	if _, err := a.Transitions.Append(ctx, in.WorkflowID, in.Transition); err != nil {
-		return fmt.Errorf("mission: append transition for %s: %w", in.WorkflowID, err)
-	}
-	return nil
+	// The key is derived from the transition's own replay-stable content
+	// (target status, reason, result code, and workflow.Now-stamped instant),
+	// so two genuinely distinct transitions get distinct keys while a Temporal
+	// retry of the SAME transition — identical fields on replay — reuses the
+	// key and is deduplicated.
+	t := in.Transition
+	key := fmt.Sprintf("mtrans|%s|%s|%s|%s|%d", in.WorkflowID, t.Status, t.Reason, t.ResultCode, t.OccurredAt.UTC().UnixNano())
+	_, err := kernel.WithReceipt(ctx, a.receipts(), key, func() (struct{}, error) {
+		if _, err := a.Transitions.Append(ctx, in.WorkflowID, in.Transition); err != nil {
+			return struct{}{}, fmt.Errorf("mission: append transition for %s: %w", in.WorkflowID, err)
+		}
+		return struct{}{}, nil
+	})
+	return err
 }
 
 // RecordMissionState implements ActivityRecordMissionState: the
-// mission_state append-only audit row for one evaluator cycle.
-func (a *Activities) RecordMissionState(ctx context.Context, in missionStateInput) error {
+// mission_state append-only audit row for one evaluator cycle. Wrapped in
+// kernel.WithReceipt AND written under a deterministic id derived from the
+// loop iteration, so neither an ordinary retry (this activity runs under
+// MaximumAttempts:3) nor a commit-then-crash produces a duplicate row.
+func (a *Activities) RecordMissionState(ctx context.Context, in MissionStateInput) error {
 	snap := StateSnapshot{
 		MissionID:        in.MissionID,
 		Cycle:            in.EvalState.Cycles,
@@ -194,30 +267,57 @@ func (a *Activities) RecordMissionState(ctx context.Context, in missionStateInpu
 		ResultCode:       string(in.Outcome.ResultCode),
 		ObservedAt:       in.At,
 	}
-	if err := a.MissionState.RecordState(ctx, snap); err != nil {
-		return fmt.Errorf("mission: record state for %s: %w", in.MissionID, err)
-	}
-	return nil
+	stateID := deterministicID("mstate", in.WorkflowID, in.LoopIteration)
+	key := missionReceiptKey(in.WorkflowID, in.LoopIteration, in.Attempt, ActivityRecordMissionState)
+	_, err := kernel.WithReceipt(ctx, a.receipts(), key, func() (struct{}, error) {
+		if err := a.MissionState.RecordStateWithID(ctx, stateID, snap); err != nil {
+			return struct{}{}, fmt.Errorf("mission: record state for %s: %w", in.MissionID, err)
+		}
+		return struct{}{}, nil
+	})
+	return err
 }
 
 // RecordGateEvent implements ActivityRecordGateEvent: mirrors Task 32's
 // internal/recovery human-gate escalation pattern, applied to a mission's
-// own unforeseen-human-gate pause.
-func (a *Activities) RecordGateEvent(ctx context.Context, in gateEventInput) (string, error) {
+// own unforeseen-human-gate pause. The gate id is deterministic (the caller
+// derives it from missionID+iteration+gate kind), so a retry addresses the
+// same row and the workflow's later ResolveGateEvent closes exactly it.
+func (a *Activities) RecordGateEvent(ctx context.Context, in GateEventInput) (string, error) {
 	if strings.TrimSpace(in.Action) == "" {
 		in.Action = PauseUnforeseenHumanGate
 	}
-	id, err := a.GateEvents.RecordGateEvent(ctx, in.MissionID, in.Action, time.Now().UTC())
-	if err != nil {
-		return "", fmt.Errorf("mission: record gate event for %s: %w", in.MissionID, err)
+	occurredAt := in.OccurredAt
+	if occurredAt.IsZero() {
+		occurredAt = time.Now().UTC()
 	}
-	return id, nil
+	gateID := in.GateEventID
+	if gateID == "" {
+		gateID = deterministicID("gate", in.WorkflowID, in.LoopIteration)
+	}
+	key := missionReceiptKey(in.WorkflowID, in.LoopIteration, in.Attempt, ActivityRecordGateEvent)
+	return kernel.WithReceipt(ctx, a.receipts(), key, func() (string, error) {
+		if err := a.GateEvents.RecordGateEventWithID(ctx, gateID, in.MissionID, in.Action, occurredAt.UTC()); err != nil {
+			return "", fmt.Errorf("mission: record gate event for %s: %w", in.MissionID, err)
+		}
+		return gateID, nil
+	})
 }
 
-// ResolveGateEvent implements ActivityResolveGateEvent.
-func (a *Activities) ResolveGateEvent(ctx context.Context, in resolveGateInput) error {
-	if err := a.ResolveGates.ResolveGateEvent(ctx, in.GateEventID, in.Resolution, time.Now().UTC()); err != nil {
-		return fmt.Errorf("mission: resolve gate event %s: %w", in.GateEventID, err)
+// ResolveGateEvent implements ActivityResolveGateEvent. The resolve is
+// idempotent (a repeated UPDATE sets the same resolved_at); wrapping it in
+// kernel.WithReceipt additionally short-circuits a Temporal retry.
+func (a *Activities) ResolveGateEvent(ctx context.Context, in ResolveGateInput) error {
+	resolvedAt := in.ResolvedAt
+	if resolvedAt.IsZero() {
+		resolvedAt = time.Now().UTC()
 	}
-	return nil
+	key := missionReceiptKey(in.WorkflowID, in.LoopIteration, in.Attempt, ActivityResolveGateEvent)
+	_, err := kernel.WithReceipt(ctx, a.receipts(), key, func() (struct{}, error) {
+		if err := a.ResolveGates.ResolveGateEvent(ctx, in.GateEventID, in.Resolution, resolvedAt.UTC()); err != nil {
+			return struct{}{}, fmt.Errorf("mission: resolve gate event %s: %w", in.GateEventID, err)
+		}
+		return struct{}{}, nil
+	})
+	return err
 }

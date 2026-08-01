@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/state"
+	"github.com/okfriansyah-moh/the-foundry/internal/verify"
 )
 
 // PostgresProjectionSource implements ProjectionSource by reading Task
@@ -28,8 +29,10 @@ type PostgresProjectionSource struct {
 // sufficient proxy given no finer-grained checkpoint timestamp exists in
 // this table); LastHeartbeat is left zero — only a
 // CompositeProjectionSource wrapping this with a Temporal heartbeat
-// source fills it in. RecentFailures is left nil (documented gap: no
-// caller in this repo populates failure-signature history yet).
+// source fills it in. RecentFailures is populated from
+// task_failure_signatures (docs/PLAN.md Task 123): the current task's
+// failure-signature history, oldest first, bounded to recentFailureWindow —
+// the data the supervisor's PoisonedTask condition classifies against.
 func (s *PostgresProjectionSource) ListNonterminal(ctx context.Context) ([]WorkflowSnapshot, error) {
 	const q = `
 SELECT workflow_id, status, reason, attempt, wake_at, updated_at
@@ -72,5 +75,62 @@ WHERE status NOT IN ($1, $2, $3)`
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("recovery: iterate nonterminal projections: %w", err)
 	}
+
+	// Second pass: populate each snapshot's RecentFailures from the
+	// failure-signature history the kernel's runTask writes. Done per workflow
+	// (the nonterminal set is small) after the primary cursor is closed, so the
+	// two queries never share a connection mid-iteration.
+	for i := range snaps {
+		failures, ferr := s.recentFailures(ctx, snaps[i].WorkflowID)
+		if ferr != nil {
+			return nil, ferr
+		}
+		snaps[i].RecentFailures = failures
+	}
 	return snaps, nil
+}
+
+// recentFailureWindow bounds how many of a workflow's most recent failure
+// signatures are loaded — enough for the supervisor's PoisonedTask "last two
+// identical" check plus headroom, never the whole unbounded history.
+const recentFailureWindow = 8
+
+// recentFailures loads the current task's failure-signature history for
+// workflowID, oldest first. The "current task" is the task_id with the most
+// recent signature, so a workflow that has moved past a failing task is judged
+// on its live task, not a resolved one (docs/PLAN.md Task 123).
+func (s *PostgresProjectionSource) recentFailures(ctx context.Context, workflowID string) ([]FailureSignature, error) {
+	const q = `
+SELECT classification, detail_digest
+FROM task_failure_signatures
+WHERE workflow_id = $1
+  AND task_id = (
+        SELECT task_id FROM task_failure_signatures
+        WHERE workflow_id = $1
+        ORDER BY occurred_at DESC
+        LIMIT 1
+      )
+ORDER BY occurred_at ASC
+LIMIT $2`
+	rows, err := s.DB.QueryContext(ctx, q, workflowID, recentFailureWindow)
+	if err != nil {
+		return nil, fmt.Errorf("recovery: load failure signatures for %s: %w", workflowID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []FailureSignature
+	for rows.Next() {
+		var classification, detail string
+		if err := rows.Scan(&classification, &detail); err != nil {
+			return nil, fmt.Errorf("recovery: scan failure signature for %s: %w", workflowID, err)
+		}
+		out = append(out, FailureSignature{
+			Classification: verify.Classification(classification),
+			Detail:         detail,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("recovery: iterate failure signatures for %s: %w", workflowID, err)
+	}
+	return out, nil
 }

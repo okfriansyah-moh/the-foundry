@@ -36,8 +36,9 @@ func (f *fakeLoopContracts) HasLoopContract(_ context.Context, _ string) (bool, 
 }
 
 type fakeMissionState struct {
-	mu   sync.Mutex
-	rows []StateSnapshot
+	mu      sync.Mutex
+	rows    []StateSnapshot
+	seenIDs map[string]bool
 }
 
 type fakeReadiness struct{ pass bool }
@@ -53,6 +54,23 @@ func (f *fakeMissionState) RecordState(_ context.Context, snap StateSnapshot) er
 	return nil
 }
 
+// RecordStateWithID mirrors *Store's deterministic, idempotent variant: a
+// repeated id is a no-op, so a retried RecordMissionState leaves exactly one
+// row (Task 122).
+func (f *fakeMissionState) RecordStateWithID(_ context.Context, id string, snap StateSnapshot) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.seenIDs == nil {
+		f.seenIDs = map[string]bool{}
+	}
+	if f.seenIDs[id] {
+		return nil
+	}
+	f.seenIDs[id] = true
+	f.rows = append(f.rows, snap)
+	return nil
+}
+
 func (f *fakeMissionState) all() []StateSnapshot {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -62,8 +80,10 @@ func (f *fakeMissionState) all() []StateSnapshot {
 }
 
 type fakeGateEvents struct {
-	mu    sync.Mutex
-	count int
+	mu     sync.Mutex
+	count  int
+	byID   map[string]bool
+	action map[string]string
 }
 
 func (f *fakeGateEvents) RecordGateEvent(_ context.Context, _, _ string, _ time.Time) (string, error) {
@@ -71,6 +91,23 @@ func (f *fakeGateEvents) RecordGateEvent(_ context.Context, _, _ string, _ time.
 	defer f.mu.Unlock()
 	f.count++
 	return fmt.Sprintf("gate-%d", f.count), nil
+}
+
+// RecordGateEventWithID mirrors *Store's deterministic, idempotent variant: a
+// repeated id addresses the same row (Task 122).
+func (f *fakeGateEvents) RecordGateEventWithID(_ context.Context, id, _, action string, _ time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.byID == nil {
+		f.byID = map[string]bool{}
+		f.action = map[string]string{}
+	}
+	if !f.byID[id] {
+		f.byID[id] = true
+		f.action[id] = action
+		f.count++
+	}
+	return nil
 }
 
 func (f *fakeGateEvents) ResolveGateEvent(_ context.Context, _ string, _ string, _ time.Time) error {
@@ -159,7 +196,7 @@ func newMissionFixture(samples []LedgerSample) *missionFixture {
 	transitions := kernel.NewMemTransitionStore()
 
 	return &missionFixture{
-		Activities:    NewActivities(lc, ready, ms, ge, ge, transitions, budgets, netmrr),
+		Activities:    NewActivities(lc, ready, ms, ge, ge, transitions, budgets, netmrr, kernel.NewMemReceiptStore()),
 		LoopContracts: lc,
 		Readiness:     ready,
 		MissionState:  ms,

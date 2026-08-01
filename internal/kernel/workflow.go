@@ -32,6 +32,11 @@ const (
 	// ActivityRecordCost incurs a completed task's real cost against its
 	// reservation (docs/PLAN.md Task 120 / COST-02).
 	ActivityRecordCost = "RecordCost"
+	// ActivityRecordFailureSignature records one normalized failure signature
+	// per failed task attempt (docs/PLAN.md Task 123 / MMR-03), the durable
+	// history the liveness supervisor's PoisonedTask/InfiniteRetry conditions
+	// classify against.
+	ActivityRecordFailureSignature = "RecordFailureSignature"
 )
 
 // defaultTaskTimeout bounds a single task's ExecuteTask activity. plan.Task
@@ -78,6 +83,12 @@ type DeliverPlanInput struct {
 	// Constitution C4). When nil, ExecuteTask keeps the historical unchecked
 	// lookup of ExecutorName (used by callers that don't resolve policy).
 	ExecutorAllowlist []string
+	// MaxWaveConcurrency bounds how many of a wave's independent tasks run
+	// concurrently (docs/PLAN.md Task 124 / PAR-01). It is resolved by the
+	// caller as the TIGHTER of config/tunables.yaml's wave_concurrency and the
+	// profile's max_runners quota, so the workflow itself stays deterministic
+	// (no config read inside workflow code). 0 uses defaultWaveConcurrency.
+	MaxWaveConcurrency int
 }
 
 // TaskResult reports one task's outcome within the plan.
@@ -176,11 +187,17 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 	results := make([]TaskResult, 0, len(loaded.Tasks))
 	classification := ""
 
-	// Task 56 (TX-03): optionally consult PEC for wave ordering.
-	// The kernel validates the proposal against its own dependency check
-	// before use; a malformed or untrustworthy proposal is silently ignored
-	// and the sequential fallback is used (distrust principle).
-	tasks := pecOrderedTasks(loaded.Tasks)
+	// Task 56 (TX-03) / Task 124 (PAR-01): consult PEC for wave ordering and
+	// execute each wave's independent tasks CONCURRENTLY (bounded, isolated,
+	// replay-deterministic) with a per-wave barrier, instead of flattening the
+	// waves into one sequential list. The kernel validates the proposal against
+	// its own dependency check first; a malformed or cyclic proposal falls back
+	// to a sequential wave-per-task plan (distrust principle, C5).
+	waves := pecWaves(loaded.Tasks)
+	bound := in.MaxWaveConcurrency
+	if bound <= 0 {
+		bound = defaultWaveConcurrency
+	}
 
 	// checkpoint tracks how far this workflow has durably progressed —
 	// the last task to fully complete plus every evidence bundle recorded
@@ -189,47 +206,62 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 	// regardless of which task the workflow stopped on.
 	checkpoint := recovery.Checkpoint{}
 
-taskLoop:
-	for _, task := range tasks {
+waveLoop:
+	for _, wave := range waves {
 		if ctx.Err() != nil {
 			classification = "cancelled"
-			break taskLoop
+			break waveLoop
 		}
 
-		var result TaskResult
-		var evidenceID, taskClassification string
-		for budgetAttempt := 1; ; budgetAttempt++ {
-			result, evidenceID, taskClassification = runTask(ctx, opts, workflowID, in, task, executorName, budgetAttempt)
-			if taskClassification != "budget" {
-				break
+		// Dispatch every task in this wave, bounded by `bound` concurrent
+		// runners. Outcomes are written to a fixed-index slice so results are
+		// collected in the wave's deterministic ID order regardless of
+		// completion order — replay reproduces the same command sequence.
+		outcomes := make([]waveOutcome, len(wave))
+		sem := workflow.NewBufferedChannel(ctx, bound)
+		done := workflow.NewChannel(ctx)
+		for i := range wave {
+			i, task := i, wave[i]
+			// Acquire a concurrency slot before spawning: this bounds
+			// in-flight tasks to `bound` (and blocking here deterministically
+			// yields to the running coroutines).
+			sem.Send(ctx, struct{}{})
+			workflow.Go(ctx, func(gctx workflow.Context) {
+				r, e, c := runTaskWithBudget(gctx, opts, workflowID, in, task, executorName, checkpoint, nextTransitionSeq)
+				outcomes[i] = waveOutcome{result: r, evidenceID: e, classification: c}
+				var slot struct{}
+				sem.Receive(gctx, &slot) // release the slot
+				done.Send(gctx, struct{}{})
+			})
+		}
+		// Per-wave barrier: a dependent task in the next wave never starts
+		// before every predecessor in this wave has finished.
+		for range wave {
+			done.Receive(ctx, nil)
+		}
+
+		// Fold outcomes in deterministic wave order: append results, extend the
+		// checkpoint, and adopt the FIRST failure's classification (lowest ID
+		// in the wave) as the workflow's terminal classification. A failing
+		// task never abandons its siblings mid-flight — the wave completed
+		// above before we inspect any failure here.
+		for i := range outcomes {
+			oc := outcomes[i]
+			results = append(results, oc.result)
+			if oc.evidenceID != "" {
+				checkpoint.EvidenceIDs = append(checkpoint.EvidenceIDs, oc.evidenceID)
 			}
-
-			// Constitution C19 / docs/PLAN.md Task 29: an exhausted budget
-			// envelope pauses the workflow rather than failing it — WAITING
-			// with the registered "budget" reason, resumable via
-			// SignalBudgetRaised once an operator runs `foundry budget
-			// raise` (Task 30's real notification engine doesn't exist yet;
-			// this is the smallest reversible stub for the operator-visible
-			// signal that a workflow is stuck on cost, not a code bug).
-			workflow.GetLogger(ctx).Warn("kernel: budget exhausted, workflow waiting", "workflow_id", workflowID, "task_id", task.ID)
-			appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonBudget, checkpoint, nextTransitionSeq())
-			workflow.GetSignalChannel(ctx, SignalBudgetRaised).Receive(ctx, nil)
-			if ctx.Err() != nil {
-				taskClassification = "cancelled"
-				break
+			if oc.classification != "" {
+				if classification == "" {
+					classification = oc.classification
+				}
+				continue
 			}
-			appendTransition(ctx, opts.noRetry, workflowID, state.StatusWaiting, state.StatusRunning, "", checkpoint, nextTransitionSeq())
+			checkpoint.LastCompletedTaskID = wave[i].ID
 		}
-
-		results = append(results, result)
-		if evidenceID != "" {
-			checkpoint.EvidenceIDs = append(checkpoint.EvidenceIDs, evidenceID)
+		if classification != "" {
+			break waveLoop
 		}
-		if taskClassification != "" {
-			classification = taskClassification
-			break taskLoop
-		}
-		checkpoint.LastCompletedTaskID = task.ID
 	}
 
 	switch classification {
@@ -251,6 +283,43 @@ taskLoop:
 	default:
 		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq())
 		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: classification, Tasks: results}, nil
+	}
+}
+
+// defaultWaveConcurrency bounds how many of a wave's independent tasks run
+// concurrently when DeliverPlanInput.MaxWaveConcurrency is unset (docs/PLAN.md
+// Task 124). It is never unbounded — the caller normally passes the tighter of
+// config and the profile's max_runners quota.
+const defaultWaveConcurrency = 4
+
+// waveOutcome is one task's result within a concurrently-dispatched wave,
+// collected into a fixed-index slice so the wave folds in deterministic order.
+type waveOutcome struct {
+	result         TaskResult
+	evidenceID     string
+	classification string
+}
+
+// runTaskWithBudget runs one task through its per-task budget-retry loop: an
+// exhausted envelope pauses to WAITING/budget and resumes on SignalBudgetRaised
+// (Constitution C19), rather than failing the task. The loop is preserved PER
+// TASK (not per wave) so a budget pause on one wave task does not stall its
+// independent siblings (docs/PLAN.md Task 124). It is safe to run inside a
+// workflow.Go coroutine: every call it makes is deterministic under Temporal's
+// coroutine scheduler.
+func runTaskWithBudget(ctx workflow.Context, opts activityOptions, workflowID string, in DeliverPlanInput, task plan.Task, executorName string, checkpoint recovery.Checkpoint, nextTransitionSeq func() int) (TaskResult, string, string) {
+	for budgetAttempt := 1; ; budgetAttempt++ {
+		result, evidenceID, cls := runTask(ctx, opts, workflowID, in, task, executorName, budgetAttempt)
+		if cls != "budget" {
+			return result, evidenceID, cls
+		}
+		workflow.GetLogger(ctx).Warn("kernel: budget exhausted, task waiting", "workflow_id", workflowID, "task_id", task.ID)
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonBudget, checkpoint, nextTransitionSeq())
+		workflow.GetSignalChannel(ctx, SignalBudgetRaised).Receive(ctx, nil)
+		if ctx.Err() != nil {
+			return result, evidenceID, "cancelled"
+		}
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusWaiting, state.StatusRunning, "", checkpoint, nextTransitionSeq())
 	}
 }
 
@@ -325,7 +394,16 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		return failed, "", cancelOr(ctx, "environment")
 	}
 	defer func() {
-		releaseCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
+		// Release the worktree even if the workflow was cancelled: on a
+		// cancelled ctx an activity would not be scheduled, so cleanup runs on
+		// a disconnected context. This is what makes "a cancelled workflow
+		// releases every in-flight wave task's worktree" true (docs/PLAN.md
+		// Task 124) — no orphaned worktrees.
+		relCtx := ctx
+		if ctx.Err() != nil {
+			relCtx, _ = workflow.NewDisconnectedContext(ctx)
+		}
+		releaseCtx := workflow.WithActivityOptions(relCtx, opts.noRetry)
 		_ = workflow.ExecuteActivity(releaseCtx, ActivityReleaseWorktree, ReleaseWorktreeInput{
 			WorkflowID: workflowID,
 			TaskID:     task.ID,
@@ -407,6 +485,23 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		// surface as itself, not be relabeled). Safe against
 		// state.Transition.Validate: FAILED constrains only a set
 		// ResultCode, never Reason (internal/state/transition.go).
+		//
+		// Task 123 (MMR-03): record a normalized failure signature for this
+		// attempt so the liveness supervisor's PoisonedTask/InfiniteRetry
+		// conditions classify against live data. The digest is stable across
+		// attempts (no timestamps/paths), so the same task failing the same
+		// way N times is detectable. Recording never fails the task — a nil
+		// store or a write error only weakens supervision, it does not corrupt
+		// state; the error is deliberately dropped.
+		sigCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
+		_ = workflow.ExecuteActivity(sigCtx, ActivityRecordFailureSignature, RecordFailureSignatureInput{
+			WorkflowID:     workflowID,
+			TaskID:         task.ID,
+			Attempt:        budgetAttempt,
+			Classification: validated.Reason,
+			DetailDigest:   FailureDetailDigest(task.ID, validated.Reason, task.ValidationCommands),
+			OccurredAt:     workflow.Now(ctx),
+		}).Get(sigCtx, nil)
 		return failed, evidenced.BundleID, validated.Reason
 	}
 	return TaskResult{TaskID: task.ID, Failed: false}, evidenced.BundleID, ""
@@ -464,44 +559,59 @@ func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workf
 	}
 }
 
-// pecOrderedTasks optionally consults PEC for wave-ordered task execution.
-// The kernel is the final authority: if PEC's proposal is malformed (unknown
-// task IDs or a cycle), the sequential fallback is used. This satisfies
-// Task 56's distrust requirement: "malformed proposal ignored, kernel falls
-// back to sequential" (docs/PLAN.md Task 56 / TX-03 Steps).
-func pecOrderedTasks(tasks []plan.Task) []plan.Task {
+// pecWaves consults PEC for wave ordering and returns the tasks grouped into
+// concurrency waves (docs/PLAN.md Task 56 / Task 124). The kernel is the final
+// authority: if PEC's proposal is malformed (unknown task IDs, a cycle, or it
+// does not cover every task), the sequential fallback is used — one task per
+// wave, in original order, which the per-wave barrier renders identical to the
+// previous sequential behavior. This satisfies Task 56's distrust requirement:
+// "malformed proposal ignored, kernel falls back to sequential" (C5).
+func pecWaves(tasks []plan.Task) [][]plan.Task {
 	if len(tasks) == 0 {
-		return tasks
+		return nil
 	}
+	sequential := func() [][]plan.Task {
+		waves := make([][]plan.Task, len(tasks))
+		for i, t := range tasks {
+			waves[i] = []plan.Task{t}
+		}
+		return waves
+	}
+
 	doc := plan.Document{Tasks: tasks}
 	proposal, err := pec.ProposeWaves(doc)
 	if err != nil {
 		// Cycle or unknown task: distrust, fall back to sequential.
-		return tasks
+		return sequential()
 	}
 	if err := pec.ValidateWaveProposal(proposal, doc); err != nil {
 		// Malformed proposal: distrust, fall back to sequential.
-		return tasks
+		return sequential()
 	}
-	// Flatten waves into sequential task list (waves[0] first, then waves[1], etc.).
-	// Within each wave, tasks are sorted by ID (PEC's deterministic tie-break).
-	// Current DeliverPlan runs tasks sequentially so flattening is correct;
-	// true concurrent wave dispatch is a future enhancement.
-	ordered := make([]plan.Task, 0, len(tasks))
 	taskByID := make(map[string]plan.Task, len(tasks))
 	for _, t := range tasks {
 		taskByID[t.ID] = t
 	}
+	// Each PEC wave is already sorted by task ID (PEC's deterministic
+	// tie-break), so futures are created in a deterministic order and replay
+	// reproduces the same command sequence.
+	waves := make([][]plan.Task, 0, len(proposal.Waves))
+	covered := 0
 	for _, wave := range proposal.Waves {
+		w := make([]plan.Task, 0, len(wave))
 		for _, id := range wave {
 			if t, ok := taskByID[id]; ok {
-				ordered = append(ordered, t)
+				w = append(w, t)
+				covered++
 			}
 		}
+		if len(w) > 0 {
+			waves = append(waves, w)
+		}
 	}
-	if len(ordered) != len(tasks) {
+	if covered != len(tasks) {
 		// Proposal didn't cover all tasks: distrust, fall back to sequential.
-		return tasks
+		return sequential()
 	}
-	return ordered
+	return waves
 }

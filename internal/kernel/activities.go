@@ -14,6 +14,7 @@ import (
 
 	"go.temporal.io/sdk/activity"
 
+	"github.com/okfriansyah-moh/the-foundry/internal/deploy"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
@@ -62,6 +63,16 @@ type Activities struct {
 	ExecutorSelector   ExecutorSelector
 	CapabilityRegistry capability.Registry
 
+	// ExecutorHealth and FallbackAttemptBudget back Task 129's (INF-02)
+	// bounded, allowlist-constrained provider fallback: ExecuteTask resolves an
+	// ordered candidate list, skips providers the health circuit-breaker has
+	// tripped, and falls over to the next policy-allowed candidate up to the
+	// budget, else fails closed. Both zero-valued by default (no health
+	// tracking, default budget), preserving single-candidate behaviour for
+	// callers that don't wire them.
+	ExecutorHealth        *capability.HealthTracker
+	FallbackAttemptBudget int
+
 	// Sandbox is the mandatory-sandbox execution seam (docs/PLAN.md Task 115 /
 	// SEC-01). When a task's ExecuteTaskInput.RequireSandbox is set, ExecuteTask
 	// runs the resolved executor inside this sandbox and refuses to execute at
@@ -80,6 +91,20 @@ type Activities struct {
 	// the 10x path sets them, so DeliverPlan callers are unaffected.
 	Integrator       *integrator.Integrator
 	IntegrationQueue IntegrationQueue
+
+	// FailureSignatures records one normalized failure signature per failed
+	// task attempt (docs/PLAN.md Task 123 / MMR-03). Zero-valued by default; a
+	// nil store makes RecordFailureSignature a no-op, so callers that do not
+	// wire supervision are unaffected.
+	FailureSignatures FailureSignatureStore
+
+	// DeployAdapter, ExternalOps and DeployQuota back the kernel-owned
+	// production deploy activity (docs/PLAN.md Task 125 / VEN-15). All
+	// zero-valued by default; DeployProduct errors if invoked without an
+	// adapter + extops store wired, so non-deploy callers are unaffected.
+	DeployAdapter deploy.Adapter
+	ExternalOps   ExternalOpStore
+	DeployQuota   *deploy.QuotaEnforcer
 
 	mu         sync.Mutex
 	workspaces map[string]worktree.Workspace
@@ -475,6 +500,11 @@ type ExecuteTaskOutput struct {
 	// Usage is the executor's structured resource usage (docs/PLAN.md Task 120
 	// / COST-02), carried out so a RecordCost step can incur the real cost.
 	Usage executor.Usage
+	// SkippedExecutors lists the policy-allowed candidates that were skipped
+	// (tripped health breaker or a provider fault) before the executor that
+	// actually ran, so the evidence manifest records the fallback that happened
+	// and any exhaustion is diagnosable (docs/PLAN.md Task 129 / INF-02).
+	SkippedExecutors []string
 }
 
 // ExecuteTask runs packet inside the already-acquired worktree via the
@@ -500,78 +530,153 @@ func (a *Activities) ExecuteTask(ctx context.Context, in ExecuteTaskInput) (Exec
 		}
 		task := plan.Task{ID: in.TaskID, Executor: in.ExplicitExecutor, Class: in.TaskClass}
 		pol := compiler.Resolved{Effective: compiler.Policy{ExecutorAllowlist: in.ExecutorAllowlist}}
-		execName, selErr := a.ExecutorSelector.Select(ctx, task, pol, a.CapabilityRegistry)
+		// Task 129 (INF-02): resolve an ORDERED candidate list (allowlist- and
+		// registry-constrained, health-filtered) and fall over within the
+		// allowlist when a provider is unavailable/rate-limited, bounded by a
+		// per-task attempt budget — never unbounded, never outside policy. A
+		// health snapshot is taken once so selection is a pure function of it.
+		var snapshot capability.HealthSnapshot
+		if a.ExecutorHealth != nil {
+			snapshot = a.ExecutorHealth.Snapshot(time.Now())
+		}
+		candidates, preSkipped, selErr := a.ExecutorSelector.SelectCandidates(task, pol, a.CapabilityRegistry, snapshot)
 		if selErr != nil {
 			var se *SelectionError
 			if errors.As(selErr, &se) {
 				return ExecuteTaskOutput{
-					Failed:         true,
-					ErrorMessage:   se.Error(),
-					ExecutorUsed:   se.Executor,
-					Classification: string(se.Classification),
+					Failed:           true,
+					ErrorMessage:     se.Error(),
+					ExecutorUsed:     se.Executor,
+					Classification:   string(se.Classification),
+					SkippedExecutors: preSkipped,
 				}, nil
 			}
 			return ExecuteTaskOutput{}, fmt.Errorf("kernel: select executor %s/%s: %w", in.WorkflowID, in.TaskID, selErr)
 		}
 
-		adapter, err := executor.Get(execName)
-		if err != nil {
-			return ExecuteTaskOutput{}, fmt.Errorf("kernel: execute task %s/%s: %w", in.WorkflowID, in.TaskID, err)
-		}
-
 		ws := worktree.Workspace{Path: in.WorkspacePath}
-		if err := adapter.Prepare(ctx, ws, in.Packet); err != nil {
-			return ExecuteTaskOutput{}, fmt.Errorf("kernel: prepare task %s/%s: %w", in.WorkflowID, in.TaskID, err)
-		}
-
-		// Task 115 (SEC-01): decide whether this task must run sandboxed. A
-		// sandbox-required task that cannot be sandboxed is refused with a named
-		// classification — never a host fallback (C24).
-		decision := a.decideSandbox(execName, in.RequireSandbox)
-		if decision.refusal != "" {
-			return refuseSandbox(execName, decision.refusal, decision.reason), nil
-		}
-
-		// provider_waiting_time (docs/PLAN.md Task 31): STUB per the card
-		// ("stub source is acceptable") — adapter.Run's wall-clock duration
-		// conflates real provider wait time with the adapter's own local
-		// work; see observe.ProviderWaitingTimeSeconds's doc comment.
-		runStart := time.Now()
-		stopHeartbeat := startHeartbeat(ctx)
-		var summary executor.Summary
-		var runErr error
-		if decision.required {
-			// Run INSIDE the sandbox. A refusal (unwired/unavailable/incompatible
-			// sandbox) or a sandbox run failure returns fail-closed here.
-			var out ExecuteTaskOutput
-			var okRun bool
-			summary, out, okRun = a.runSandboxed(ctx, execName, adapter, ws, in.Packet)
-			if !okRun {
-				stopHeartbeat()
-				observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
+		budget := a.fallbackAttemptBudget()
+		skipped := append([]string(nil), preSkipped...)
+		attempts := 0
+		for _, execName := range candidates {
+			if attempts >= budget {
+				break
+			}
+			attempts++
+			out, providerFault, fatal := a.runOnExecutor(ctx, in, ws, execName)
+			if fatal != nil {
+				return ExecuteTaskOutput{}, fatal
+			}
+			if !providerFault {
+				if a.ExecutorHealth != nil {
+					a.ExecutorHealth.RecordSuccess(execName)
+				}
+				out.SkippedExecutors = skipped
 				return out, nil
 			}
-		} else {
-			summary, runErr = adapter.Run(ctx)
+			// Provider unavailable/rate-limited: the health breaker was already
+			// updated in runOnExecutor; record the skip metric and try the next
+			// policy-allowed candidate.
+			observe.IncProviderSkipped(execName)
+			skipped = append(skipped, execName)
 		}
-		stopHeartbeat()
-		observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
-
-		out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName, Usage: summary.Usage}
-		if runErr != nil {
-			out.Failed = true
-			out.ErrorMessage = runErr.Error()
-			return out, nil
-		}
-
-		artifacts, err := adapter.Collect(ctx)
-		if err != nil {
-			return ExecuteTaskOutput{}, fmt.Errorf("kernel: collect task %s/%s: %w", in.WorkflowID, in.TaskID, err)
-		}
-		out.ArtifactPaths = artifacts.Paths
-		return out, nil
+		// Candidates exhausted within the attempt budget → fail closed with a
+		// diagnosable skip list (Task 129 acceptance).
+		return ExecuteTaskOutput{
+			Failed:           true,
+			ErrorMessage:     fmt.Sprintf("kernel: no eligible executor for %s/%s after %d attempt(s); skipped=%v", in.WorkflowID, in.TaskID, attempts, skipped),
+			Classification:   string(verify.ClassificationPolicyViolation),
+			SkippedExecutors: skipped,
+		}, nil
 	})
 }
+
+// runOnExecutor runs one task on a single named executor: get adapter →
+// Prepare → sandbox decision → Run → Collect. It returns the task output, a
+// providerFault flag (true when the adapter could not run — the signal Task
+// 129's reselection loop falls over on), and a fatal error (an internal error
+// that must abort the whole activity, not trigger fallback). A providerFault
+// leaves the task outcome undecided; the caller tries the next candidate.
+func (a *Activities) runOnExecutor(ctx context.Context, in ExecuteTaskInput, ws worktree.Workspace, execName string) (ExecuteTaskOutput, bool, error) {
+	adapter, err := executor.Get(execName)
+	if err != nil {
+		return ExecuteTaskOutput{}, false, fmt.Errorf("kernel: execute task %s/%s: %w", in.WorkflowID, in.TaskID, err)
+	}
+	if err := adapter.Prepare(ctx, ws, in.Packet); err != nil {
+		return ExecuteTaskOutput{}, false, fmt.Errorf("kernel: prepare task %s/%s: %w", in.WorkflowID, in.TaskID, err)
+	}
+
+	// Task 115 (SEC-01): a sandbox-required task that cannot be sandboxed is
+	// refused with a named classification — never a host fallback (C24). This
+	// is a policy refusal, NOT a provider fault, so it does not fall over.
+	decision := a.decideSandbox(execName, in.RequireSandbox)
+	if decision.refusal != "" {
+		return refuseSandbox(execName, decision.refusal, decision.reason), false, nil
+	}
+
+	runStart := time.Now()
+	stopHeartbeat := startHeartbeat(ctx)
+	var summary executor.Summary
+	var runErr error
+	if decision.required {
+		var out ExecuteTaskOutput
+		var okRun bool
+		summary, out, okRun = a.runSandboxed(ctx, execName, adapter, ws, in.Packet)
+		if !okRun {
+			stopHeartbeat()
+			observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
+			return out, false, nil
+		}
+	} else {
+		summary, runErr = adapter.Run(ctx)
+	}
+	stopHeartbeat()
+	// provider_waiting_time now measures only the adapter Run() window (the
+	// closest per-call provider-wait signal available without adapter-level
+	// instrumentation), by provider name (docs/PLAN.md Task 129).
+	observe.ObserveProviderWaitingTime(execName, time.Since(runStart).Seconds())
+
+	out := ExecuteTaskOutput{Claimed: summary.Claimed, ExitNotes: summary.ExitNotes, ExecutorUsed: execName, Usage: summary.Usage}
+	if runErr != nil {
+		// Only a TYPED provider fault (unavailable/rate-limited) falls over to
+		// the next candidate; any other Run error is the task itself failing
+		// (preserving the pre-Task-129 semantics that a failed run is a task
+		// failure classified downstream by ValidateTask).
+		if executor.IsProviderFault(runErr) {
+			if a.ExecutorHealth != nil {
+				if errors.Is(runErr, executor.ErrProviderRateLimited) {
+					a.ExecutorHealth.RecordRateLimited(execName, time.Now())
+				} else {
+					a.ExecutorHealth.RecordUnavailable(execName, time.Now())
+				}
+			}
+			return out, true, nil
+		}
+		out.Failed = true
+		out.ErrorMessage = runErr.Error()
+		return out, false, nil
+	}
+
+	artifacts, err := adapter.Collect(ctx)
+	if err != nil {
+		return ExecuteTaskOutput{}, false, fmt.Errorf("kernel: collect task %s/%s: %w", in.WorkflowID, in.TaskID, err)
+	}
+	out.ArtifactPaths = artifacts.Paths
+	return out, false, nil
+}
+
+// fallbackAttemptBudget bounds how many distinct candidates ExecuteTask may try
+// for one task attempt (docs/PLAN.md Task 129). 0/unset uses the default.
+func (a *Activities) fallbackAttemptBudget() int {
+	if a.FallbackAttemptBudget > 0 {
+		return a.FallbackAttemptBudget
+	}
+	return defaultFallbackAttemptBudget
+}
+
+// defaultFallbackAttemptBudget is the per-task provider-fallback attempt cap
+// when none is configured.
+const defaultFallbackAttemptBudget = 3
 
 // temporalAttempt returns ctx's Temporal activity.Info.Attempt, or 1 (a
 // harmless "first attempt" default that observe.RecordActivityAttempt

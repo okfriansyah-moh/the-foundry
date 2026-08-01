@@ -18,7 +18,7 @@ import (
 // before an existing one) fails this test even though no server is
 // running.
 func TestReplayRecordedHistories(t *testing.T) {
-	for _, name := range []string{"hello_world.json", "failing_task.json"} {
+	for _, name := range []string{"hello_world.json", "failing_task.json", "multi_wave.json"} {
 		t.Run(name, func(t *testing.T) {
 			replayer := worker.NewWorkflowReplayer()
 			replayer.RegisterWorkflow(kernel.DeliverPlan)

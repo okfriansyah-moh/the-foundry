@@ -14,4 +14,7 @@ type Record struct {
 	Environment      string `json:"environment"`
 	Ref              string `json:"ref"`
 	VerificationMode string `json:"verification_mode"`
+	// URL is the real reachable URL the deploy exposes (docs/PLAN.md Task 125);
+	// empty for adapters/paths that do not surface one.
+	URL string `json:"url,omitempty"`
 }

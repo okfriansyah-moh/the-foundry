@@ -772,7 +772,7 @@ workflow:
         timeout: null
 
 agents:
-  runtime: openhands
+  runtime: openhands # ADR-deferred optional adapter; see adr/ADR-001-openhands-9router.md
   primary:
     planning: claude-code
     implementation: codex
@@ -871,7 +871,7 @@ workflow:
       paid_broadcast: false
 
 agents:
-  runtime: openhands
+  runtime: openhands # ADR-deferred optional adapter; see adr/ADR-001-openhands-9router.md
   primary:
     research: claude-code
     planning: claude-code
@@ -881,7 +881,7 @@ agents:
   fallback:
     enabled: true
     executor: opencode
-    model_router: 9router
+    model_router: 9router # ADR-deferred optional adapter; see adr/ADR-001-openhands-9router.md
 
 security:
   data_classification: personal
@@ -970,5 +970,4 @@ llm_optimization:
     max_subagents: 10
     max_tool_calls: 100
 ```
-
 

@@ -137,8 +137,10 @@ type WorkflowSnapshot struct {
 	// "task state advanced" progress signal. Zero means never.
 	LastProgressAt time.Time
 	// RecentFailures are this workflow's current task's failure
-	// signatures, oldest first, as recorded by whatever retrypolicy.go
-	// caller tracks them.
+	// signatures, oldest first, populated by PostgresProjectionSource from
+	// the task_failure_signatures table the kernel's runTask writes on every
+	// failed attempt (docs/PLAN.md Task 123). PoisonedTask is classified when
+	// the two most recent are identical.
 	RecentFailures []FailureSignature
 }
 

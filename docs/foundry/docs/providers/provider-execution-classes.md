@@ -150,6 +150,9 @@ batch versus synchronous execution
 fallback
 ```
 
+Model-router options such as 9Router are ADR-deferred pluggable externals, not core requirements; see
+`../architecture/adr/ADR-001-openhands-9router.md`.
+
 ### 5.7.2 Do not hardcode model assumptions
 
 Provider capabilities change faster than the Foundry workflow.
@@ -564,6 +567,9 @@ Native subscription first
 → 9Router API fallback
 ```
 
+ADR-001 defers 9Router as an optional pluggable external; the current fallback requirement is satisfied in-allowlist
+unless a future profile explicitly approves such an adapter (`../architecture/adr/ADR-001-openhands-9router.md`).
+
 ### Organization
 
 ```text
@@ -573,6 +579,9 @@ Organization-approved native agents only
 ```
 
 Do not enable 9Router, Headroom, free providers, or personal accounts for organization data merely because they are technically available.
+
+ADR-001 leaves the 9Router organization-data prohibition unchanged
+(`../architecture/adr/ADR-001-openhands-9router.md`).
 
 Provider selection is a security decision, not only a cost decision.
 

@@ -26,7 +26,8 @@ services:
       TEMPORAL_HOSTPORT: "${TEMPORAL_HOSTPORT:-temporal:7233}"
       FOUNDRY_DATA_DIR: "${FOUNDRY_DATA_DIR:-/workspace/.data}"
 
-  # Task 4 (SKP-02): dev's runtime dependencies, internal compose network only — see
+  # Task 4 (SKP-02) + Task 128 (INF-01): dev's runtime dependencies,
+  # internal compose network only — see
   # .ai/instructions/build-and-test.md container topology table (hard rule: never a
   # second compose file or a fifth *image lineage*/Dockerfile we own). Task 31 (FND-12)
   # extends this same row with prometheus/grafana below: both are off-the-shelf images
@@ -68,6 +69,16 @@ services:
       timeout: 5s
       retries: 20
 
+  minio:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_KMS_SECRET_KEY: "foundry-dev-key:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+    volumes:
+      - miniodata:/data
+
   # Task 31 (FND-12): observability baseline. `obs` compose profile so
   # `make up PROFILE=obs` brings these up alongside dev/postgres/temporal
   # without changing plain `make up`'s behavior. Prometheus scrapes
@@ -108,3 +119,4 @@ volumes:
   gomod-cache:
   gobuild-cache:
   pgdata:
+  miniodata:

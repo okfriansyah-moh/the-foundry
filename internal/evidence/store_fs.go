@@ -24,10 +24,8 @@ var ErrBundleExists = errors.New("evidence: bundle already exists")
 var ErrVerifyFailed = errors.New("evidence: verification failed")
 
 // Store persists and retrieves evidence Bundles and can independently
-// re-verify their integrity. FSStore is the only implementation in this
-// package; a networked/object-store-backed implementation (e.g. S3) is a
-// future extension satisfying this same interface — not something this
-// package provides.
+// re-verify their integrity. FSStore and S3Store both satisfy this interface
+// with identical content-addressing semantics.
 type Store interface {
 	// Put persists bundle and returns its content-derived ID. It errors
 	// with ErrBundleExists if a bundle with that ID is already stored.

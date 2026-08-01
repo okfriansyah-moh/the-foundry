@@ -260,6 +260,7 @@ func registerActivities(env *testsuite.TestWorkflowEnvironment, a *kernel.Activi
 	env.RegisterActivityWithOptions(a.ValidateTask, activity.RegisterOptions{Name: kernel.ActivityValidateTask})
 	env.RegisterActivityWithOptions(a.RecordEvidence, activity.RegisterOptions{Name: kernel.ActivityRecordEvidence})
 	env.RegisterActivityWithOptions(a.AppendTransition, activity.RegisterOptions{Name: kernel.ActivityAppendTransition})
+	env.RegisterActivityWithOptions(a.RecordFailureSignature, activity.RegisterOptions{Name: kernel.ActivityRecordFailureSignature})
 }
 
 // testCapabilityRegistry returns a capability registry that marks the test

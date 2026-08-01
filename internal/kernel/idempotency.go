@@ -38,6 +38,17 @@ type ReceiptStore interface {
 	Put(ctx context.Context, key string, payload []byte) error
 }
 
+// WithReceipt is the exported entry point to the kernel's idempotency-receipt
+// wrapper, so packages outside internal/kernel (e.g. internal/mission's own
+// activities, docs/PLAN.md Task 122) can give their state-mutating activities
+// the SAME receipt-keyed, run-at-most-once protection kernel activities have
+// WITHOUT reimplementing the mechanism. It is a thin delegator to withReceipt:
+// there is exactly one idempotency implementation in this repo, and this is how
+// other packages reuse it (Constitution C9).
+func WithReceipt[T any](ctx context.Context, store ReceiptStore, key string, fn func() (T, error)) (T, error) {
+	return withReceipt(ctx, store, key, fn)
+}
+
 // withReceipt runs fn at most once per key: if a receipt already exists it
 // is decoded and returned directly; otherwise fn runs, and only a
 // successful result is recorded — a failing fn is left unrecorded so

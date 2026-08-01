@@ -135,6 +135,55 @@ func (s ExecutorSelector) validate(name string, allow []string, reg capability.R
 	return name, nil
 }
 
+// SelectCandidates returns the ORDERED list of policy-allowed, registry-eligible
+// executor candidates for a task, filtered by a health snapshot (docs/PLAN.md
+// Task 129 / INF-02). It is a pure function of its inputs plus the snapshot, so
+// determinism is preserved for replay. The order is the task's explicit
+// executor first, else the routed class's preference order, else the default —
+// exactly the priority Select uses, but every eligible candidate is returned so
+// ExecuteTask can fall over within the allowlist rather than failing on the
+// first provider. A candidate the snapshot marks tripped is skipped. An empty
+// result is a fail-closed SelectionError carrying the reason and the skipped
+// candidates, so the failure is diagnosable.
+func (s ExecutorSelector) SelectCandidates(task plan.Task, pol compiler.Resolved, reg capability.Registry, health capability.HealthSnapshot) ([]string, []string, error) {
+	allow := pol.Effective.ExecutorAllowlist
+
+	// Build the ordered preference list following Select's own priority.
+	var prefs []string
+	switch {
+	case task.Executor != "":
+		prefs = []string{task.Executor}
+	case len(s.Routing) > 0 && task.Class != "":
+		routed, ok := s.Routing[task.Class]
+		if !ok || len(routed) == 0 {
+			return nil, nil, &SelectionError{Reason: ReasonUnroutedClass, Classification: verify.ClassificationPolicyViolation}
+		}
+		prefs = routed
+	case s.Default != "":
+		prefs = []string{s.Default}
+	default:
+		return nil, nil, &SelectionError{Reason: ReasonNoExecutorConfigured, Classification: verify.ClassificationPolicyViolation}
+	}
+
+	var candidates, skipped []string
+	for _, name := range prefs {
+		// A candidate must be in the allowlist AND a supported registry record
+		// — the fallback can NEVER escape policy (Constitution C4).
+		if _, err := s.validate(name, allow, reg); err != nil {
+			continue
+		}
+		if !health.Available(name) {
+			skipped = append(skipped, name)
+			continue
+		}
+		candidates = append(candidates, name)
+	}
+	if len(candidates) == 0 {
+		return nil, skipped, &SelectionError{Reason: ReasonNoEligibleExecutor, Classification: verify.ClassificationPolicyViolation}
+	}
+	return candidates, skipped, nil
+}
+
 func containsString(set []string, v string) bool {
 	for _, s := range set {
 		if s == v {

@@ -36,6 +36,9 @@ Doctor validates:
 - Workspace isolation.
 - Personal repository allowlist.
 
+OpenHands and 9Router in this workflow are ADR-deferred pluggable externals, not core requirements; see
+`../architecture/adr/ADR-001-openhands-9router.md`.
+
 ### Step 2 — Submit the mission
 
 ```text
@@ -137,6 +140,9 @@ Create atomic tasks with:
 
 OpenHands dispatches isolated tasks to native subscription agents.
 
+ADR-001 defers OpenHands as an optional pluggable external; this dispatch example is not a core runtime mandate
+(`../architecture/adr/ADR-001-openhands-9router.md`).
+
 Routing example:
 
 ```text
@@ -146,6 +152,9 @@ Frontend → Cursor
 PR review → Copilot
 Fallback → OpenCode through 9Router
 ```
+
+ADR-001 also defers 9Router as an optional pluggable external; fallback remains in-allowlist unless a future profile
+explicitly approves such an adapter (`../architecture/adr/ADR-001-openhands-9router.md`).
 
 ### Step 11 — Verify
 
@@ -649,6 +658,9 @@ frontend and browser refinement    → Cursor
 PR review and documentation        → Copilot
 provider-independent fallback      → OpenCode through 9Router
 ```
+
+The 9Router fallback line is retained as a legacy routing example only; ADR-001 defers it as an optional pluggable
+external (`../architecture/adr/ADR-001-openhands-9router.md`).
 
 Routing remains task-level. A healthy task does not switch models halfway through execution.
 
