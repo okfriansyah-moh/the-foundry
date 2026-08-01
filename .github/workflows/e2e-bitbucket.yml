@@ -1,7 +1,9 @@
 # docs/PLAN.md Task 137 (TX-11): gated real-Bitbucket write proof.
 # Manual / scheduled only — never runs against production organization remotes.
-# Requires repository secrets: BITBUCKET_API_TOKEN, SCM_WRITE_TEST_BITBUCKET_REPO_URL,
-# SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH (disposable repository only).
+# Live step requires repository secrets: BITBUCKET_API_TOKEN,
+# SCM_WRITE_TEST_BITBUCKET_REPO_URL, SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH
+# (disposable repository only). Do not reference secrets in job-level `if`
+# (GitHub rejects that as a workflow-file error on push).
 name: e2e-bitbucket
 
 on:
@@ -12,7 +14,6 @@ on:
 jobs:
   bitbucket-live:
     runs-on: ubuntu-latest
-    if: ${{ secrets.BITBUCKET_API_TOKEN != '' && secrets.SCM_WRITE_TEST_BITBUCKET_REPO_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +32,7 @@ jobs:
         run: make e2e-bitbucket
 
       - name: Live Bitbucket push (gated)
+        if: ${{ vars.RUN_BITBUCKET_LIVE_ENABLED == 'true' }}
         env:
           RUN_BITBUCKET_LIVE: "1"
           BITBUCKET_API_TOKEN: ${{ secrets.BITBUCKET_API_TOKEN }}
