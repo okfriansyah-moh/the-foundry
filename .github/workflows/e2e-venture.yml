@@ -22,7 +22,7 @@ jobs:
       - name: Hermetic venture harness
         run: make e2e-venture
       - name: Live venture (optional secrets)
-        if: ${{ secrets.RUN_VENTURE_LIVE_ENABLED == 'true' }}
+        if: ${{ vars.RUN_VENTURE_LIVE_ENABLED == 'true' }}
         env:
           RUN_VENTURE_LIVE: "1"
           PG_DSN: postgres://foundry:foundry@postgres:5432/foundry?sslmode=disable
