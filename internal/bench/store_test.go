@@ -319,15 +319,26 @@ func TestMigration00033_Down(t *testing.T) {
 	if !ok {
 		t.Fatal("benchmark_runs missing after up")
 	}
-	if err := migrator.Down(ctx); err != nil {
-		t.Fatalf("down: %v", err)
+	// Down rolls back one migration at a time; 00034+ may sit above 00033,
+	// so keep rolling until benchmark_runs is gone (proves 00033 Down works).
+	for i := 0; i < 32; i++ {
+		ok, err = bench.TableExists(ctx, sqlDB)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			break
+		}
+		if err := migrator.Down(ctx); err != nil {
+			t.Fatalf("down step %d: %v", i+1, err)
+		}
 	}
 	ok, err = bench.TableExists(ctx, sqlDB)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ok {
-		t.Fatal("benchmark_runs still present after down")
+		t.Fatal("benchmark_runs still present after rolling past 00033")
 	}
 	if err := migrator.Up(ctx); err != nil {
 		t.Fatalf("re-up: %v", err)
