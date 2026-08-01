@@ -27,10 +27,10 @@ const (
 
 // Targets holds V1 acceptance targets (not universal claims).
 type Targets struct {
-	Version string       `yaml:"version"`
-	Label   string       `yaml:"label"`
-	Personal ArmTargets `yaml:"personal"`
-	TenX     ArmTargets `yaml:"tenx"`
+	Version  string      `yaml:"version"`
+	Label    string      `yaml:"label"`
+	Personal ArmTargets  `yaml:"personal"`
+	TenX     ArmTargets  `yaml:"tenx"`
 	Quality  QualityGate `yaml:"quality_gate"`
 }
 
@@ -41,13 +41,13 @@ type ArmTargets struct {
 	PlanToHandoffReduction         float64 `yaml:"plan_to_handoff_reduction"`
 	CoordinationReportingReduction float64 `yaml:"coordination_reporting_reduction"`
 	UnauthorizedActionsMax         float64 `yaml:"unauthorized_actions_max"`
-	UnauthorizedSCMOperationsMax     float64 `yaml:"unauthorized_scm_operations_max"`
+	UnauthorizedSCMOperationsMax   float64 `yaml:"unauthorized_scm_operations_max"`
 }
 
 // QualityGate defines operational "quality no worse than baseline".
 type QualityGate struct {
-	Description              string `yaml:"description"`
-	MaxDefectRegressionRatio float64 `yaml:"max_defect_regression_ratio"`
+	Description                  string  `yaml:"description"`
+	MaxDefectRegressionRatio     float64 `yaml:"max_defect_regression_ratio"`
 	MaxEvidenceRejectionIncrease float64 `yaml:"max_evidence_rejection_increase"`
 }
 
@@ -82,9 +82,9 @@ type DeliverySpec struct {
 
 // BaselineManifest lists control-arm deliveries and human-reported inputs.
 type BaselineManifest struct {
-	Version    string                  `yaml:"version"`
-	Deliveries []DeliverySpec          `yaml:"deliveries"`
-	HumanInput map[string]HumanInput   `yaml:"human_input"`
+	Version    string                `yaml:"version"`
+	Deliveries []DeliverySpec        `yaml:"deliveries"`
+	HumanInput map[string]HumanInput `yaml:"human_input"`
 }
 
 // LoadBaselineManifest reads benchmarks/baseline/manifest.yaml.
@@ -208,15 +208,15 @@ func EnvironmentDigest(repoRoot string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Fprintf(h, "head=%s\n", strings.TrimSpace(head))
+	_, _ = fmt.Fprintf(h, "head=%s\n", strings.TrimSpace(head))
 	for _, rel := range []string{"go.mod", "config/benchmark-targets.yaml"} {
 		p := filepath.Join(repoRoot, rel)
 		data, err := os.ReadFile(p)
 		if err != nil {
 			return "", fmt.Errorf("bench: digest %s: %w", rel, err)
 		}
-		fmt.Fprintf(h, "%s\n", rel)
-		h.Write(data)
+		_, _ = fmt.Fprintf(h, "%s\n", rel)
+		_, _ = h.Write(data)
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
@@ -414,7 +414,7 @@ func CopyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
@@ -422,7 +422,7 @@ func CopyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 	_, err = io.Copy(out, in)
 	return err
 }

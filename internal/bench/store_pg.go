@@ -74,7 +74,7 @@ func (s *PostgresStore) ListByArm(ctx context.Context, arm Arm) ([]*RunRecord, e
 	if err != nil {
 		return nil, fmt.Errorf("bench: list arm %s: %w", arm, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RunRecord
 	for rows.Next() {
 		var raw []byte

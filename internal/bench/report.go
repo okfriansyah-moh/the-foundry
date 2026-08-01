@@ -19,16 +19,16 @@ const (
 
 // Cell is one metric comparison between arms.
 type Cell struct {
-	MetricID       MetricID
-	ControlValue   *float64
-	ControlBasis   Basis
-	ControlProxy   bool
-	FoundryValue   *float64
-	FoundryBasis   Basis
-	FoundryProxy   bool
-	Verdict        Verdict
-	DeltaPercent   *float64
-	Note           string
+	MetricID     MetricID
+	ControlValue *float64
+	ControlBasis Basis
+	ControlProxy bool
+	FoundryValue *float64
+	FoundryBasis Basis
+	FoundryProxy bool
+	Verdict      Verdict
+	DeltaPercent *float64
+	Note         string
 }
 
 // ComparisonReport aggregates per-metric cells and quality-guard evaluation.
@@ -222,10 +222,10 @@ func RenderMarkdown(report ComparisonReport, targets Targets) string {
 func RenderText(report ComparisonReport) string {
 	var b strings.Builder
 	w := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "METRIC\tCONTROL\tBASIS\tFOUNDRY\tBASIS\tVERDICT")
+	_, _ = fmt.Fprintln(w, "METRIC\tCONTROL\tBASIS\tFOUNDRY\tBASIS\tVERDICT")
 	for _, c := range report.Cells {
 		def, _ := DefinitionByID(c.MetricID)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			def.ID,
 			formatValue(c.ControlValue, def.Unit),
 			c.ControlBasis,

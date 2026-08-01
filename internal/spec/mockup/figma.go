@@ -208,4 +208,3 @@ func walkFigmaNodes(n FigmaNode, out *[]ExtractedItem) {
 		walkFigmaNodes(c, out)
 	}
 }
-

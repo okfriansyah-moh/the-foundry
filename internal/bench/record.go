@@ -40,10 +40,10 @@ type RunRecord struct {
 
 // HumanInput supplies the two control-arm fields git cannot see (B12).
 type HumanInput struct {
-	OrchestrationHours  float64 `yaml:"orchestration_hours"`
-	ManualPromptsTouches int    `yaml:"manual_prompts_touches"`
-	Reporter            string  `yaml:"reporter,omitempty"`
-	ReportedAt          string  `yaml:"reported_at,omitempty"`
+	OrchestrationHours   float64 `yaml:"orchestration_hours"`
+	ManualPromptsTouches int     `yaml:"manual_prompts_touches"`
+	Reporter             string  `yaml:"reporter,omitempty"`
+	ReportedAt           string  `yaml:"reported_at,omitempty"`
 }
 
 // NewRunRecord constructs a record with empty observations for every metric.

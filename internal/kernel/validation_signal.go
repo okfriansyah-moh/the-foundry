@@ -11,8 +11,10 @@ import (
 // ActivityAcquireValidationSignal is the kernel-owned acquisition activity
 // (docs/PLAN.md Task 139). Ingestion proposes evidence; only this activity
 // may perform bounded external acquisition behind policy/budget/extops.
-const ActivityAcquireValidationSignal = "AcquireValidationSignal"
-const ActivityIngestValidationSignal = "IngestValidationSignal"
+const (
+	ActivityAcquireValidationSignal = "AcquireValidationSignal"
+	ActivityIngestValidationSignal  = "IngestValidationSignal"
+)
 
 // StoreRealSignalVerifier implements RealSignalVerifier against a signal store.
 type StoreRealSignalVerifier struct {
@@ -37,9 +39,9 @@ type IngestValidationSignalInput struct {
 
 // IngestValidationSignalOutput echoes the stored signal id and eligibility.
 type IngestValidationSignalOutput struct {
-	SignalID  string `json:"signal_id"`
-	Eligible  bool   `json:"eligible_for_real_gate"`
-	Digest    string `json:"payload_digest"`
+	SignalID string `json:"signal_id"`
+	Eligible bool   `json:"eligible_for_real_gate"`
+	Digest   string `json:"payload_digest"`
 }
 
 // IngestValidationSignal stores a provenance-backed signal. It performs no
@@ -69,8 +71,8 @@ type AcquireValidationSignalInput struct {
 	Request    signals.AcquisitionRequest `json:"request"`
 	// ResultArtifact is the verbatim export produced by the connector after
 	// a successful bounded call (tests inject it; live adapters fill it).
-	ResultArtifact []byte                 `json:"result_artifact"`
-	Ingest         signals.IngestRequest  `json:"ingest"`
+	ResultArtifact []byte                `json:"result_artifact"`
+	Ingest         signals.IngestRequest `json:"ingest"`
 }
 
 // AcquireValidationSignalOutput records the extops receipt + signal id.

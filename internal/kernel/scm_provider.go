@@ -11,11 +11,11 @@ import (
 
 // Result codes for fail-closed SCM provider selection (docs/PLAN.md Task 140).
 const (
-	ResultSCMProviderMissing   state.ResultCode = "SCM_PROVIDER_MISSING"
-	ResultSCMProviderUnknown   state.ResultCode = "SCM_PROVIDER_UNKNOWN"
-	ResultSCMProviderMismatch  state.ResultCode = "SCM_PROVIDER_MISMATCH"
-	ResultSCMWriterMissing     state.ResultCode = "SCM_WRITER_MISSING"
-	ResultSCMPolicyAbsent      state.ResultCode = "SCM_POLICY_ABSENT"
+	ResultSCMProviderMissing  state.ResultCode = "SCM_PROVIDER_MISSING"
+	ResultSCMProviderUnknown  state.ResultCode = "SCM_PROVIDER_UNKNOWN"
+	ResultSCMProviderMismatch state.ResultCode = "SCM_PROVIDER_MISMATCH"
+	ResultSCMWriterMissing    state.ResultCode = "SCM_WRITER_MISSING"
+	ResultSCMPolicyAbsent     state.ResultCode = "SCM_POLICY_ABSENT"
 )
 
 // SCMProviderName is the closed V1 vocabulary: github | bitbucket.

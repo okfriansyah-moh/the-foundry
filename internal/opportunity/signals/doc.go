@@ -36,12 +36,12 @@ func (e Environment) Valid() bool {
 type Class string
 
 const (
-	ClassLandingConversion   Class = "landing_page_conversion"
-	ClassWaitlistSignup      Class = "waitlist_signup"
-	ClassPricingCTA          Class = "pricing_cta"
-	ClassQualifiedInbound    Class = "qualified_inbound_interest"
-	ClassTrafficExperiment   Class = "bounded_traffic_experiment"
-	ClassInterviewProspect   Class = "interview_prospect_evidence"
+	ClassLandingConversion Class = "landing_page_conversion"
+	ClassWaitlistSignup    Class = "waitlist_signup"
+	ClassPricingCTA        Class = "pricing_cta"
+	ClassQualifiedInbound  Class = "qualified_inbound_interest"
+	ClassTrafficExperiment Class = "bounded_traffic_experiment"
+	ClassInterviewProspect Class = "interview_prospect_evidence"
 )
 
 // Valid reports whether c is a known class name (allowlist membership is
@@ -59,23 +59,23 @@ func (c Class) Valid() bool {
 // Signal is one immutable validation-signal record. Missing provenance
 // fields make the record ineligible rather than partially trusted.
 type Signal struct {
-	ID              string      `json:"id"`
-	OpportunityID   string      `json:"opportunity_id"`
-	Class           Class       `json:"class"`
-	SourceIdentity  string      `json:"source_identity"`
-	SourceRef       string      `json:"source_ref"`
-	ExperimentID    string      `json:"experiment_id"`
-	Hypothesis      string      `json:"hypothesis"`
-	SampleSize      int         `json:"sample_size"`
-	SampleDenom     int         `json:"sample_denominator"`
-	ObservedAt      time.Time   `json:"observed_at"`
-	AcquisitionUSD  float64     `json:"acquisition_cost_usd"`
-	Currency        string      `json:"currency"`
-	Environment     Environment `json:"environment"`
-	PayloadDigest   string      `json:"payload_digest"`
-	RawPayload      []byte      `json:"-"` // preserved verbatim; never substituted
-	CreatedAt       time.Time   `json:"created_at"`
-	IdempotencyKey  string      `json:"idempotency_key"`
+	ID             string      `json:"id"`
+	OpportunityID  string      `json:"opportunity_id"`
+	Class          Class       `json:"class"`
+	SourceIdentity string      `json:"source_identity"`
+	SourceRef      string      `json:"source_ref"`
+	ExperimentID   string      `json:"experiment_id"`
+	Hypothesis     string      `json:"hypothesis"`
+	SampleSize     int         `json:"sample_size"`
+	SampleDenom    int         `json:"sample_denominator"`
+	ObservedAt     time.Time   `json:"observed_at"`
+	AcquisitionUSD float64     `json:"acquisition_cost_usd"`
+	Currency       string      `json:"currency"`
+	Environment    Environment `json:"environment"`
+	PayloadDigest  string      `json:"payload_digest"`
+	RawPayload     []byte      `json:"-"` // preserved verbatim; never substituted
+	CreatedAt      time.Time   `json:"created_at"`
+	IdempotencyKey string      `json:"idempotency_key"`
 }
 
 // ProvenanceComplete reports whether every field required for eligibility is

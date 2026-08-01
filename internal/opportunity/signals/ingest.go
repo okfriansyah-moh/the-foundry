@@ -35,8 +35,8 @@ type Store interface {
 
 // MemoryStore is an in-process store for unit tests.
 type MemoryStore struct {
-	mu   sync.Mutex
-	byID map[string]Signal
+	mu    sync.Mutex
+	byID  map[string]Signal
 	byKey map[string]string
 }
 
@@ -268,7 +268,7 @@ FROM validation_signals WHERE opportunity_id = $1 ORDER BY created_at ASC`, oppo
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []Signal
 	for rows.Next() {
 		s, err := scanSignal(rows)
@@ -304,24 +304,24 @@ func scanSignal(row scannable) (Signal, error) {
 
 // ExperimentCaps bound an optional acquisition connector.
 type ExperimentCaps struct {
-	MaxSpendUSD   float64
-	MaxDuration   time.Duration
-	MaxAudience   int
-	MaxEvents     int
+	MaxSpendUSD       float64
+	MaxDuration       time.Duration
+	MaxAudience       int
+	MaxEvents         int
 	AuthorizedChannel string
 	PolicyGrant       string
 }
 
 // AcquisitionRequest is the kernel-owned acquisition input.
 type AcquisitionRequest struct {
-	OpportunityID string
-	Class         Class
-	Caps          ExperimentCaps
-	SpendSoFar    float64
-	EventsSoFar   int
-	AudienceSoFar int
-	StartedAt     time.Time
-	Now           time.Time
+	OpportunityID  string
+	Class          Class
+	Caps           ExperimentCaps
+	SpendSoFar     float64
+	EventsSoFar    int
+	AudienceSoFar  int
+	StartedAt      time.Time
+	Now            time.Time
 	IdempotencyKey string
 	// CallerOverrideAllowlist is rejected when non-empty — prompt injection
 	// / lying executor cannot widen the allowlist.

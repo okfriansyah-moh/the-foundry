@@ -90,6 +90,7 @@ func (h *HealthTracker) RecordFailure(provider string, now time.Time) {
 // RecordRateLimited / RecordUnavailable trip the provider immediately: an
 // observed rate-limit or unavailability is a definite signal, not a streak.
 func (h *HealthTracker) RecordRateLimited(provider string, now time.Time) { h.tripNow(provider, now) }
+
 func (h *HealthTracker) RecordUnavailable(provider string, now time.Time) { h.tripNow(provider, now) }
 
 func (h *HealthTracker) tripNow(provider string, now time.Time) {

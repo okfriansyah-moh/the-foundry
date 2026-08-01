@@ -11,13 +11,13 @@ import (
 type Format string
 
 const (
-	FormatHTML   Format = "html"
-	FormatPDF    Format = "pdf"
-	FormatPNG    Format = "png"
-	FormatJPEG   Format = "jpeg"
-	FormatGIF    Format = "gif"
-	FormatWebP   Format = "webp"
-	FormatFigma  Format = "figma"
+	FormatHTML    Format = "html"
+	FormatPDF     Format = "pdf"
+	FormatPNG     Format = "png"
+	FormatJPEG    Format = "jpeg"
+	FormatGIF     Format = "gif"
+	FormatWebP    Format = "webp"
+	FormatFigma   Format = "figma"
 	FormatUnknown Format = ""
 )
 

@@ -312,7 +312,7 @@ func skipBinaryLike(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var hdr [4]byte
 	n, _ := f.Read(hdr[:])
 	if n >= 4 {

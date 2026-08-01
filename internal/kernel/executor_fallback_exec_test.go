@@ -30,6 +30,7 @@ func (faultAdapter) Collect(context.Context) (executor.Artifacts, error) {
 type okAdapter struct{}
 
 func (okAdapter) Prepare(context.Context, worktree.Workspace, executor.TaskPacket) error { return nil }
+
 func (okAdapter) Run(context.Context) (executor.Summary, error) {
 	return executor.Summary{Claimed: "done"}, nil
 }

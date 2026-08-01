@@ -88,7 +88,9 @@ func runMockupExtract(args []string) error {
 		if err := os.WriteFile(outPath, rawPlan, 0o644); err != nil {
 			return fmt.Errorf("mockup extract: write %s: %w", outPath, err)
 		}
-		fmt.Fprintf(os.Stdout, "wrote plan to %s (%d requirements)\n", outPath, len(specOut.Requirements))
+		if _, err := fmt.Fprintf(os.Stdout, "wrote plan to %s (%d requirements)\n", outPath, len(specOut.Requirements)); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -99,7 +101,9 @@ func runMockupExtract(args []string) error {
 	if err := os.WriteFile(outPath, encoded, 0o644); err != nil {
 		return fmt.Errorf("mockup extract: write %s: %w", outPath, err)
 	}
-	fmt.Fprintf(os.Stdout, "wrote spec to %s (%d requirements)\n", outPath, len(specOut.Requirements))
+	if _, err := fmt.Fprintf(os.Stdout, "wrote spec to %s (%d requirements)\n", outPath, len(specOut.Requirements)); err != nil {
+		return err
+	}
 	return nil
 }
 
