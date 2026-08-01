@@ -1,0 +1,92 @@
+{
+  "id": "control-pr6-task61-75",
+  "arm": "control",
+  "work_item_id": "control-pr6-task61-75",
+  "work_item_title": "PR #6: Tasks 61-75 (Track B exit + M2 hardening)",
+  "recorded_at": "2026-08-01T12:08:43.087649Z",
+  "environment_digest": "f1b71518f298e337e0aea93f17fe5a0114cbcbf906a6242781389061007bdfd5",
+  "observations": [
+    {
+      "metric_id": "ai_provider_cost",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "cost_per_accepted_task",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "defects_after_handoff",
+      "value": 1,
+      "basis": "proxy",
+      "proxy": true,
+      "note": "git proxy: 1 fix-like commits after merge touching same 95 files (14d window not applied — count all post-merge fix-like commits; not confirmed defects without linked issue/incident)"
+    },
+    {
+      "metric_id": "evidence_rejection_rate",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "human_orchestration_time",
+      "value": 22,
+      "basis": "human-reported",
+      "note": "operator-supplied orchestration log (B12)"
+    },
+    {
+      "metric_id": "integration_conflicts",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "manual_prompts_touches",
+      "value": 61,
+      "basis": "human-reported",
+      "note": "operator-supplied prompt/touch count (B12)"
+    },
+    {
+      "metric_id": "plan_to_first_accepted",
+      "value": 0.8830555555555556,
+      "basis": "proxy",
+      "proxy": true,
+      "note": "git: first branch commit → merge (PLAN proxy for control arm)"
+    },
+    {
+      "metric_id": "plan_to_tenx_handoff",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "plan_to_verified_completion",
+      "value": 0.8830555555555556,
+      "basis": "proxy",
+      "proxy": true,
+      "note": "git: first branch commit → merge (PLAN proxy for control arm) (verified-completion proxy)"
+    },
+    {
+      "metric_id": "recovery_time",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "requirement_to_plan",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "retry_rate",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "unattended_runtime",
+      "basis": "not-measurable"
+    },
+    {
+      "metric_id": "unauthorized_actions",
+      "basis": "not-measurable"
+    }
+  ],
+  "git": {
+    "merge_ref": "c31ceb2f81fd5de216852ef18abf686af49bf8c9",
+    "branch_base": "e84fb3165c913acc6eecce06793883903bfbed9f",
+    "branch_tip": "bee1927ad8f27f2ed27be33c22524dfc8989b623",
+    "first_commit_at": "2026-07-28T09:13:43Z",
+    "first_commit_sha": "3a206d1eff3d92f6195c85eb8772dff6498f54dd",
+    "merged_at": "2026-07-28T10:06:42Z",
+    "files_changed": 95
+  }
+}

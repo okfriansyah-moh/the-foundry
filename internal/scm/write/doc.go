@@ -19,8 +19,8 @@
 // out to) that atomically rejects the push if the remote ref has moved,
 // not a client-side comparison against a value read earlier.
 //
-// Secrets: Task 35 (FND-16) has not landed yet, so authentication uses the
-// documented stub TokenSource/EnvTokenSource in secrets.go (an environment
-// variable) behind an interface, so Task 35's real secrets-backed
-// implementation can replace it later without any change to Pusher.
+// Secrets: authentication uses TokenSource/EnvTokenSource in secrets.go
+// (environment variable) and SecretsTokenSource (internal/secrets.Store via
+// Task 35 / Task 137) behind interfaces so production wiring can select the
+// right source per profile without changing Pusher.
 package write

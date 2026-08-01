@@ -3,19 +3,28 @@ package write
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/ledger/extops"
 )
 
-// BitbucketPusher emulates compare-and-swap semantics for Bitbucket Cloud via
-// fetch/verify/push/post-verify under the same lease discipline the GitHub
-// adapter uses.
+// BitbucketPusher performs the same Task 27 push protocol as Pusher
+// (lease → server-side CAS via shared push() → extops receipt → release),
+// authenticated for Bitbucket Cloud. Authentication username is owned by
+// this adapter (ProviderBitbucket → "x-token-auth"), never sniffed from
+// the remote URL (docs/PLAN.md Task 137).
+//
+// decision (Task 137 step 7): the previous client-side pre-push head check
+// and post-push re-list were removed. Shared push()'s RequireRemoteRefs +
+// non-force refspec already enforces CAS against a fresh remote
+// advertisement at push time; the extra list round-trips duplicated that
+// check client-side without adding a tested guarantee the server-side CAS
+// lacked, and they used the same authFor path that previously hard-coded
+// GitHub's username. Aligning with Pusher keeps one CAS mechanism.
 type BitbucketPusher struct {
 	Leases LeaseAcquirer
 	Ledger Ledger
@@ -68,55 +77,34 @@ func (p *BitbucketPusher) PushBranch(ctx context.Context, req PushRequest) (Rece
 			return Receipt{}, err
 		}
 	}
-	beforeSHA, err := bitbucketRemoteHead(ctx, remote, req.Branch, authToken)
+	receipt, err := push(ctx, remote, req, ProviderBitbucket, authToken)
 	if err != nil {
-		return Receipt{}, err
-	}
-	if beforeSHA != req.ExpectedBase {
-		return Receipt{}, fmt.Errorf("scm/write: bitbucket verify branch %s: expected %q, got %q", req.Branch, req.ExpectedBase, beforeSHA)
-	}
-	if err := repo.FetchContext(ctx, &git.FetchOptions{RemoteName: remote.Config().Name}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return Receipt{}, fmt.Errorf("scm/write: bitbucket fetch before push: %w", err)
-	}
-	if _, err := push(ctx, remote, req, authToken); err != nil {
 		return Receipt{}, fmt.Errorf("scm/write: push %s to %s: %w", req.Branch, remoteIdentity, err)
 	}
-	afterSHA, err := bitbucketRemoteHead(ctx, remote, req.Branch, authToken)
-	if err != nil {
-		return Receipt{}, err
-	}
-	if afterSHA != req.NewSHA {
-		return Receipt{}, fmt.Errorf("scm/write: bitbucket post-push verify branch %s: expected %q, got %q", req.Branch, req.NewSHA, afterSHA)
-	}
-	receipt := Receipt{BeforeSHA: beforeSHA, AfterSHA: afterSHA, URL: bitbucketBranchURL(remoteIdentity, req.Branch)}
+	receipt.URL = bitbucketBranchURL(remoteIdentity, req.Branch)
 	if _, err := p.Ledger.MarkExecuted(ctx, op.ID, receipt); err != nil {
 		return Receipt{}, fmt.Errorf("scm/write: record receipt for %s: %w", target, err)
 	}
 	return receipt, nil
 }
 
-func bitbucketRemoteHead(ctx context.Context, remote *git.Remote, branch, token string) (string, error) {
-	refs, err := remote.ListContext(ctx, &git.ListOptions{Auth: authFor(remoteURL(remote), token)})
-	if err != nil {
-		return "", fmt.Errorf("scm/write: list remote refs for %s: %w", branch, err)
-	}
-	refName := plumbing.NewBranchReferenceName(branch)
-	for _, ref := range refs {
-		if ref.Name() == refName {
-			return ref.Hash().String(), nil
-		}
-	}
-	return "", nil
-}
+// bitbucketHTTPSPattern extracts workspace/repo from an https Bitbucket remote.
+var bitbucketHTTPSPattern = regexp.MustCompile(`^https://bitbucket\.org/([^/]+)/([^/]+?)(\.git)?/?$`)
+
+// bitbucketSSHPattern extracts workspace/repo from an ssh Bitbucket remote.
+var bitbucketSSHPattern = regexp.MustCompile(`^git@bitbucket\.org:([^/]+)/([^/]+?)(\.git)?/?$`)
 
 func bitbucketBranchURL(remoteIdentity, branch string) string {
-	https := strings.TrimSuffix(strings.TrimPrefix(remoteIdentity, "https://bitbucket.org/"), ".git")
-	if https != remoteIdentity {
-		return "https://bitbucket.org/" + https + "/src/" + branch
+	for _, re := range []*regexp.Regexp{bitbucketHTTPSPattern, bitbucketSSHPattern} {
+		if m := re.FindStringSubmatch(remoteIdentity); m != nil {
+			return fmt.Sprintf("https://bitbucket.org/%s/%s/src/%s", m[1], m[2], branch)
+		}
 	}
-	ssh := strings.TrimSuffix(strings.TrimPrefix(remoteIdentity, "git@bitbucket.org:"), ".git")
-	if ssh != remoteIdentity {
-		return "https://bitbucket.org/" + ssh + "/src/" + branch
+	if strings.Contains(remoteIdentity, "bitbucket.org") {
+		https := strings.TrimSuffix(strings.TrimPrefix(remoteIdentity, "https://bitbucket.org/"), ".git")
+		if https != remoteIdentity {
+			return "https://bitbucket.org/" + https + "/src/" + branch
+		}
 	}
 	return remoteIdentity + "@" + branch
 }

@@ -8,22 +8,25 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/secrets"
 )
 
-// TokenSource is the secrets seam Pusher depends on for GitHub
-// authentication. Task 35 (FND-16, "Secrets interface + file backend")
-// will provide the real profile-scoped secrets interface; until then,
-// EnvTokenSource below is the documented stub this task's card calls for
-// ("token comes via a secrets interface; since Task 35 doesn't exist yet,
-// use its own documented stub: read from an env var"). Depending on this
-// interface rather than calling os.Getenv directly from Pusher means
-// swapping in Task 35's real implementation later touches only the
-// wiring that constructs a Pusher, never PushBranch's own logic.
+// TokenSource is the secrets seam Pusher depends on for SCM authentication.
+// Task 35 (FND-16) provides internal/secrets.Store; EnvTokenSource is the
+// documented CI/local fallback, and SecretsTokenSource reads profile-scoped
+// tokens from the store (Task 137). Depending on this interface rather than
+// calling os.Getenv directly from Pusher means swapping implementations
+// touches only the wiring that constructs a Pusher, never PushBranch logic.
 type TokenSource interface {
 	Token(ctx context.Context) (string, error)
 }
 
 // DefaultTokenEnvVar is the environment variable EnvTokenSource reads when
-// its own EnvVar field is left empty.
+// its own EnvVar field is left empty (GitHub path).
 const DefaultTokenEnvVar = "GITHUB_TOKEN"
+
+// BitbucketTokenEnvVar is the environment variable name for a Bitbucket
+// Cloud API token / app password used by BitbucketPusher over HTTP
+// (docs/PLAN.md Task 137). Wire EnvTokenSource{EnvVar: BitbucketTokenEnvVar}
+// — never reuse DefaultTokenEnvVar for Bitbucket.
+const BitbucketTokenEnvVar = "BITBUCKET_API_TOKEN"
 
 // EnvTokenSource reads a GitHub personal access token from an environment
 // variable.
@@ -64,15 +67,20 @@ func (s EnvTokenSource) Token(_ context.Context) (string, error) {
 }
 
 // DefaultTokenSecretName is the secret name SecretsTokenSource reads when
-// its own Name field is left empty.
+// its own Name field is left empty (GitHub path).
 const DefaultTokenSecretName = "github_token"
 
+// DefaultBitbucketTokenSecretName is the secrets-store name for a Bitbucket
+// Cloud token (docs/PLAN.md Task 137). Wire
+// SecretsTokenSource{Name: DefaultBitbucketTokenSecretName}.
+const DefaultBitbucketTokenSecretName = "bitbucket_token"
+
 // SecretsTokenSource reads a GitHub token from internal/secrets.Store —
-// the production default for whichever future task wires Pusher.Tokens
-// (EnvTokenSource above stays the explicit fallback/CI path). Scope is the
-// profile ID the token belongs to (internal/secrets's scope model is
-// profile-bound: see internal/secrets's doc.go); Name defaults to
-// DefaultTokenSecretName when empty.
+// the production default once Task 137 wires Pusher.Tokens (EnvTokenSource
+// above stays the explicit fallback/CI path). Scope is the profile ID the
+// token belongs to (internal/secrets's scope model is profile-bound: see
+// internal/secrets's doc.go); Name defaults to DefaultTokenSecretName when
+// empty.
 //
 // Same least-privilege scope requirement as EnvTokenSource's doc comment
 // (fine-grained PAT, "Contents: Read and write" on the one target repo

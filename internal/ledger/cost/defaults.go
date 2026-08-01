@@ -16,10 +16,11 @@ import (
 // internal/plan.Task (the executable-plan schema internal/plan owns, not
 // this task) has no cost-estimate field today — adding one is a
 // plan-schema change outside this task's Steps. The smallest reversible
-// option is to use this single default for every task now; a future task
-// can add plan.Task.CostEstimateUSD and have ReserveBudget prefer it
-// without changing behavior for plans that don't set it (the same pattern
-// internal/kernel/workflow.go's defaultTaskTimeout decision already uses).
+// option is to use this single default for every task now; a later plan-
+// schema task can add plan.Task.CostEstimateUSD and have ReserveBudget
+// prefer it without changing behavior for plans that don't set it (the same
+// pattern internal/kernel/workflow.go's defaultTaskTimeout decision already
+// uses).
 type Defaults struct {
 	DefaultUSD float64 `yaml:"default_usd"`
 }

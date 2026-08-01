@@ -1,7 +1,7 @@
 COMPOSE := docker compose -f deploy/docker-compose.yaml
 RUN := $(COMPOSE) run --rm dev
 
-.PHONY: bootstrap up down doctor test lint fitness fitness-tenx fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status drill-brownout backup restore drill-backup-restore m1-exit chaos soak-fairness alerts-drill redteam dr-drill soak-telegram release-dryrun upgrade-drill soak-72h soak-learning
+.PHONY: bootstrap up down doctor test lint fitness fitness-tenx fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-bitbucket e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status bench-baseline bench-foundry drill-brownout backup restore drill-backup-restore m1-exit chaos soak-fairness alerts-drill redteam dr-drill soak-telegram release-dryrun upgrade-drill soak-72h soak-learning
 
 bootstrap:
 	$(COMPOSE) build dev
@@ -95,8 +95,23 @@ migrate-down:
 migrate-status:
 	$(RUN) go run ./cmd/foundry migrate status
 
+# docs/PLAN.md Task 134 (ACC-01): mine ≥3 control-arm deliveries from git
+# history (B12) and write benchmarks/baseline/** run records + report.
+bench-baseline:
+	$(RUN) go run ./cmd/foundry bench baseline
+
+# docs/PLAN.md Task 135 (ACC-02): compare Foundry arm against recorded baseline.
+bench-foundry:
+	$(RUN) go run ./cmd/foundry bench foundry
+
 e2e-github:
 	$(RUN) bash test/e2e_github.sh
+
+# docs/PLAN.md Task 137 (TX-11): Bitbucket write parity. Local bare-repo
+# contract always runs; real bitbucket.org is gated behind RUN_BITBUCKET_LIVE=1
+# plus SCM_WRITE_TEST_BITBUCKET_* (never auto-run against production remotes).
+e2e-bitbucket:
+	$(RUN) go test ./internal/scm/write/... -count=1 -race -run 'Bitbucket|BackendContract'
 
 e2e-venture:
 	$(RUN) bash test/e2e/venture/run.sh

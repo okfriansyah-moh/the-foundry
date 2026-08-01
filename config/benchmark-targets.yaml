@@ -1,0 +1,27 @@
+# docs/PLAN.md Task 134 (ACC-01): V1 acceptance targets for bounded acceleration
+# evidence. These are targets to be measured — not claims. Task 135 evaluates
+# the Foundry arm against the control baseline recorded here.
+
+version: "bench-targets-v1"
+label: "V1 acceptance targets"
+
+personal:
+  # ≥50% reduction in manual orchestration time vs control baseline
+  manual_orchestration_reduction: 0.50
+  # ≥30% reduction in delivery lead time (PLAN→verified proxy) vs control
+  delivery_lead_time_reduction: 0.30
+  # unauthorized actions must be exactly 0
+  unauthorized_actions_max: 0
+
+tenx:
+  # ≥25% reduction PLAN → branch handoff vs control baseline
+  plan_to_handoff_reduction: 0.25
+  # ≥30% reduction in coordination/reporting time vs control baseline
+  coordination_reporting_reduction: 0.30
+  # unauthorized SCM operations must be exactly 0
+  unauthorized_scm_operations_max: 0
+
+quality_gate:
+  description: "Quality no worse than baseline: defects after handoff, evidence rejection rate, and rework must not regress beyond configured tolerances."
+  max_defect_regression_ratio: 0.0
+  max_evidence_rejection_increase: 0.0

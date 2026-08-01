@@ -1,0 +1,30 @@
+# docs/PLAN.md Task 132 — scheduled/manual venture live proof.
+name: e2e-venture
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "27 5 * * 1"
+
+jobs:
+  venture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Match container UID/GID
+        run: |
+          echo "USER_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "USER_GID=$(id -g)" >> "$GITHUB_ENV"
+      - name: Build + services
+        run: |
+          docker compose -f deploy/docker-compose.yaml build dev
+          docker compose -f deploy/docker-compose.yaml up -d postgres temporal
+      - name: Hermetic venture harness
+        run: make e2e-venture
+      - name: Live venture (optional secrets)
+        if: ${{ secrets.RUN_VENTURE_LIVE_ENABLED == 'true' }}
+        env:
+          RUN_VENTURE_LIVE: "1"
+          PG_DSN: postgres://foundry:foundry@postgres:5432/foundry?sslmode=disable
+          TEMPORAL_HOSTPORT: temporal:7233
+        run: make e2e-venture

@@ -30,6 +30,12 @@ expect_fail "enum lint on test/fitness_seeds/enum" \
 expect_fail "superseded-term lint on test/fitness_seeds/term" \
   "${fitlint_bin}" term test/fitness_seeds/term
 
+expect_fail "stale future-task comment lint on test/fitness_seeds/stale_task_comment" \
+  "${fitlint_bin}" stale-task-comment test/fitness_seeds/stale_task_comment
+
+expect_fail "test source-tree write lint on test/fitness_seeds/test_source_write" \
+  "${fitlint_bin}" test-source-write test/fitness_seeds/test_source_write
+
 expect_fail "stdlib-only import boundary on test/fitness_seeds/import_stdlib/state" \
   bash scripts/check_stdlib_only.sh ./test/fitness_seeds/import_stdlib/state
 

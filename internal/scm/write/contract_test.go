@@ -1,5 +1,6 @@
 // docs/PLAN.md Task 62 (TX-09): adapter contract tests — github|bitbucket|localgit.
-// Bitbucket tests are gated with RUN_BITBUCKET=1.
+// Local bare-repo Bitbucket contract runs unconditionally (Task 137); live
+// bitbucket.org is gated in bitbucket_gated_test.go via RUN_BITBUCKET_LIVE=1.
 package write_test
 
 import (
@@ -161,13 +162,16 @@ func TestBackendContract_LocalGit(t *testing.T) {
 		skip    bool
 	}{
 		{name: "github", backend: githubBackend{p: &write.Pusher{Leases: noopLeases{}, Ledger: &memoryLedger{}, Tokens: emptyTokenSource{}}}},
-		{name: "bitbucket", backend: bitbucketBackend{p: &write.BitbucketPusher{Leases: noopLeases{}, Ledger: &memoryLedger{}, Tokens: emptyTokenSource{}}}, skip: os.Getenv("RUN_BITBUCKET") == ""},
+		// Local bare-repo contract runs unconditionally (Task 137). Real
+		// Bitbucket.org reaches are gated in bitbucket_gated_test.go via
+		// RUN_BITBUCKET_LIVE=1 — not this local-fixture path.
+		{name: "bitbucket", backend: bitbucketBackend{p: &write.BitbucketPusher{Leases: noopLeases{}, Ledger: &memoryLedger{}, Tokens: emptyTokenSource{}}}},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.skip {
-				t.Skip("RUN_BITBUCKET=1 not set")
+				t.Skip("skipped")
 			}
 			if err := tc.backend.Mirror(ctx, remoteBare, mirrorPath+tc.name); err != nil {
 				t.Fatalf("mirror: %v", err)

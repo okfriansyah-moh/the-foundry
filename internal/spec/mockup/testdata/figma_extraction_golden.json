@@ -1,0 +1,199 @@
+{
+  "items": [
+    {
+      "stage": "screen-components",
+      "text": "component: Email Field",
+      "section": "components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:component:comp-email"
+    },
+    {
+      "stage": "screen-components",
+      "text": "component: Card Number Field",
+      "section": "components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:component:comp-card"
+    },
+    {
+      "stage": "screen-components",
+      "text": "FRAME: Login Screen",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:2"
+    },
+    {
+      "stage": "user-flow",
+      "text": "flow edge: Login Screen → 1:5",
+      "section": "user-flow",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:edge:1:2-\u003e1:5"
+    },
+    {
+      "stage": "screen-components",
+      "text": "COMPONENT: Email Field",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:3"
+    },
+    {
+      "stage": "a11y",
+      "text": "a11y: Email address input",
+      "section": "a11y",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:3"
+    },
+    {
+      "stage": "screen-components",
+      "text": "INSTANCE: Sign In Button",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:4"
+    },
+    {
+      "stage": "user-flow",
+      "text": "flow edge: Sign In Button → 1:5",
+      "section": "user-flow",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:edge:1:4-\u003e1:5"
+    },
+    {
+      "stage": "screen-components",
+      "text": "FRAME: Payment Screen",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:5"
+    },
+    {
+      "stage": "screen-components",
+      "text": "COMPONENT: Card Number Field",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:6"
+    },
+    {
+      "stage": "a11y",
+      "text": "a11y: Credit card number",
+      "section": "a11y",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:6"
+    },
+    {
+      "stage": "user-flow",
+      "text": "flow start: Login Entry",
+      "section": "user-flow",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "figma:node:1:2"
+    }
+  ],
+  "high_impact_unresolved": [],
+  "seed_requirements": [
+    {
+      "id": "figma-1",
+      "section": "components",
+      "text": "component: Email Field",
+      "label": "Observed",
+      "basis": "figma:component:comp-email",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-2",
+      "section": "components",
+      "text": "component: Card Number Field",
+      "label": "Observed",
+      "basis": "figma:component:comp-card",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-3",
+      "section": "screen-components",
+      "text": "FRAME: Login Screen",
+      "label": "Observed",
+      "basis": "figma:node:1:2",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-4",
+      "section": "user-flow",
+      "text": "flow edge: Login Screen → 1:5",
+      "label": "Observed",
+      "basis": "figma:edge:1:2-\u003e1:5",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-5",
+      "section": "screen-components",
+      "text": "COMPONENT: Email Field",
+      "label": "Observed",
+      "basis": "figma:node:1:3",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-6",
+      "section": "a11y",
+      "text": "a11y: Email address input",
+      "label": "Observed",
+      "basis": "figma:node:1:3",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-7",
+      "section": "screen-components",
+      "text": "INSTANCE: Sign In Button",
+      "label": "Observed",
+      "basis": "figma:node:1:4",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-8",
+      "section": "user-flow",
+      "text": "flow edge: Sign In Button → 1:5",
+      "label": "Observed",
+      "basis": "figma:edge:1:4-\u003e1:5",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-9",
+      "section": "screen-components",
+      "text": "FRAME: Payment Screen",
+      "label": "Observed",
+      "basis": "figma:node:1:5",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-10",
+      "section": "screen-components",
+      "text": "COMPONENT: Card Number Field",
+      "label": "Observed",
+      "basis": "figma:node:1:6",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-11",
+      "section": "a11y",
+      "text": "a11y: Credit card number",
+      "label": "Observed",
+      "basis": "figma:node:1:6",
+      "impact": "medium"
+    },
+    {
+      "id": "figma-12",
+      "section": "user-flow",
+      "text": "flow start: Login Entry",
+      "label": "Observed",
+      "basis": "figma:node:1:2",
+      "impact": "medium"
+    }
+  ]
+}

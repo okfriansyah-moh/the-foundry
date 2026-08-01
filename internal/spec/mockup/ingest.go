@@ -9,7 +9,32 @@ import (
 	"time"
 )
 
-const RetentionRoot = "data/visual-inputs"
+// retentionRootOverride, when non-empty, is the directory Ingest writes under.
+// Tests must set this to t.TempDir() via SetRetentionRoot; production callers
+// rely on the default absolute path under data/visual-inputs.
+var retentionRootOverride string
+
+// SetRetentionRoot configures where Ingest stores visual-input artifacts.
+// Only tests should call this — always pass t.TempDir() (docs/PLAN.md Task 131).
+func SetRetentionRoot(root string) {
+	retentionRootOverride = root
+}
+
+// RetentionRoot returns the absolute visual-inputs retention directory.
+func RetentionRoot() string {
+	if retentionRootOverride != "" {
+		abs, err := filepath.Abs(retentionRootOverride)
+		if err != nil {
+			return retentionRootOverride
+		}
+		return abs
+	}
+	abs, err := filepath.Abs(filepath.Join("data", "visual-inputs"))
+	if err != nil {
+		return filepath.Join("data", "visual-inputs")
+	}
+	return abs
+}
 
 type Artifact struct {
 	ID        string    `json:"id"`
@@ -28,11 +53,12 @@ func Ingest(name, mediaType string, content []byte, now time.Time) (Artifact, er
 	if safeName == "" || safeName == "." || safeName == ".." {
 		return Artifact{}, fmt.Errorf("mockup ingest: invalid name %q", name)
 	}
-	if err := os.MkdirAll(RetentionRoot, 0o755); err != nil {
+	root := RetentionRoot()
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		return Artifact{}, fmt.Errorf("mockup ingest: mkdir retention root: %w", err)
 	}
 	id := fmt.Sprintf("visual-%d", now.UTC().UnixNano())
-	dir := filepath.Join(RetentionRoot, id)
+	dir := filepath.Join(root, id)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Artifact{}, fmt.Errorf("mockup ingest: mkdir artifact dir: %w", err)
 	}

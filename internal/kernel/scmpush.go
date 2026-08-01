@@ -9,21 +9,14 @@ import (
 
 // scmpush.go is the one file in this repository permitted to import
 // internal/scm/write (Constitution C4; docs/PLAN.md Task 27/FND-08). Task
-// 28's fitlint rule will make this compile-time-enforced; until then this
-// package is simply, in fact, the only importer (bash scripts/
-// check_scm_boundary.sh's current text-match check already covers the
-// pre-split internal/scm import path — see internal/scm/write/doc.go).
+// 28's fitlint authority rule enforces this compile-time (Constitution C4).
 //
-// PushBranch below is exposed as a standalone function in this package —
-// the same shape as WithExternalOp in externalop.go — rather than as a
-// method wired into Activities/DeliverPlan's per-task loop. Task 27's
-// Steps require the push protocol itself plus a demonstrable local-fixture
-// e2e proof (`make e2e-github`), not full workflow-loop integration:
-// branch delivery policy selection (docs/foundry/docs/workflows/
-// multi-repository.md N10.2 — pull-request / direct-shared-branch /
-// no-remote-write) is a distinct, not-yet-built concern. A future task can
-// wire an Activities.PushBranch method around this function once that
-// policy selection exists, without changing anything here.
+// PushBranch below is the sole permitted internal/scm/write call site
+// (Constitution C4). Task 108's TenXDeliver workflow reaches it through
+// Activities.IntegrateChangeSet after SelectBranchDeliveryPolicy resolves
+// the org policy (docs/foundry/docs/workflows/multi-repository.md §N10.2).
+// DeliverPlan's per-task loop does not call it directly — venture delivery
+// uses a different terminal path.
 
 // leaseAdapter adapts this package's LeaseStore (whose Acquire returns a
 // Lease struct) to internal/scm/write.LeaseAcquirer's (token string,

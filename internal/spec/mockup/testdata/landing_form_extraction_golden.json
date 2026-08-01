@@ -1,0 +1,61 @@
+{
+  "items": [
+    {
+      "stage": "screen-components",
+      "text": "Landing headline and signup form are visible",
+      "section": "responsive",
+      "label": "Observed",
+      "confidence": 0.97
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "Auth may be required for account dashboard",
+      "section": "authentication",
+      "label": "Inferred",
+      "confidence": 0.78
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "Billing plan checkout might be needed",
+      "section": "billing",
+      "label": "Unresolved",
+      "confidence": 0.62
+    }
+  ],
+  "high_impact_unresolved": [
+    {
+      "id": "mockup-3",
+      "section": "billing",
+      "text": "Billing plan checkout might be needed",
+      "label": "Unresolved",
+      "basis": "vision:backend-data-api-inference",
+      "impact": "high"
+    }
+  ],
+  "seed_requirements": [
+    {
+      "id": "mockup-1",
+      "section": "responsive",
+      "text": "Landing headline and signup form are visible",
+      "label": "Observed",
+      "basis": "vision:screen-components",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-2",
+      "section": "authentication",
+      "text": "Auth may be required for account dashboard",
+      "label": "Inferred",
+      "basis": "vision:backend-data-api-inference",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-3",
+      "section": "billing",
+      "text": "Billing plan checkout might be needed",
+      "label": "Unresolved",
+      "basis": "vision:backend-data-api-inference",
+      "impact": "high"
+    }
+  ]
+}

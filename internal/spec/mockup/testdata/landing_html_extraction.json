@@ -1,0 +1,198 @@
+{
+  "items": [
+    {
+      "stage": "screen-components",
+      "text": "screen: Welcome to Delivery Foundry",
+      "section": "responsive",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eh1"
+    },
+    {
+      "stage": "screen-components",
+      "text": "screen: Ship faster with evidence",
+      "section": "responsive",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eh2"
+    },
+    {
+      "stage": "screen-components",
+      "text": "form action=/signup method=post",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eform"
+    },
+    {
+      "stage": "user-flow",
+      "text": "flow edge: form → /signup",
+      "section": "user-flow",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eform:action"
+    },
+    {
+      "stage": "backend-data-api-inference",
+      "text": "backend endpoint may handle /signup",
+      "section": "apis",
+      "label": "Inferred",
+      "confidence": 0.75
+    },
+    {
+      "stage": "a11y",
+      "text": "a11y: Email",
+      "section": "a11y",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eform\u003elabel"
+    },
+    {
+      "stage": "screen-components",
+      "text": "input email type=email",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eform\u003einput"
+    },
+    {
+      "stage": "a11y",
+      "text": "a11y: aria-label=Email address",
+      "section": "a11y",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eform\u003einput:aria-label"
+    },
+    {
+      "stage": "screen-components",
+      "text": "button: Sign Up",
+      "section": "screen-components",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eform\u003ebutton"
+    },
+    {
+      "stage": "user-flow",
+      "text": "flow edge: link → /pricing",
+      "section": "user-flow",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003ea"
+    },
+    {
+      "stage": "user-flow",
+      "text": "flow edge: link → /dashboard",
+      "section": "user-flow",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003ea"
+    },
+    {
+      "stage": "a11y",
+      "text": "a11y: Product hero image",
+      "section": "a11y",
+      "label": "Observed",
+      "confidence": 1,
+      "node_ref": "html:html\u003ebody\u003eimg"
+    }
+  ],
+  "high_impact_unresolved": [],
+  "seed_requirements": [
+    {
+      "id": "mockup-1",
+      "section": "responsive",
+      "text": "screen: Welcome to Delivery Foundry",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eh1",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-2",
+      "section": "responsive",
+      "text": "screen: Ship faster with evidence",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eh2",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-3",
+      "section": "screen-components",
+      "text": "form action=/signup method=post",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eform",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-4",
+      "section": "user-flow",
+      "text": "flow edge: form → /signup",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eform:action",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-5",
+      "section": "apis",
+      "text": "backend endpoint may handle /signup",
+      "label": "Inferred",
+      "basis": "vision:backend-data-api-inference",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-6",
+      "section": "a11y",
+      "text": "a11y: Email",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eform\u003elabel",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-7",
+      "section": "screen-components",
+      "text": "input email type=email",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eform\u003einput",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-8",
+      "section": "a11y",
+      "text": "a11y: aria-label=Email address",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eform\u003einput:aria-label",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-9",
+      "section": "screen-components",
+      "text": "button: Sign Up",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eform\u003ebutton",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-10",
+      "section": "user-flow",
+      "text": "flow edge: link → /pricing",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003ea",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-11",
+      "section": "user-flow",
+      "text": "flow edge: link → /dashboard",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003ea",
+      "impact": "medium"
+    },
+    {
+      "id": "mockup-12",
+      "section": "a11y",
+      "text": "a11y: Product hero image",
+      "label": "Observed",
+      "basis": "html:html\u003ebody\u003eimg",
+      "impact": "medium"
+    }
+  ]
+}

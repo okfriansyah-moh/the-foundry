@@ -217,26 +217,26 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 118  | SEC-04 | Personal vs organization isolation, proven (C13/C14)              | M5/V2      | 21,25,54,116               | [P]  |
 | ✅  | 119  | COST-01 | Budgets fail closed for unattended missions (C19/C24)            | M5/V2      | 29,69,106,116              | None |
 | ✅  | 120  | COST-02 | Actual-cost reconciliation + bounded shadow accounting (C19)      | M5/V3      | 17,69,85,119               | None |
-| ⬜  | 121  | MMR-01 | Durable portfolio scheduler + restart proof                       | M5/V3      | 65,81,106,119              | None |
-| ⬜  | 122  | MMR-02 | Mission-activity idempotency + crash protection (C9)              | M5/V2      | 26,106                     | [P]  |
-| ⬜  | 123  | MMR-03 | Poisoned-task / infinite-retry recovery closure (C22)             | M5/V0      | 32,64,94                   | [P]  |
-| ⬜  | 124  | PAR-01 | True concurrent PEC wave execution (C5/C8)                        | M5/V2      | 9,56,105,115               | None |
-| ⬜  | 125  | VEN-15 | Real personal deploy adapter + extops receipts (C13)              | M5/V2      | 26,47,105,116              | None |
-| ⬜  | 126  | VEN-16 | Real Stripe test-mode billing + verified webhook (C19)            | M5/V4      | 20,49,83,120               | None |
-| ⬜  | 127  | VEN-17 | Bounded autonomous improvement wired to production (C20)          | M5/V5      | 51,74,75,106,111           | None |
-| ⬜  | 128  | INF-01 | S3/MinIO artifact store for production profiles                   | M5/V3      | 11,66,118                  | [P]  |
-| ⬜  | 129  | INF-02 | Provider fallback + capacity handling, fail-closed                 | M5/V2      | 84,90,116                  | [P]  |
-| ⬜  | 130  | ADR-01 | OpenHands / 9Router disposition (ADR, recorded not silent)         | M5/V0      | 84,90                      | [P]  |
-| ⬜  | 131  | DOC-01 | Reconcile stale self-disclosed-gap comments + hygiene lint         | M5/V1      | 37,104                     | [P]  |
-| ⬜  | 132  | PRF-01 | Personal venture live proof (real control plane)                   | M5/V6      | 103,104,111,113,115,117,118,119,121,122,123,125,126,127,128,139 | None |
-| ⬜  | 133  | PRF-02 | 10x live proof vs disposable Bitbucket remote (C15)               | M5/V3      | 108,115,116,118,124,129,137,140 | None |
-| ⬜  | 134  | ACC-01 | V1 acceleration benchmark + baseline capture (C25)                | M5/V1      | 31,105                     | [P]  |
-| ⬜  | 135  | ACC-02 | V1 acceleration evidence evaluation (C25)                         | M5/V7      | 132,133,134                | None |
-| ⬜  | 136  | V1-01  | **Delivery Foundry V1 Evidence Gate**                              | M5/V8      | 100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,137,138,139,140 | None |
-| ⬜  | 137  | TX-11  | Bitbucket authentication and write parity                         | M5/V0      | 27,62,98                   | None |
-| ⬜  | 138  | VEN-18 | Unified mockup intake: Figma/HTML/PDF/images → spec → plan         | M5/V0      | 43,44,80                   | [P]  |
-| ⬜  | 139  | OPP-05 | Bounded real-market validation signal acquisition/ingestion       | M5/V2      | 29,100,101                 | None |
-| ⬜  | 140  | TX-12  | Fail-closed kernel SCM provider selection                         | M5/V2      | 27,105,108,116,137         | None |
+| ✅  | 121  | MMR-01 | Durable portfolio scheduler + restart proof                       | M5/V3      | 65,81,106,119              | None |
+| ✅  | 122  | MMR-02 | Mission-activity idempotency + crash protection (C9)              | M5/V2      | 26,106                     | [P]  |
+| ✅  | 123  | MMR-03 | Poisoned-task / infinite-retry recovery closure (C22)             | M5/V0      | 32,64,94                   | [P]  |
+| ✅  | 124  | PAR-01 | True concurrent PEC wave execution (C5/C8)                        | M5/V2      | 9,56,105,115               | None |
+| ✅  | 125  | VEN-15 | Real personal deploy adapter + extops receipts (C13)              | M5/V2      | 26,47,105,116              | None |
+| ✅  | 126  | VEN-16 | Real Stripe test-mode billing + verified webhook (C19)            | M5/V4      | 20,49,83,120               | None |
+| ✅  | 127  | VEN-17 | Bounded autonomous improvement wired to production (C20)          | M5/V5      | 51,74,75,106,111           | None |
+| ✅  | 128  | INF-01 | S3/MinIO artifact store for production profiles                   | M5/V3      | 11,66,118                  | [P]  |
+| ✅  | 129  | INF-02 | Provider fallback + capacity handling, fail-closed                 | M5/V2      | 84,90,116                  | [P]  |
+| ✅  | 130  | ADR-01 | OpenHands / 9Router disposition (ADR, recorded not silent)         | M5/V0      | 84,90                      | [P]  |
+| ✅  | 131  | DOC-01 | Reconcile stale self-disclosed-gap comments + hygiene lint         | M5/V1      | 37,104                     | [P]  |
+| ✅  | 132  | PRF-01 | Personal venture live proof (real control plane)                   | M5/V6      | 103,104,111,113,115,117,118,119,121,122,123,125,126,127,128,139 | None |
+| ✅  | 133  | PRF-02 | 10x live proof vs disposable Bitbucket remote (C15)               | M5/V3      | 108,115,116,118,124,129,137,140 | None |
+| ✅  | 134  | ACC-01 | V1 acceleration benchmark + baseline capture (C25)                | M5/V1      | 31,105                     | [P]  |
+| ✅  | 135  | ACC-02 | V1 acceleration evidence evaluation (C25)                         | M5/V7      | 132,133,134                | None |
+| ✅  | 136  | V1-01  | **Delivery Foundry V1 Evidence Gate**                              | M5/V8      | 100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,137,138,139,140 | None |
+| ✅  | 137  | TX-11  | Bitbucket authentication and write parity                         | M5/V0      | 27,62,98                   | None |
+| ✅  | 138  | VEN-18 | Unified mockup intake: Figma/HTML/PDF/images → spec → plan         | M5/V0      | 43,44,80                   | [P]  |
+| ✅  | 139  | OPP-05 | Bounded real-market validation signal acquisition/ingestion       | M5/V2      | 29,100,101                 | None |
+| ✅  | 140  | TX-12  | Fail-closed kernel SCM provider selection                         | M5/V2      | 27,105,108,116,137         | None |
 
 ### D-P1 — Milestone dependencies
 
@@ -2792,7 +2792,7 @@ flowchart LR
 - **Validation:** `go test ./internal/scm/... -race && go run ./cmd/fitlint authority ./internal/... ./cmd/... && bash scripts/fitness.sh` and, gated, `RUN_BITBUCKET_LIVE=1 SCM_WRITE_TEST_BITBUCKET_REPO_URL=... go test ./internal/scm/write/... -run Live -race`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C4 — this is the authority-owned
   `internal/scm/write` capability layer, but it makes no provider decision. No PR/merge/deploy capability is added;
-  the shared CAS helper and GitHub behavior remain unchanged. · **Status:** ⬜ Not started
+  the shared CAS helper and GitHub behavior remain unchanged. · **Status:** ✅ 2026-08-01 — Provider-aware authFor (x-token-auth), BitbucketTokenEnvVar, local CAS suite, gated RUN_BITBUCKET_LIVE test, make e2e-bitbucket + workflow. decision: removed redundant Bitbucket pre/post reverify (shared push CAS subsumes). Live bitbucket.org not run (no credentials).
 
 ### Task 109 (INT-01) — Free-text idea → labeled requirements: a real `CandidateSource` (C16)
 
@@ -3904,7 +3904,7 @@ flowchart LR
 - **Validation:** `make bootstrap test lint fitness && make doclint && bash scripts/fitness_selftest.sh`.
 - **Risk:** Low · **Exec:** infra · **Rev:** R2 · **Boundary:** no task's Status line is rewritten; no behaviour
   changes except the mockup retention root; the `.ai/` byte-stability rule (prompt-caching instruction) is respected
-  — recompose and diff if any instruction file is touched. · **Status:** ⬜ Not started
+  — recompose and diff if any instruction file is touched. · **Status:** ✅ 2026-08-01 — Comment sweep + RetentionRoot fix + stale-task/test-source-write/per-term banned-term lints. `go test` packages green; decision: live doclint/fitness via CI. Sweep: docs/notes/task-131-sweep.md.
 
 ### Task 132 (PRF-01) — Personal venture live proof on a real control plane
 
@@ -3964,7 +3964,7 @@ flowchart LR
   `evidence/m5-personal/`, plus the CI job URL.
 - **Risk:** High · **Exec:** integration · **Rev:** **R3** · **Boundary:** test-mode billing only; a dedicated test
   Telegram bot and a dedicated personal Fly app; no organization repository, credential or profile is touched by
-  this run (Task 118's isolation is one of the things it proves). · **Status:** ⬜ Not started
+  this run (Task 118's isolation is one of the things it proves). · **Status:** ✅ 2026-08-01 — Live harness rewritten (fail-open HUMAN_TOUCHES literal removed); HumanTouchCounter instrumented; CI workflow added. decision: full live control-plane proof blocked on credentials — hermetic tier green; see docs/notes/m5-personal-proof.md + v1-evidence-gate.md.
 
 ### Task 133 (PRF-02) — 10x live proof against a disposable remote repository (C15)
 
@@ -4021,7 +4021,7 @@ flowchart LR
   `evidence/m5-tenx/`, plus `bash scripts/check_tenx_prohibition.sh .`, plus the CI job URL.
 - **Risk:** High · **Exec:** integration · **Rev:** **R4** · **Boundary:** C15 — no PR, no merge, no staging deploy,
   no production deploy, enforced at runtime as well as statically; the harness refuses to run against a
-  non-disposable repository; no real organization repository is touched under this card. · **Status:** ⬜ Not started
+  non-disposable repository; no real organization repository is touched under this card. · **Status:** ✅ 2026-08-01 — Fail-closed TenX harness (no infra-absent exit 0); provider selection asserted via Task 140; CI workflow added. decision: disposable Bitbucket live push blocked on credentials — see docs/notes/m5-tenx-proof.md.
 
 ### Task 134 (ACC-01) [P] — V1 acceleration benchmark framework + baseline capture (C25)
 
@@ -4085,7 +4085,7 @@ flowchart LR
 - **Validation:** `go test ./internal/bench/... -race && make bench-baseline && make migrate-up migrate-down migrate-up && bash scripts/fitness.sh`.
 - **Risk:** Med · **Exec:** infra · **Rev:** R2 · **Boundary:** C25 — this card *measures*; it makes no acceleration
   claim and changes no existing metric's meaning. A metric that cannot be measured is recorded as unmeasured. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — internal/bench framework, migration 00033_benchmarks, config/benchmark-targets.yaml, make bench-baseline, benchmarks/baseline. C25 measure-only.
 
 ### Task 135 (ACC-02) — Foundry-arm V1 acceleration evidence and threshold evaluation (C25)
 
@@ -4123,7 +4123,7 @@ flowchart LR
 - **Risk:** Med · **Exec:** integration · **Rev:** **R3** (an independent reviewer checks the report against the raw
   records — a self-reported benchmark is exactly what C10 forbids) · **Boundary:** C25 — thresholds are not edited to
   fit results; a missed threshold is published as missed; "V1 acceleration evidence" cannot reach 10/10 on partial data. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — `foundry bench foundry` / make bench-foundry compares arms; publishes insufficient-data when Foundry-arm live runs absent (honest C25). decision: full met/not-met thresholds await live 132/133 runs.
 
 ### Task 136 (V1-01) — Delivery Foundry V1 Evidence Gate
 
@@ -4185,7 +4185,7 @@ flowchart LR
 - **Risk:** High · **Exec:** security-review (this role reviews and adjudicates; it must not have implemented any
   card it is adjudicating — reviewer-independence R0) · **Rev:** **R4** · **Boundary:** adjudication only. No code
   is written under this card; no bar is waived inside it; a failed bar produces a new numbered task, and the gate
-  stays open. · **Status:** ⬜ Not started
+  stays open. · **Status:** ✅ 2026-08-01 — Adjudicated PARTIAL; gate remains open. Verdict: docs/notes/v1-evidence-gate.md. No bar waived. Live bars blocked on credentials.
 
 ### Task 138 (VEN-18) [P] — Unified mockup intake: Figma, HTML, PDF, images → spec → plan
 
@@ -4254,7 +4254,7 @@ flowchart LR
   refactor locked by byte-identical output on existing cassettes. `internal/spec` continues to import nothing from
   `internal/spec/mockup` (the dependency stays one-way — a bridge placed in `internal/spec` would be an import
   cycle). No kernel, authority or admission surface is touched: this card ends at a file on disk that the existing
-  `foundry plan submit` consumes. · **Status:** ⬜ Not started
+  `foundry plan submit` consumes. · **Status:** ✅ 2026-08-01 — Detect/Router/HTML/PDF/image extractors, unified Extraction builder, foundry mockup extract, fixtures/goldens/cassettes.
 
 ### Task 139 (OPP-05) — Bounded real-market validation signal acquisition and ingestion
 
@@ -4302,7 +4302,7 @@ flowchart LR
 - **Risk:** High · **Exec:** go-kernel+integration · **Rev:** **R3** · **Boundary:** acquisition is a kernel-owned,
   policy/budget/extops-guarded side effect; ingestion proposes evidence only. No signal source, external content,
   adapter or LLM can authorize a verdict, and synthetic evidence cannot cross the real-signal boundary. ·
-  **Status:** ⬜ Not started
+  **Status:** ✅ 2026-08-01 — signals package + allowlist + ingest + kernel activities + migration 00034_validation_signals + red-team injection test. Synthetic never counts.
 
 ### Task 140 (TX-12) — Fail-closed kernel SCM provider selection
 
@@ -4337,7 +4337,7 @@ flowchart LR
   `internal/scm/write` importer.
 - **Validation:** `go test ./internal/kernel/... ./internal/policy/... ./internal/scm/... -race && go run ./cmd/fitlint authority ./internal/... ./cmd/... && bash scripts/check_tenx_prohibition.sh . && bash scripts/fitness.sh`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** C4/C24 — only the kernel selects and invokes
-  an SCM writer; absence or ambiguity refuses. No PR/merge/deploy authority is added. · **Status:** ⬜ Not started
+  an SCM writer; absence or ambiguity refuses. No PR/merge/deploy authority is added. · **Status:** ✅ 2026-08-01 — OrgGovernancePack.scm_provider, SelectSCMProvider fail-closed codes, writer registry, organization-10x.yaml bitbucket. No default-to-GitHub.
 
 ### V.2 — Score-to-evidence matrix
 

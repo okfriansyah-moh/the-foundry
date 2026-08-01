@@ -11,14 +11,9 @@
 // consumes, not implements: a live Postgres/Temporal-backed
 // ProjectionSource/WorkflowController is deliberately out of this task's
 // Outputs (`internal/recovery/{supervisor.go,retrypolicy.go,blocked.go}`;
-// no migration and no cmd/foundryd wiring is named) and is left to
-// whichever future task wires a running supervisor daemon into foundryd —
-// writing that wiring blind, with no live Temporal/Postgres available to
-// verify it against in this session, would be shipping unverified
-// authority code, which this task's own R3 tier exists to prevent.
-// Notifier is the one exception: it is satisfied directly by
-// *internal/notify.Engine (Task 30), which already exists and already
-// exports a matching Ingest method — no adapter needed.
+// no migration and no cmd/foundryd wiring is named) and was delivered in
+// Task 94 (PostgresProjectionSource + foundryd supervisor loop). Notifier
+// is satisfied directly by *internal/notify.Engine (Task 30).
 package recovery
 
 import (

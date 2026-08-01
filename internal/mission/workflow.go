@@ -44,10 +44,10 @@ const (
 	// DeliverPlan.
 	SignalResumeMission = "mission-resume"
 	// SignalTriggerDelivery carries a kernel.DeliverPlanInput: the seam by
-	// which a future task (Tasks 41-44's ceremony/spec-synthesis/plan-
-	// generation pipeline, none of which exist yet) queues one product
-	// delivery cycle. MissionLoop's own job stops at orchestrating this
-	// call -- it makes no decision about what to deliver or whether to.
+	// which the ceremony/spec-synthesis/plan-generation pipeline (Tasks
+	// 41–44) queues one product delivery cycle. MissionLoop's own job stops
+	// at orchestrating this call — it makes no decision about what to
+	// deliver or whether to.
 	SignalTriggerDelivery = "mission-trigger-delivery"
 	// SignalManualPause is `foundry mission pause`'s signal: an operator-
 	// initiated pause independent of any automatic pause_when trigger.

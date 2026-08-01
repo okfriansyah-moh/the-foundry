@@ -1,0 +1,32 @@
+# docs/PLAN.md Task 133 — scheduled/manual 10x live proof.
+name: e2e-tenx
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 5 * * 1"
+
+jobs:
+  tenx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Match container UID/GID
+        run: |
+          echo "USER_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "USER_GID=$(id -g)" >> "$GITHUB_ENV"
+      - name: Build + services
+        run: |
+          docker compose -f deploy/docker-compose.yaml build dev
+          docker compose -f deploy/docker-compose.yaml up -d postgres temporal
+      - name: TenX harness (fail-closed when infra absent)
+        run: make e2e-tenx
+      - name: Live disposable Bitbucket (optional secrets)
+        if: ${{ secrets.BITBUCKET_API_TOKEN != '' && secrets.SCM_WRITE_TEST_BITBUCKET_REPO_URL != '' }}
+        env:
+          RUN_TENX_LIVE: "1"
+          FOUNDRY_TENX_DISPOSABLE: "1"
+          BITBUCKET_API_TOKEN: ${{ secrets.BITBUCKET_API_TOKEN }}
+          SCM_WRITE_TEST_BITBUCKET_REPO_URL: ${{ secrets.SCM_WRITE_TEST_BITBUCKET_REPO_URL }}
+          SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH: ${{ secrets.SCM_WRITE_TEST_BITBUCKET_BASE_BRANCH }}
+        run: make e2e-tenx

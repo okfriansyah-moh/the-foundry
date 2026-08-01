@@ -205,7 +205,7 @@ func (p *Pusher) PushBranch(ctx context.Context, req PushRequest) (Receipt, erro
 		}
 	}
 
-	receipt, err := push(ctx, remote, req, ghToken)
+	receipt, err := push(ctx, remote, req, ProviderGitHub, ghToken)
 	if err != nil {
 		// The push did not land: leave the ledger op reserved so a retry
 		// with the same idempotency key tries again, rather than
@@ -220,6 +220,18 @@ func (p *Pusher) PushBranch(ctx context.Context, req PushRequest) (Receipt, erro
 	return receipt, nil
 }
 
+// Provider is the adapter-owned SCM provider identity used for
+// authentication username selection. Callers never sniff a remote URL to
+// decide provider — each Pusher/BitbucketPusher owns its Provider constant
+// (docs/PLAN.md Task 137). Provider selection for a given repository is a
+// kernel/policy concern (Task 140), not this package's.
+type Provider string
+
+const (
+	ProviderGitHub    Provider = "github"
+	ProviderBitbucket Provider = "bitbucket"
+)
+
 // push performs the actual git push. Force is intentionally never set on
 // the returned git.PushOptions — see doc.go's Boundary paragraph. CAS is
 // instead enforced via RequireRemoteRefs (when ExpectedBase is non-empty)
@@ -228,7 +240,7 @@ func (p *Pusher) PushBranch(ctx context.Context, req PushRequest) (Receipt, erro
 // call (github.com/go-git/go-git/v5's Remote.PushContext), and which the
 // remote's own receive-pack re-validates atomically when applying the
 // update — a real round trip, not a comparison against data read earlier.
-func push(ctx context.Context, remote *git.Remote, req PushRequest, token string) (Receipt, error) {
+func push(ctx context.Context, remote *git.Remote, req PushRequest, provider Provider, token string) (Receipt, error) {
 	refSpec := config.RefSpec(fmt.Sprintf("%s:refs/heads/%s", req.NewSHA, req.Branch))
 	if err := refSpec.Validate(); err != nil {
 		return Receipt{}, fmt.Errorf("invalid refspec: %w", err)
@@ -245,7 +257,7 @@ func push(ctx context.Context, remote *git.Remote, req PushRequest, token string
 		}
 		opts.RequireRemoteRefs = []config.RefSpec{requireSpec}
 	}
-	if auth := authFor(remoteURL(remote), token); auth != nil {
+	if auth := authFor(provider, remoteURL(remote), token); auth != nil {
 		opts.Auth = auth
 	}
 
@@ -258,14 +270,26 @@ func push(ctx context.Context, remote *git.Remote, req PushRequest, token string
 
 // authFor returns HTTP basic auth for http(s) remotes when a token is
 // available, and nil otherwise (e.g. the file:// transport this package's
-// own fixture tests use, which ignores Auth entirely).
-func authFor(remote, token string) *http.BasicAuth {
+// own fixture tests use, which ignores Auth entirely). The username is
+// selected from the adapter-owned provider type — never from URL sniffing:
+// GitHub uses "x-access-token"; Bitbucket Cloud uses "x-token-auth"
+// (docs/PLAN.md Task 137).
+func authFor(provider Provider, remote, token string) *http.BasicAuth {
 	if token == "" || !isHTTPRemote(remote) {
 		return nil
 	}
-	// GitHub accepts any non-empty username with a PAT as the password;
-	// "x-access-token" matches GitHub's own documented convention.
-	return &http.BasicAuth{Username: "x-access-token", Password: token}
+	user := "x-access-token"
+	switch provider {
+	case ProviderBitbucket:
+		user = "x-token-auth"
+	case ProviderGitHub:
+		user = "x-access-token"
+	default:
+		// Unknown provider: refuse to guess a username. Callers must pass
+		// an explicit adapter-owned Provider constant.
+		return nil
+	}
+	return &http.BasicAuth{Username: user, Password: token}
 }
 
 // isHTTPRemote reports whether remote is an http(s) URL — the only
