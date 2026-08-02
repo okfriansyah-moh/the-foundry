@@ -3,8 +3,9 @@
 //
 //   - enum      — flags any const block declaring 3+ of the six canonical
 //     workflow status words (Constitution C1) outside internal/state.
-//   - term      — flags the superseded label TEN_X_BRANCHES_READY appearing
-//     outside its documented allowed locations.
+//   - term      — flags banned/superseded labels (e.g. TEN_X_BRANCHES_READY,
+//     synthetic organization-brand token) appearing outside each term's
+//     per-term allowlist (docs/PLAN.md Task 131).
 //   - doclinks  — flags relative Markdown links that don't resolve to a real
 //     file or directory, and (docs/PLAN.md Task 37 / FND-18) a "#anchor"
 //     fragment that doesn't match any heading's GitHub-style slug in the
@@ -96,7 +97,11 @@ var bannedTerms = []bannedTerm{
 		},
 	},
 	{
-		term: "Mekari",
+		// Synthetic banned organization-brand token for the de-branding lint
+		// (docs/PLAN.md Task 131). The plan must name no specific company;
+		// this token exists only so fitness_selftest can prove the per-term
+		// allowlist catches brand leakage.
+		term: "AcmeCorp",
 		allowlist: map[string]bool{
 			"cmd/fitlint/main.go": true, // documents the banned-term list itself
 		},

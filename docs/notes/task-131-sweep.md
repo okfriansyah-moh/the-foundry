@@ -60,7 +60,8 @@ Sweep date: 2026-08-01. Scope: every `TODO`, `future task`, `not yet wired`,
 
 ## De-branding owner decision (out of scope per Task 131)
 
-Commit author trailers may still carry the prior organization domain in git
-metadata; history rewrite is explicitly out of scope. The banned brand term
-and the superseded state alias are enforced by `fitlint term` with per-term
+Commit author trailers may still carry a prior organization domain in git
+metadata; history rewrite is explicitly out of scope. The banned synthetic
+organization-brand token (see `cmd/fitlint`'s `bannedTerms` list) and the
+superseded state alias are enforced by `fitlint term` with per-term
 allowlists (seed: `test/fitness_seeds/term/`).
