@@ -26,12 +26,12 @@ type ImprovementAdmissionInput struct {
 }
 
 type ImprovementAdmissionResult struct {
-	Admitted         bool
-	RequiresHuman    bool
-	HaltReason       string
-	PlanID           string
-	EnvelopeDigest   string
-	Tier             string
+	Admitted       bool
+	RequiresHuman  bool
+	HaltReason     string
+	PlanID         string
+	EnvelopeDigest string
+	Tier           string
 }
 
 type ImprovementRunRecord struct {

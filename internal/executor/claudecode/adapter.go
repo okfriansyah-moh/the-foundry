@@ -298,14 +298,14 @@ func (a *Adapter) SandboxSpec(_ context.Context, ws worktree.Workspace, packet e
 		return executor.SandboxSpec{}, fmt.Errorf("claudecode: sandbox spec read prompt: %w", err)
 	}
 	return executor.SandboxSpec{
-		Executable:     bin,
-		Argv:           []string{bin, "-p", "--output-format", "json", "--permission-mode", "bypassPermissions"},
-		Stdin:          raw,
-		EnvAllowlist:   append([]string(nil), allowedEnv...),
-		SecretRefs:     []string{defaultSecretsEnvVar},
-		WorkingDir:     ws.Path,
-		Timeout:        timeout,
-		ArtifactPaths:  []string{promptFileName},
+		Executable:         bin,
+		Argv:               []string{bin, "-p", "--output-format", "json", "--permission-mode", "bypassPermissions"},
+		Stdin:              raw,
+		EnvAllowlist:       append([]string(nil), allowedEnv...),
+		SecretRefs:         []string{defaultSecretsEnvVar},
+		WorkingDir:         ws.Path,
+		Timeout:            timeout,
+		ArtifactPaths:      []string{promptFileName},
 		EgressDestinations: []string{"api.anthropic.com"},
 	}, nil
 }

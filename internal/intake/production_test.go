@@ -23,8 +23,8 @@ func (denySignal) HasAllowlistedRealSignal(context.Context, string) (bool, error
 
 func TestSignalBackedValidator_MissingSignalStopsBUILD(t *testing.T) {
 	v := intake.SignalBackedValidator{
-		Inner:      fixedValidator{out: intake.ValidateOutput{Verdict: "BUILD", Digest: "d"}},
-		RealSignal: denySignal{},
+		Inner:                fixedValidator{out: intake.ValidateOutput{Verdict: "BUILD", Digest: "d"}},
+		RealSignal:           denySignal{},
 		OpportunityIDForIdea: func(string) string { return "opp-1" },
 	}
 	out, err := v.Validate(context.Background(), intake.ValidateInput{Idea: "x"})
@@ -38,8 +38,8 @@ func TestSignalBackedValidator_MissingSignalStopsBUILD(t *testing.T) {
 
 func TestSignalBackedValidator_AllowsBUILDWithRealSignal(t *testing.T) {
 	v := intake.SignalBackedValidator{
-		Inner:      fixedValidator{out: intake.ValidateOutput{Verdict: "BUILD", Digest: "d"}},
-		RealSignal: allowSignal{},
+		Inner:                fixedValidator{out: intake.ValidateOutput{Verdict: "BUILD", Digest: "d"}},
+		RealSignal:           allowSignal{},
 		OpportunityIDForIdea: func(string) string { return "opp-1" },
 	}
 	out, err := v.Validate(context.Background(), intake.ValidateInput{Idea: "x"})

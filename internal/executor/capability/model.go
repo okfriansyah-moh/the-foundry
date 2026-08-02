@@ -18,8 +18,8 @@ const (
 // Sandbox eligibility (docs/PLAN.md Task 142 / SEC-05). Exactly one state per
 // record; missing/unknown refuses load.
 const (
-	SandboxSupported = "sandbox_supported"
-	SandboxHostOnly  = "host_only"
+	SandboxSupported   = "sandbox_supported"
+	SandboxHostOnly    = "host_only"
 	SandboxUnsupported = "unsupported"
 )
 

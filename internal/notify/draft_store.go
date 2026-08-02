@@ -30,21 +30,21 @@ const (
 
 // DurableDraft is one persisted Telegram draft awaiting /confirm.
 type DurableDraft struct {
-	ID              string
-	ChatID          string
-	PrincipalID     string
-	Kind            DraftKind
-	ContentHash     string
-	ContentText     string
-	ArtifactRef     string
-	ArtifactDigest  string
-	BudgetUSD       float64
-	NonceHash       string
-	ExpiresAt       time.Time
-	UsedAt          time.Time
-	ConfirmedRun    string
+	ID               string
+	ChatID           string
+	PrincipalID      string
+	Kind             DraftKind
+	ContentHash      string
+	ContentText      string
+	ArtifactRef      string
+	ArtifactDigest   string
+	BudgetUSD        float64
+	NonceHash        string
+	ExpiresAt        time.Time
+	UsedAt           time.Time
+	ConfirmedRun     string
 	ConfirmedMission string
-	CreatedAt       time.Time
+	CreatedAt        time.Time
 }
 
 // ChatBinding maps a Telegram chat to an authenticated principal/profile.

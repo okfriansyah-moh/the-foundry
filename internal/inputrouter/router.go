@@ -29,7 +29,7 @@ type MemoryStore struct {
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		byID:   map[string]struct {
+		byID: map[string]struct {
 			In InputRequest
 			D  RouteDecision
 		}{},

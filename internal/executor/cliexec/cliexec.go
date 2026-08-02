@@ -149,12 +149,12 @@ func (a *Adapter) SandboxSpec(_ context.Context, ws worktree.Workspace, packet e
 		}
 	}
 	return executor.SandboxSpec{
-		Executable:   bin,
-		Argv:         argv,
-		Stdin:        stdin,
-		EnvAllowlist: append([]string(nil), a.cfg.AllowedEnv...),
-		WorkingDir:   ws.Path,
-		Timeout:      timeout,
+		Executable:    bin,
+		Argv:          argv,
+		Stdin:         stdin,
+		EnvAllowlist:  append([]string(nil), a.cfg.AllowedEnv...),
+		WorkingDir:    ws.Path,
+		Timeout:       timeout,
 		ArtifactPaths: []string{a.cfg.PromptFile},
 	}, nil
 }

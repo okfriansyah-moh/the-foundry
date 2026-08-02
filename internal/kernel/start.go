@@ -53,26 +53,26 @@ type StartDeliveryInput struct {
 
 	// Intent / ownership references (Task 141). Transports may set these;
 	// they never carry executor/policy/budget/sandbox authority.
-	MissionID          string
-	PortfolioID        string
-	ProfileID          string
-	OrganizationID     string
-	PrincipalID        string
-	Unattended         bool
-	RepositoryID       string
-	Provider           string
-	CanonicalURL       string
-	RepositoryAlias    string
-	PinnedBaseRevision string
-	TargetBranch       string
-	PlanArtifactRef    string
-	BudgetEnvelopeID   string
-	SessionCapUSD      float64
-	ExperimentCapUSD   float64
-	DeploymentCapUSD   float64
-	MaxWaveConcurrency int
-	BranchDeliveryPolicy string
-	PermittedEffects   []string
+	MissionID                string
+	PortfolioID              string
+	ProfileID                string
+	OrganizationID           string
+	PrincipalID              string
+	Unattended               bool
+	RepositoryID             string
+	Provider                 string
+	CanonicalURL             string
+	RepositoryAlias          string
+	PinnedBaseRevision       string
+	TargetBranch             string
+	PlanArtifactRef          string
+	BudgetEnvelopeID         string
+	SessionCapUSD            float64
+	ExperimentCapUSD         float64
+	DeploymentCapUSD         float64
+	MaxWaveConcurrency       int
+	BranchDeliveryPolicy     string
+	PermittedEffects         []string
 	AuthorizationDecisionRef string
 }
 
@@ -106,7 +106,7 @@ type StartDeps struct {
 	Now           func() time.Time
 	// RepositoryStore resolves owned repository IDs (Task 143) when
 	// StartDeliveryInput.RepositoryID is set.
-	RepositoryStore repository.Store
+	RepositoryStore   repository.Store
 	AllowedLocalRoots []string
 }
 

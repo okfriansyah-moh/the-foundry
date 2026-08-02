@@ -34,28 +34,28 @@ const (
 
 // InputRequest is the normalized intent-only contract.
 type InputRequest struct {
-	RequestID       string
-	IdempotencyKey  string
-	Kind            Kind
-	Origin          Origin
-	PrincipalID     string
-	ProfileID       string
-	OrganizationID  string
-	Mode            ProfileMode
-	Text            string
-	ArtifactRefs    []string // ordered
-	PlanRef         string
-	BudgetUSD       float64
-	SubmittedAt     time.Time
-	ClientMeta      map[string]string
+	RequestID      string
+	IdempotencyKey string
+	Kind           Kind
+	Origin         Origin
+	PrincipalID    string
+	ProfileID      string
+	OrganizationID string
+	Mode           ProfileMode
+	Text           string
+	ArtifactRefs   []string // ordered
+	PlanRef        string
+	BudgetUSD      float64
+	SubmittedAt    time.Time
+	ClientMeta     map[string]string
 }
 
 // RouteDecision is immutable route/reference data — never authority.
 type RouteDecision struct {
-	Route          string // e.g. personal.intake, personal.deliver, org.tenx
-	RequestDigest  string
-	BundleDigest   string
-	RefuseReason   string
+	Route         string // e.g. personal.intake, personal.deliver, org.tenx
+	RequestDigest string
+	BundleDigest  string
+	RefuseReason  string
 }
 
 // ArtifactBundleDigest is the canonical ordered digest of artifact refs.

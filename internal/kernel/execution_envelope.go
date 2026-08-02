@@ -67,16 +67,16 @@ var (
 // Fields match docs/PLAN.md Task 141 schema exactly. Digests are computed
 // over CanonicalJSON with EnvelopeDigest empty.
 type ExecutionEnvelope struct {
-	SchemaVersion  string                 `json:"schema_version"`
-	EnvelopeID     string                 `json:"envelope_id"`
-	EnvelopeDigest string                 `json:"envelope_digest"`
-	Plan           EnvelopePlan           `json:"plan"`
-	Repository     EnvelopeRepository     `json:"repository"`
-	Ownership      EnvelopeOwnership      `json:"ownership"`
-	Execution      EnvelopeExecution      `json:"execution"`
-	Cost           EnvelopeCost           `json:"cost"`
-	Policy         EnvelopePolicy         `json:"policy"`
-	Validity       EnvelopeValidity       `json:"validity"`
+	SchemaVersion  string             `json:"schema_version"`
+	EnvelopeID     string             `json:"envelope_id"`
+	EnvelopeDigest string             `json:"envelope_digest"`
+	Plan           EnvelopePlan       `json:"plan"`
+	Repository     EnvelopeRepository `json:"repository"`
+	Ownership      EnvelopeOwnership  `json:"ownership"`
+	Execution      EnvelopeExecution  `json:"execution"`
+	Cost           EnvelopeCost       `json:"cost"`
+	Policy         EnvelopePolicy     `json:"policy"`
+	Validity       EnvelopeValidity   `json:"validity"`
 }
 
 // EnvelopePlan binds the ApprovedPlan artifact and approval evidence.
@@ -91,13 +91,13 @@ type EnvelopePlan struct {
 
 // EnvelopeRepository names the immutable repository context.
 type EnvelopeRepository struct {
-	RepositoryID         string `json:"repository_id"`
-	Provider             string `json:"provider"`
-	CanonicalURL         string `json:"canonical_url"`
-	RepositoryAlias      string `json:"repository_alias"`
-	PinnedBaseRevision   string `json:"pinned_base_revision"`
+	RepositoryID          string `json:"repository_id"`
+	Provider              string `json:"provider"`
+	CanonicalURL          string `json:"canonical_url"`
+	RepositoryAlias       string `json:"repository_alias"`
+	PinnedBaseRevision    string `json:"pinned_base_revision"`
 	RequestedTargetBranch string `json:"requested_target_branch"`
-	WorkspaceStrategy    string `json:"workspace_strategy"`
+	WorkspaceStrategy     string `json:"workspace_strategy"`
 }
 
 // EnvelopeOwnership attributes the delivery to mission/profile principals.
@@ -112,33 +112,33 @@ type EnvelopeOwnership struct {
 // EnvelopeExecution carries sandbox/executor/validation allowlists and effect
 // policy resolved from compiled layers — never from transport.
 type EnvelopeExecution struct {
-	Unattended            bool     `json:"unattended"`
-	RequireSandbox        bool     `json:"require_sandbox"`
-	ExecutorAllowlist     []string `json:"executor_allowlist"`
-	ValidationAllowlistRef string  `json:"validation_allowlist_ref"`
-	MaxWaveConcurrency    int      `json:"max_wave_concurrency"`
-	PermittedEffects      []string `json:"permitted_effects"`
-	DeploymentMode        string   `json:"deployment_mode"`
-	BranchDeliveryPolicy  string   `json:"branch_delivery_policy"`
+	Unattended             bool     `json:"unattended"`
+	RequireSandbox         bool     `json:"require_sandbox"`
+	ExecutorAllowlist      []string `json:"executor_allowlist"`
+	ValidationAllowlistRef string   `json:"validation_allowlist_ref"`
+	MaxWaveConcurrency     int      `json:"max_wave_concurrency"`
+	PermittedEffects       []string `json:"permitted_effects"`
+	DeploymentMode         string   `json:"deployment_mode"`
+	BranchDeliveryPolicy   string   `json:"branch_delivery_policy"`
 }
 
 // EnvelopeCost scopes budget attribution for the delivery.
 type EnvelopeCost struct {
-	BudgetScope       string  `json:"budget_scope"`
-	BudgetScopeID     string  `json:"budget_scope_id"`
-	BudgetEnvelopeID  string  `json:"budget_envelope_id"`
-	SessionCapUSD     float64 `json:"session_cap_usd"`
-	ExperimentCapUSD  float64 `json:"experiment_cap_usd"`
-	DeploymentCapUSD  float64 `json:"deployment_cap_usd"`
+	BudgetScope      string  `json:"budget_scope"`
+	BudgetScopeID    string  `json:"budget_scope_id"`
+	BudgetEnvelopeID string  `json:"budget_envelope_id"`
+	SessionCapUSD    float64 `json:"session_cap_usd"`
+	ExperimentCapUSD float64 `json:"experiment_cap_usd"`
+	DeploymentCapUSD float64 `json:"deployment_cap_usd"`
 }
 
 // EnvelopePolicy records the compiled policy identity that authorized this
 // envelope.
 type EnvelopePolicy struct {
-	PolicyDigest            string   `json:"policy_digest"`
-	PolicyVersion           string   `json:"policy_version"`
-	ResolvedLayerDigests    []string `json:"resolved_layer_digests"`
-	AuthorizationDecisionRef string  `json:"authorization_decision_ref"`
+	PolicyDigest             string   `json:"policy_digest"`
+	PolicyVersion            string   `json:"policy_version"`
+	ResolvedLayerDigests     []string `json:"resolved_layer_digests"`
+	AuthorizationDecisionRef string   `json:"authorization_decision_ref"`
 }
 
 // EnvelopeValidity bounds when the envelope may be used to start or continue.
@@ -151,37 +151,37 @@ type EnvelopeValidity struct {
 // Transports may supply references (plan id, mission id, profile id) but never
 // executor/queue/sandbox/budget/policy authority fields.
 type ResolveExecutionEnvelopeInput struct {
-	PlanID            string
-	PlanArtifactRef   string
-	RepositoryID      string
-	Provider          string
-	CanonicalURL      string
-	RepositoryAlias   string
+	PlanID             string
+	PlanArtifactRef    string
+	RepositoryID       string
+	Provider           string
+	CanonicalURL       string
+	RepositoryAlias    string
 	PinnedBaseRevision string
-	TargetBranch      string
-	MissionID         string
-	PortfolioID       string
-	ProfileID         string
-	OrganizationID    string
-	PrincipalID       string
-	Unattended        bool
+	TargetBranch       string
+	MissionID          string
+	PortfolioID        string
+	ProfileID          string
+	OrganizationID     string
+	PrincipalID        string
+	Unattended         bool
 	// RequireSandboxOverride is only honored when false would NOT widen a
 	// profile that requires sandbox (C24). Prefer leaving it nil.
-	RequireSandbox *bool
-	MaxWaveConcurrency int
-	BudgetScope       string
-	BudgetScopeID     string
-	BudgetEnvelopeID  string
-	SessionCapUSD     float64
-	ExperimentCapUSD  float64
-	DeploymentCapUSD  float64
-	DeploymentMode    string
-	BranchDeliveryPolicy string
-	PermittedEffects  []string
+	RequireSandbox           *bool
+	MaxWaveConcurrency       int
+	BudgetScope              string
+	BudgetScopeID            string
+	BudgetEnvelopeID         string
+	SessionCapUSD            float64
+	ExperimentCapUSD         float64
+	DeploymentCapUSD         float64
+	DeploymentMode           string
+	BranchDeliveryPolicy     string
+	PermittedEffects         []string
 	AuthorizationDecisionRef string
-	IssuedAt          time.Time
-	ExpiresAt         *time.Time
-	EnvelopeID        string // optional; generated when empty
+	IssuedAt                 time.Time
+	ExpiresAt                *time.Time
+	EnvelopeID               string // optional; generated when empty
 }
 
 // EnvelopeResolverDeps are the authoritative sources ResolveExecutionEnvelope
@@ -191,9 +191,9 @@ type EnvelopeResolverDeps struct {
 	// Policy is the already-compiled effective policy for the target profile.
 	Policy *compiler.Resolved
 	// LayerDigests are the per-layer digests that produced Policy.
-	LayerDigests []string
+	LayerDigests  []string
 	PolicyVersion string
-	Now          func() time.Time
+	Now           func() time.Time
 }
 
 // ResolveExecutionEnvelope builds a canonical envelope from authoritative

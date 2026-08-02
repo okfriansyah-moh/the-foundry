@@ -22,28 +22,28 @@ const (
 
 // ImprovementLoopInput starts one bounded improvement cycle for a product.
 type ImprovementLoopInput struct {
-	MissionID       string
-	ProductID       string
-	CycleID         string
-	IdempotencyKey  string
-	BudgetCapUSD    float64
-	Frozen          bool
-	FrozenReason    string
+	MissionID         string
+	ProductID         string
+	CycleID           string
+	IdempotencyKey    string
+	BudgetCapUSD      float64
+	Frozen            bool
+	FrozenReason      string
 	DeliveryTaskQueue string
 	// ApprovedPlanID / EnvelopeDigest are filled by activities after admission.
-	ApprovedPlanID  string
-	EnvelopeDigest  string
-	PlanDigest      string
+	ApprovedPlanID string
+	EnvelopeDigest string
+	PlanDigest     string
 }
 
 // ImprovementLoopResult is the terminal outcome of ImprovementLoop.
 type ImprovementLoopResult struct {
-	Status       string
-	ResultCode   string
-	PromotionID  string
-	RollbackRef  string
-	DeliveryWF   string
-	Retained     bool
+	Status      string
+	ResultCode  string
+	PromotionID string
+	RollbackRef string
+	DeliveryWF  string
+	Retained    bool
 }
 
 // ImprovementLoop sequences lease → proposal → admission → DeliverPlan child →
@@ -77,10 +77,10 @@ func ImprovementLoop(ctx workflow.Context, in ImprovementLoopInput) (Improvement
 
 	var admission ImprovementAdmissionResult
 	if err := workflow.ExecuteActivity(ctx, ActivityResolveImprovementAdmission, ImprovementAdmissionInput{
-		MissionID: in.MissionID,
-		ProductID: in.ProductID,
-		CycleID:   in.CycleID,
-		PlanBytes: proposal.PlanBytes,
+		MissionID:  in.MissionID,
+		ProductID:  in.ProductID,
+		CycleID:    in.CycleID,
+		PlanBytes:  proposal.PlanBytes,
 		PlanDigest: proposal.PlanDigest,
 	}).Get(ctx, &admission); err != nil {
 		return ImprovementLoopResult{}, err
@@ -93,15 +93,15 @@ func ImprovementLoop(ctx workflow.Context, in ImprovementLoopInput) (Improvement
 	}
 
 	_ = workflow.ExecuteActivity(ctx, ActivityRecordImprovementRun, ImprovementRunRecord{
-		RunID:           in.CycleID,
-		MissionID:       in.MissionID,
-		ProductID:       in.ProductID,
-		LeaseID:         lease.LeaseID,
-		PlanID:          admission.PlanID,
-		PlanDigest:      proposal.PlanDigest,
-		EnvelopeDigest:  admission.EnvelopeDigest,
-		IdempotencyKey:  in.IdempotencyKey,
-		Status:          "delivering",
+		RunID:          in.CycleID,
+		MissionID:      in.MissionID,
+		ProductID:      in.ProductID,
+		LeaseID:        lease.LeaseID,
+		PlanID:         admission.PlanID,
+		PlanDigest:     proposal.PlanDigest,
+		EnvelopeDigest: admission.EnvelopeDigest,
+		IdempotencyKey: in.IdempotencyKey,
+		Status:         "delivering",
 	}).Get(ctx, nil)
 
 	// DeliverPlan is invoked by a kernel activity in production; the workflow
@@ -125,12 +125,12 @@ func ImprovementLoop(ctx workflow.Context, in ImprovementLoopInput) (Improvement
 
 	var decision ImprovementRetainDecision
 	if err := workflow.ExecuteActivity(ctx, ActivityDecideRetainOrRollback, ImprovementRetainInput{
-		MissionID:   in.MissionID,
-		ProductID:   in.ProductID,
-		CycleID:     in.CycleID,
-		Beneficial:  post.Beneficial,
-		HealthOK:    post.HealthOK,
-		DeployRef:   delivery.DeployReceipt,
+		MissionID:  in.MissionID,
+		ProductID:  in.ProductID,
+		CycleID:    in.CycleID,
+		Beneficial: post.Beneficial,
+		HealthOK:   post.HealthOK,
+		DeployRef:  delivery.DeployReceipt,
 	}).Get(ctx, &decision); err != nil {
 		return ImprovementLoopResult{}, err
 	}

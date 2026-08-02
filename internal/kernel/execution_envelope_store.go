@@ -22,8 +22,8 @@ type EnvelopeStore interface {
 
 // MemEnvelopeStore is an in-memory EnvelopeStore for tests.
 type MemEnvelopeStore struct {
-	mu      sync.Mutex
-	byID    map[string]*storedEnvelope
+	mu       sync.Mutex
+	byID     map[string]*storedEnvelope
 	byDigest map[string]string
 }
 

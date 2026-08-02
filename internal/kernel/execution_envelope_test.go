@@ -41,7 +41,7 @@ func envelopeApprovedStore(t *testing.T, planID, digest string, profileKind stri
 		SubmittingPrincipal: "alice",
 		ClassifierVersion:   "v1",
 		Scope:               provenance.Scope{Repositories: []string{"https://github.com/example/x"}},
-		RiskTier:           admission.TierA0,
+		RiskTier:            admission.TierA0,
 		ProfileKind:         profileKind,
 		BudgetEnvelope:      provenance.BudgetEnvelope{MonthlyUSD: 10, WorkflowUSD: 5},
 		DataClass:           "internal",
