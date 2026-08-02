@@ -1,6 +1,6 @@
 # PLAN.md — Delivery Foundry Implementation Plan
 
-**Plan version:** 2.1 (AI-ready, sequentially numbered) · **Date:** 2026-07-19 · **Tasks:** Task 1 → Task 140 (M5 appended 2026-07-28; blockers resolved 2026-07-29; M5 DAG/wave/critical-path recomputed from `Depends` 2026-07-29 — see §V.3) · **Start at: Task 1.**
+**Plan version:** 2.2 (AI-ready, sequentially numbered) · **Date:** 2026-08-01 · **Tasks:** Task 1 → Task 152 (M5 appended 2026-07-28; blockers resolved 2026-07-29; M5 DAG/wave/critical-path recomputed from `Depends` 2026-07-29 — see §V.3; M6 authoritative runtime closure and V1 proof appended 2026-08-01 — see §W) · **Start at: Task 1.**
 **Source of truth:** Delivery Foundry V12 documentation set (`docs/foundry/delivery_foundry.md` + `docs/foundry/docs/**`, vendored into the repo by Task 2).
 **Planning discipline:** GitHub Spec Kit (constitution gates, dependency-ordered tasks, `[P]` parallel markers, checkpoints) layered on top of the V12 architecture — never replacing it.
 
@@ -35,30 +35,30 @@ This reuses the product's own A0/A1/A2/H admission-tier logic (`docs/foundry/doc
 | #   | Article                                                                                                                                                        | Enforced by     |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
 | C1  | Exactly six workflow statuses (`PENDING RUNNING WAITING SUCCEEDED FAILED CANCELLED`); all richer meaning in registry-controlled `phase`/`reason`/`result_code` | Task 5, 18      |
-| C2  | Temporal owns durable execution history, timers, sequencing                                                                                                    | Task 12         |
+| C2  | Temporal owns durable execution history, timers, sequencing                                                                                                    | Task 12, 147, 148 |
 | C3  | PostgreSQL workflow state = rebuildable projection, never execution authority                                                                                  | Task 14, 38     |
-| C4  | Kernel owns sequencing, retries, leases, fencing, state, policy, budgets, **all side effects incl. SCM writes**                                                | Task 12, 27, 28 |
-| C5  | PEC only proposes waves/dispatch/remediation; prohibition-tested                                                                                               | Task 56         |
-| C6  | Deterministic versioned AdmissionClassifier; a plan can never classify or authorize itself                                                                     | Task 7, 45      |
-| C7  | ApprovedPlan provenance chain; authorship = provenance, never authorization                                                                                    | Task 8, 24      |
-| C8  | Isolated worktrees; agents never touch canonical clones                                                                                                        | Task 9          |
-| C9  | External-operation ledger + idempotency keys for every side effect                                                                                             | Task 26         |
-| C10 | Evidence-based completion; no self-reported done                                                                                                               | Task 11, 13     |
-| C11 | Telegram = notify/batch/flood-control/low-risk commands/veto digest; **never** high-risk approval                                                              | Task 30, 52     |
-| C12 | Strong auth (OIDC+WebAuthn) for high-risk approvals                                                                                                            | Task 25         |
-| C13 | `personal-autonomous-venture` profile = explicit bounded production-auto grant                                                                                 | Task 47         |
-| C14 | Organization/10x profile = stricter governance + provenance                                                                                                    | Task 54, 55     |
-| C15 | 10x terminal `status: SUCCEEDED, result_code: TEN_X_BRANCH_HANDOFF_READY`; **no PR/merge/staging/deploy in that workflow**                                     | Task 60, 61     |
-| C16 | Mockup = first-class entry with Observed/Inferred/Assumed/Unresolved labels                                                                                    | Task 43         |
-| C17 | Mission Setup Ceremony precedes unattended missions                                                                                                            | Task 41         |
-| C18 | Formal mission success/loop-exit semantics (result codes)                                                                                                      | Task 40         |
-| C19 | Cost accounting reserve→incur→reconcile; budgets enforced pre-execution; per-session caps                                                                      | Task 29, 69     |
-| C20 | CumulativeChangeBudget governs autonomous L0/L1 promotion                                                                                                      | Task 75         |
+| C4  | Kernel owns sequencing, retries, leases, fencing, state, policy, budgets, **all side effects incl. SCM writes**                                                | Task 12, 27, 28, 141, 143, 147, 148 |
+| C5  | PEC only proposes waves/dispatch/remediation; prohibition-tested                                                                                               | Task 56, 148    |
+| C6  | Deterministic versioned AdmissionClassifier; a plan can never classify or authorize itself                                                                     | Task 7, 45, 150 |
+| C7  | ApprovedPlan provenance chain; authorship = provenance, never authorization                                                                                    | Task 8, 24, 141, 143, 144, 148, 150 |
+| C8  | Isolated worktrees; agents never touch canonical clones                                                                                                        | Task 9, 142, 143, 148 |
+| C9  | External-operation ledger + idempotency keys for every side effect                                                                                             | Task 26, 146, 147, 148, 151 |
+| C10 | Evidence-based completion; no self-reported done                                                                                                               | Task 11, 13, 147, 148, 151, 152 |
+| C11 | Telegram = notify/batch/flood-control/low-risk commands/veto digest; **never** high-risk approval                                                              | Task 30, 52, 145, 150, 151 |
+| C12 | Strong auth (OIDC+WebAuthn) for high-risk approvals                                                                                                            | Task 25, 144, 145, 150 |
+| C13 | `personal-autonomous-venture` profile = explicit bounded production-auto grant                                                                                 | Task 47, 147, 149, 150 |
+| C14 | Organization/10x profile = stricter governance + provenance                                                                                                    | Task 54, 55, 148, 149, 150 |
+| C15 | 10x terminal `status: SUCCEEDED, result_code: TEN_X_BRANCH_HANDOFF_READY`; **no PR/merge/staging/deploy in that workflow**                                     | Task 60, 61, 148, 151, 152 |
+| C16 | Mockup = first-class entry with Observed/Inferred/Assumed/Unresolved labels                                                                                    | Task 43, 150    |
+| C17 | Mission Setup Ceremony precedes unattended missions                                                                                                            | Task 41, 144, 147, 150 |
+| C18 | Formal mission success/loop-exit semantics (result codes)                                                                                                      | Task 40, 147, 152 |
+| C19 | Cost accounting reserve→incur→reconcile; budgets enforced pre-execution; per-session caps                                                                      | Task 29, 69, 141, 146, 147, 149 |
+| C20 | CumulativeChangeBudget governs autonomous L0/L1 promotion                                                                                                      | Task 75, 147    |
 | C21 | Synthetic verification below canary threshold, honestly labeled                                                                                                | Task 48         |
-| C22 | Recovery/checkpoint/restart + honest `PROVEN_BLOCKED` on FAILED                                                                                                | Task 16, 32     |
-| C23 | Opportunity evidence is provenanced and labeled (Observed/Inferred/Assumed/Unresolved); LLM/web content is untrusted data that may propose but never authorize a BUILD verdict; a *real* validation signal is only an allowlisted, provenance-backed evidence class — synthetic/test-mode events and fabricated customer evidence never satisfy it | Task 100, 101, 102, 139 |
-| C24 | No fail-open on the autonomous execution path: absent policy layer, absent executor allowlist, absent budget envelope, absent sandbox, absent SCM provider, or absent validation commands ⇒ refuse, never proceed | Task 104, 115, 116, 119, 140 |
-| C25 | Acceleration is measured, never claimed: no V1 exit without before/after **V1 acceleration evidence** against a recorded baseline (a bounded V1 acceptance threshold, not a universal scientific claim) | Task 134, 135, 136 |
+| C22 | Recovery/checkpoint/restart + honest `PROVEN_BLOCKED` on FAILED                                                                                                | Task 16, 32, 147, 148, 151 |
+| C23 | Opportunity evidence is provenanced and labeled (Observed/Inferred/Assumed/Unresolved); LLM/web content is untrusted data that may propose but never authorize a BUILD verdict; a *real* validation signal is only an allowlisted, provenance-backed evidence class — synthetic/test-mode events and fabricated customer evidence never satisfy it | Task 100, 101, 102, 139, 146, 150, 151 |
+| C24 | No fail-open on the autonomous execution path: absent policy layer, absent executor allowlist, absent budget envelope, absent sandbox, absent SCM provider, or absent validation commands ⇒ refuse, never proceed | Task 104, 115, 116, 119, 140, 141, 142, 143, 146, 149, 150 |
+| C25 | Acceleration is measured, never claimed: no V1 exit without before/after **V1 acceleration evidence** against a recorded baseline (a bounded V1 acceptance threshold, not a universal scientific claim) | Task 134, 135, 136, 151, 152 |
 
 **C23–C25 are additive (introduced by M5, §V).** They tighten; they weaken no article C1–C22, and no earlier task's Acceptance bar is re-opened by them. C23 makes explicit for opportunity evidence what C16 already requires for specs and C6 already requires for admission (authorship ≠ authorization). C24 names, as one article, the fail-open pattern the M5 audit found in five separate places on the real execution path. C25 exists because "Foundry accelerates delivery" is the product's central claim and was, until M5, the one claim in this plan with no evidence contract at all.
 
@@ -87,13 +87,13 @@ This reuses the product's own A0/A1/A2/H admission-tier logic (`docs/foundry/doc
 - **Executor roles:** `go-kernel` (authority-bearing), `go-backend`, `integration`, `infra`, `web`, `security-review`.
 - **Risk⇒Review:** High ⇒ R3 minimum (independent fresh session + deterministic checks); security-surface High in M2 ⇒ R4.
 - **Git:** branch `task/<N>-<slug>`; conventional commits; footer `Task: <N>` on every commit.
-- **Make targets contract (created Task 1, extended by later tasks; never renamed):** `bootstrap up down doctor test lint fitness skp-e2e e2e-github e2e-venture e2e-tenx evidence-verify projection-rebuild`. Each wraps `docker compose run --rm dev <cmd>` (or `up`/`down`); adding a target never changes an existing one's name or docker-wrapping pattern.
+- **Make targets contract (created Task 1, extended by later tasks; never renamed):** `bootstrap up down doctor test lint fitness skp-e2e e2e-github e2e-venture e2e-tenx evidence-verify projection-rebuild v1-proof`. Each wraps `docker compose run --rm dev <cmd>` (or `up`/`down`); adding a target never changes an existing one's name or docker-wrapping pattern. Task 151 owns `v1-proof`, the protected real-release proof entrypoint; absence of required live infrastructure is failure in that target, never a skip-success.
 
 ---
 
 ## D. Master Task Index (the checklist your agent updates)
 
-Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=Foundation, A=Venture, B=10x, M2=Hardening, M3=Evolution, M4=Provider breadth, M1R=M1 remediation, M5=Runtime Convergence &amp; Real-World Proof (§V). **Dependencies are authoritative; numbers are names.**
+Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=Foundation, A=Venture, B=10x, M2=Hardening, M3=Evolution, M4=Provider breadth, M1R=M1 remediation, M5=Runtime Convergence &amp; Real-World Proof (§V), M6=Authoritative Runtime Closure &amp; V1 Proof (§W). **Dependencies are authoritative; numbers are names.**
 
 | ✔   | Task | Alias  | Title                                                           | Phase/Wave | Depends                    | [P]  |
 | --- | ---- | ------ | --------------------------------------------------------------- | ---------- | -------------------------- | ---- |
@@ -237,6 +237,18 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 138  | VEN-18 | Unified mockup intake: Figma/HTML/PDF/images → spec → plan         | M5/V0      | 43,44,80                   | [P]  |
 | ✅  | 139  | OPP-05 | Bounded real-market validation signal acquisition/ingestion       | M5/V2      | 29,100,101                 | None |
 | ✅  | 140  | TX-12  | Fail-closed kernel SCM provider selection                         | M5/V2      | 27,105,108,116,137         | None |
+| ☐   | 141  | RTC-05 | Immutable kernel-resolved execution envelope                     | M6/W0      | 24,105,116,119,128         | None |
+| ☐   | 142  | SEC-05 | Sandbox-compatible autonomous executor adapters                  | M6/W1      | 84,85,86,87,88,89,115,117,141 | None |
+| ☐   | 143  | RTC-06 | Production plan and repository source resolution                 | M6/W1      | 9,24,105,128,141           | None |
+| ☐   | 144  | INT-07 | Live CLI idea-to-mission convergence                             | M6/W2      | 25,41,103,109,110,111,141,143,146 | None |
+| ☐   | 145  | INT-08 | Telegram production intake and command convergence               | M6/W3      | 112,113,114,144            | None |
+| ☐   | 146  | OPP-06 | Production real-validation-signal wiring                         | M6/W1      | 26,29,100,101,102,139,141  | None |
+| ☐   | 147  | VEN-19 | Closed autonomous venture improvement and deployment loop        | M6/W2      | 50,106,119,120,125,126,127,141,142,143,146 | None |
+| ☐   | 148  | TX-13  | Full approved-PLAN-to-10x-handoff orchestration                  | M6/W2      | 55,56,57,58,59,60,108,124,137,140,141,142,143 | None |
+| ☐   | 149  | SEC-06 | Production profile isolation and cost-reconciliation closure     | M6/W2      | 35,66,67,118,119,120,128,141,142,143 | None |
+| ☐   | 150  | INT-09 | Unified production input router: IDEA, PLAN and MOCKUP            | M6/W4      | 138,141,143,144,145,146,147,148,149 | None |
+| ☐   | 151  | PRF-03 | Mandatory real personal, input-router and 10x release proofs      | M6/W5      | 123,129,142,144,145,146,147,148,149,150 | None |
+| ☐   | 152  | V1-02  | Final Delivery Foundry 10/10 Evidence Gate                       | M6/W6      | 134,135,136,141,142,143,144,145,146,147,148,149,150,151 | None |
 
 ### D-P1 — Milestone dependencies
 
@@ -248,6 +260,10 @@ flowchart TD
     A --> M2[M2 Tasks 64-73<br/>Hardening]
     B --> M2
     M2 --> M3[M3 Tasks 74-83<br/>Evolution]
+    M3 --> M4[M4 Tasks 84-93<br/>Provider breadth]
+    M4 --> M1R[M1 remediation Tasks 94-99]
+    M1R --> M5[M5 Tasks 100-140<br/>Runtime Convergence and Real-World Proof]
+    M5 --> M6[M6 Tasks 141-152<br/>Authoritative Runtime Closure and V1 Proof]
     A -.parallel, independent gates.- B
 ```
 
@@ -266,7 +282,7 @@ flowchart LR
     end
     F --> A1
     F --> B1
-    A3 --> H[64-73] --> E[74-83]
+    A3 --> H[64-73] --> E[74-83] --> P[84-93] --> R[94-99] --> V[100-140] --> W[141-152]
     B3 --> H
 ```
 
@@ -4185,7 +4201,7 @@ flowchart LR
 - **Risk:** High · **Exec:** security-review (this role reviews and adjudicates; it must not have implemented any
   card it is adjudicating — reviewer-independence R0) · **Rev:** **R4** · **Boundary:** adjudication only. No code
   is written under this card; no bar is waived inside it; a failed bar produces a new numbered task, and the gate
-  stays open. · **Status:** ✅ 2026-08-01 — Adjudicated PARTIAL; gate remains open. Verdict: docs/notes/v1-evidence-gate.md. No bar waived. Live bars blocked on credentials.
+  stays open. · **Status:** ✅ 2026-08-01 — Adjudicated PARTIAL; gate remains open. Verdict: docs/notes/v1-evidence-gate.md. No bar waived. Live bars blocked on credentials. **Historical result unchanged; Task 152 is the next V1 adjudication.**
 
 ### Task 138 (VEN-18) [P] — Unified mockup intake: Figma, HTML, PDF, images → spec → plan
 
@@ -4341,29 +4357,30 @@ flowchart LR
 
 ### V.2 — Score-to-evidence matrix
 
-Current scores are the review's, carried forward unchanged. **The target column may say 10/10; the current column
-must not become 10/10 until the named evidence exists.** Task 136 is the only card permitted to update the current
-column, and only from artifacts produced by real runs.
+Current scores are the review's, carried forward unchanged. Task 136 remains the historical first adjudication and
+its PARTIAL result is not rewritten. **The target column may say 10/10; the current measured column must not become
+10/10 until the named evidence exists.** Task 152 is the only future final gate permitted to re-adjudicate these
+scores, and only from artifacts produced by the mandatory real runs in Task 151.
 
-| Area | Current score | 10/10 evidence requirement | Tasks | Evidence |
+| Area | Current measured score | 10/10 evidence requirement | Closure tasks | Required evidence |
 | --- | ---: | --- | --- | --- |
-| Architecture fidelity | 8.5/10 | every normative capability implemented, deferred in §Q, or ADR-rejected; doc/code reconciliation lint green | 130, 131 | ADR + annotated references; `make doclint` green; sweep list |
-| Core kernel | 8.5/10 | one production trigger; zero fail-open branches on the execute path; authority lint clean; replay green on histories recorded through the real validator | 104, 105, 115, 116, 119 | `evidence/v1-gate/kernel/**`; `fitlint authority` output; replay suite |
-| Temporal / durability | 8/10 | MissionLoop registered with ContinueAsNew; mission activities receipt-keyed; portfolio state survives `kill -9`; resume proof still 20/20 | 106, 121, 122 | `evidence/m5-personal/restart/**`; `make skp-resume` output |
-| PLAN execution | 8/10 | a wave's independent tasks provably overlap in distinct worktrees; ≥2 parallel tasks in the 10x live proof; multi-wave replay deterministic | 110, 124, 133 | `evidence/m5-tenx/waves/**`; regenerated multi-wave histories |
-| Evidence / deterministic verification | 8.5/10 | zero-validation-command task fails; lying executor caught on the live path; all proof bundles verify | 104, 132, 133 | `evidence/v1-gate/verify/**`; `make evidence-verify` output |
-| Recovery / self-heal | 8/10 | poisoned task and infinite retry classified from live data and escalated; killed daemon resumes with no duplicate side effect; recovery time measured | 121, 122, 123, 134 | `evidence/v1-gate/recovery/**`; extops ledger diff |
-| Security model on paper | 8/10 | C23–C25 enforced by tests; no self-review-only Status on any M5 High/R3+ card | 100–140 | independent reviewer verdicts per card |
-| Security enforcement on critical runtime path | 6/10 | every autonomous executor sandboxed and fail-closed; no fail-open policy/allowlist/budget path; credentials concurrency-safe; strong auth across restart; personal/org isolation and red-team/escape green **through the kernel path** | 114, 115, 116, 117, 118, 119 | `evidence/v1-gate/security/**`; both `sandbox-tests` CI lanes; `test/redteam` output |
-| Personal venture loop | 6/10 | one real mission completes every stage with a measured avoidable-touch count of 0, including one recovered failure and an allowlisted real-market validation signal | 100–103, 109–111, 125–127, 132, 139 | `evidence/m5-personal/**`; `docs/notes/m5-personal-proof.md` |
-| Multi-mission runtime | 6/10 | ≥3 concurrent missions with budget isolation and fairness holding, all state surviving a restart | 119, 121, 132 | `evidence/m5-personal/portfolio/**`; ledger queries |
-| 10x / organization readiness | 6.5/10 | real disposable Bitbucket remote advanced to a manifest-matching SHA, independently re-read; four prohibitions verified from the run; drift rejected not force-pushed; provider selection config-resolved, not hardcoded | 108, 124, 133, 137, 140 | `evidence/m5-tenx/**`; `docs/notes/m5-tenx-proof.md` |
-| Telegram | 7/10 | inbound proven end to end; retry/offset durable across restart; idea→mission only after confirmation; strong-auth escalation completes across restart | 112, 113, 114 | `evidence/v1-gate/telegram/**`; `test/telegram_*_e2e.sh` output |
-| Provider routing | 7.5/10 | mid-run provider loss fails over inside the allowlist or fails closed diagnosably; executor used recorded on every manifest | 129, 130 | `evidence/v1-gate/providers/**` |
-| Autonomous cost containment | 5.5/10 | missing envelope refuses for unattended missions; actual costs reconciled from real provider usage with variance alerting; shadow spend bounded and visible; cost per accepted task measured | 119, 120, 126, 134 | `evidence/v1-gate/cost/**`; `foundry cost show` output |
-| Real-world E2E proof | 5/10 | Tasks 132 and 133 both green on a real control plane, archived, and CI-gated | 132, 133 | both CI job URLs + archived bundles |
-| V1 acceleration evidence | **Not measured** | baseline recorded from real prior work; ≥3 comparable cases per arm as the bounded V1 acceptance threshold; every threshold met with sufficient data; quality no worse than baseline; unauthorized actions = 0; git-derived post-handoff fixes remain proxy metrics absent linked issue/incident confirmation | 134, 135 | `benchmarks/baseline/**`, `benchmarks/foundry/**`, `benchmarks/report-v1.md` |
-| Overall implementation | 7/10 | Task 136 passes in full | 136 | `docs/notes/v1-evidence-gate.md` |
+| Architecture fidelity | 8.5/10 | one canonical authority envelope and one transport-neutral router close the audited runtime gaps without a parallel subsystem; all normative capabilities implemented, deferred, or ADR-rejected | 141, 150, 152 | immutable envelope/schema and router decision records; annotated source-to-runtime trace; final independent adjudication |
+| Core kernel | 8.5/10 | the kernel alone resolves authority, immutable plan/repository context, improvement delivery, and 10x side effects; replay and authority lint pass on real histories | 141, 143, 147, 148, 152 | `evidence/v1-final-gate/kernel/**`; envelope tamper/replay receipts; authority-lint and Temporal histories |
+| Temporal / durability | 8/10 | live intake, improvement, and 10x workflows survive required restarts with no duplicate effect and exact terminal states | 144, 147, 148, 151, 152 | Task 151 histories, workflow IDs, restart/fault records, extops diffs, final gate rows |
+| PLAN execution | 8/10 | production sources resolve without caller paths; direct personal and organization PLAN routes execute dependency-aware verified waves, including real overlap | 143, 148, 150, 151, 152 | plan/artifact/repository resolution receipts; route proof table; 10x wave and remote-SHA proof |
+| Evidence / deterministic verification | 8.5/10 | every authoritative path carries the envelope digest, validates independently, and emits manifests that verify; no executor report or checkbox substitutes for evidence | 141, 147, 148, 151, 152 | verified manifests, validation logs, envelope-linked cost/transition/evidence records, final evidence index |
+| Recovery / self-heal | 8/10 | venture and 10x fault matrices prevent duplicate plans, spend, deploys and pushes; harmful changes roll back; recovery time is measured | 147, 148, 151, 152 | Task 151 fault-injection artifacts, rollback/push receipts, extops queries, recovery metrics |
+| Security model on paper | 8/10 | canonical envelope, adapter eligibility, trust-domain isolation and input-routing contracts preserve C1–C25 and pass independent R4 review | 141, 142, 149, 150, 152 | schemas/policies, independent reviewer records, constitution mapping and negative-path table |
+| Security enforcement on critical runtime path | 6/10 | all autonomous executors are sandboxed or ineligible; production source, Telegram, signal, budget and isolation paths fail closed through the kernel | 141, 142, 143, 145, 146, 149, 151, 152 | protected rootless job; sandbox receipts/escape corpus; auth, tamper, isolation and fail-closed live artifacts |
+| Personal venture loop | 6/10 | real CLI/Telegram/mockup/personal-PLAN inputs reach the correct durable mission path; real signal gates BUILD; one bounded improve/redeploy or rollback cycle completes | 144, 146, 147, 150, 151, 152 | Task 151 Proofs A–D; real signal IDs/digests; deploy, observation, improvement, rollback and touch ledgers |
+| Multi-mission runtime | 6/10 | ≥3 concurrent missions retain envelope/budget/trust-domain attribution, fairness and state through restart | 141, 149, 151, 152 | isolated deployment records, concurrent mission ledgers, namespace/evidence separation tests and restart histories |
+| 10x / organization readiness | 6.5/10 | immutable sources and isolated organization authority drive mockup and ApprovedPlan inputs through full verified orchestration to a real Bitbucket handoff | 143, 148, 149, 150, 151, 152 | Task 151 Proofs E–F; atomic manifests, queue/restart evidence, independent remote SHA and prohibition report |
+| Telegram | 7/10 | real bot draft/attachment/nonce state survives restart; confirmation shares the production router; strong approval stays OIDC+WebAuthn; commands hit real workflows | 145, 150, 151, 152 | Bot API update/message IDs, audit records, nonce/auth records, command receipts and Task 151 Proof B |
+| Provider routing | 7.5/10 | every autonomous adapter is eligible only when sandbox-compatible; real provider loss falls back inside the recorded allowlist or refuses | 142, 151, 152 | capability matrix, sandbox specs/receipts, provider-loss run and executor identity on every manifest |
+| Autonomous cost containment | 5.5/10 | envelope-scoped reservations and real usage reconcile across executor/research/deploy/billing; unknown backlog freezes new unattended spend and cannot cross profiles | 141, 146, 147, 149, 151, 152 | reservation/incur/reconcile records, observed/derived/shadow labels, freeze/alert/restart proof and per-mission reports |
+| Real-world E2E proof | 5/10 | protected proofs cover IDEA, PLAN and MOCKUP across personal and organization tracks on real required systems; no required job is skipped | 150, 151, 152 | protected CI URLs; Task 151 Proofs A–F; verified evidence index and unauthorized-action report |
+| V1 acceleration evidence | **Not measured** | ≥3 comparable control and Foundry cases for each personal and 10x arm; every predeclared speed, recovery, quality, safety and spend threshold passes with sufficient valid data | 134, 135, 151, 152 | `benchmarks/baseline/**`, `benchmarks/foundry/**`, `benchmarks/report-v1-final.md`; case/exclusion table and raw timing/touch data |
+| Overall implementation | 7/10 | all thirty Task 152 evidence bars pass; no missing/skipped evidence and no upward rounding | 152 | `docs/notes/v1-final-evidence-gate.md`, final score matrix, independent R4 verdict and complete evidence index |
 
 ### V.3 — M5 execution waves and decisions
 
@@ -4491,6 +4508,875 @@ and names what would reopen it):
 
 ---
 
+## W. Milestone M6 — Authoritative Runtime Closure and V1 Proof
+
+**Objective:** close the remaining gaps between implemented Delivery Foundry components and the authoritative
+production runtime; prove every supported input trigger end to end; prove the personal and organization tracks on
+real external systems; and produce the acceleration evidence required for an evidence-backed 10/10 V1 verdict.
+M6 is runtime closure, not architecture expansion. Task 136 remains the historical PARTIAL adjudication; only Task
+152 may issue the next final verdict.
+
+**Supported entry modes to prove:** (1) IDEA from CLI, Telegram, and an authorized API where applicable; (2) PLAN
+from a raw file submitted for admission or an existing ApprovedPlan, for personal delivery and organization/10x;
+and (3) MOCKUP from image, ordered images, PDF, HTML, Figma URL/export, and Telegram image/document attachments.
+
+**Track contracts:** the personal path is input → opportunity validation when required → specification → PLAN →
+admission → approval → readiness → execution → deterministic verification → deployment → observation → bounded
+improvement → redeployment or rollback → mission exit. The organization path is approved PLAN → repository
+resolution → dependency-aware and safely parallel task execution → deterministic verification → atomic groups →
+durable integration → existing 10x branch push → independent remote-SHA verification →
+`TEN_X_BRANCH_HANDOFF_READY`.
+
+**Non-goals:** no replacement of Temporal or PostgreSQL; no second orchestration engine; no new workflow status
+beyond the canonical six; no new authority-bearing agent; no operator web UI; no speculative plugin marketplace;
+no provider added only for breadth; no direct SCM, deployment, billing, or research side effect from an untrusted
+executor; no weakening of C1–C25; no personal/organization isolation based solely on a `profile_id` column; no raw
+user PLAN treated as approved; no mockup inference treated as authority; no LLM/web output treated as market proof;
+no Telegram high-risk approval; no test-mode or synthetic event counted as real willingness-to-pay evidence; no
+skipped live job counted as PASS; no 10/10 claim from checked boxes; no rewrite of Tasks 1–140; and no implementation
+inside this planning edit.
+
+### W.0 — Audited production-path delta
+
+The M6 cards extend existing seams instead of replacing them. Task 141 consolidates already-present ApprovedPlan,
+policy, budget, capability, sandbox and ownership data that `StartDeliveryInput`/`DeliverPlanInput` currently carry
+piecemeal. Task 142 completes the mandatory `SandboxRunner` seam and rootless OCI lane already built by Tasks
+34/97/115; the production adapters currently lack the real `SandboxSpecProvider` contract. Task 143 reuses
+`internal/scm/read`, the worktree manager, ApprovedPlan verification and artifact stores; the missing pieces are an
+owned repository registry and removal of transport-supplied local paths. Task 144 reuses the durable intake stage
+machine but removes mandatory fixture/cassette flags, placeholder approval, and the terminal “start separately”
+handoff. Task 145 reuses durable Telegram offset/retry and existing command handlers, while making drafts,
+attachments, nonces, principal bindings and router wiring durable and real. Task 146 wires the existing signal store
+and `StoreRealSignalVerifier` where production currently installs `DenyRealSignal`.
+
+Task 147 connects the registered `MissionLoop`, existing improvement helpers, normal DeliverPlan, deploy health and
+rollback seams into one durable caller chain. Task 148 extends the existing TenX workflow, integrator queue, CAS,
+SCM policy and prohibition tests so the authoritative input is ApprovedPlan rather than prebuilt change sets. Task
+149 turns profile-scoped fields into deploy-time trust-domain validation and closes the existing cost reconciliation
+gap; it adds no image or Compose file. Task 150 unifies existing CLI/API/Telegram, intake, direct-plan and mockup
+surfaces behind one application contract. Task 151 converts existing guarded live skeletons into protected mandatory
+proofs. Task 152 adjudicates only. An interface, config field, registered activity, green unit test, guard-entry note,
+skip, executor report, or checked PLAN row is not completion unless the authoritative producer-to-terminal path and
+every Acceptance item are evidenced.
+
+### Task 141 (RTC-05) — Immutable kernel-resolved execution envelope
+
+- **Goal:** Create one versioned, immutable, canonical, digestible execution envelope carrying every
+  authority-bearing decision required by a delivery, resolved by the kernel from authoritative records rather than
+  transport-controlled fields.
+- **Rationale:** ApprovedPlan, policy, budget, profile, repository and sandbox data already exist, but
+  `StartDeliveryInput` and `DeliverPlanInput` carry overlapping caller fields and lose authority context between
+  start, workflow, cost, evidence and projection. This card consolidates and propagates those existing decisions; it
+  does not add a second policy or orchestration system.
+- **Depends:** 24, 105, 116, 119, 128 · **Governing docs:** C4, C7, C19, C24;
+  `docs/foundry/docs/architecture/{authority-model,configuration-and-policy,domain-model}.md`;
+  `docs/foundry/docs/security/{approval-and-provenance,authorization-model}.md`;
+  `docs/foundry/docs/operations/cost-accounting.md`.
+- **Scope:** `internal/kernel` envelope model/resolution/store and start/workflow propagation; existing provenance,
+  policy, capability, mission/profile, budget, evidence, transition, cost and projection integrations; daemon/API
+  construction; reversible persistence; replay/tamper/e2e tests. The canonical semantics are: version/id/digest;
+  ApprovedPlan ID/digest/artifact/approval/signature/expiry; repository ID/provider/canonical URL/alias/pinned base/
+  target/workspace strategy; mission/portfolio/profile/organization/principal ownership; unattended/sandbox/
+  executor and validation allowlists/wave concurrency/permitted effects/deployment and branch policies; budget
+  scope/envelope/session/experiment/deployment caps; policy digest/version/layer digests/authorization reference;
+  issued/expiry timestamps.
+
+  ```yaml
+  execution_envelope:
+    schema_version:
+    envelope_id:
+    envelope_digest:
+    plan:
+      approved_plan_id:
+      plan_digest:
+      plan_artifact_ref:
+      approval_ref:
+      approval_signature_ref:
+      approval_expires_at:
+    repository:
+      repository_id:
+      provider:
+      canonical_url:
+      repository_alias:
+      pinned_base_revision:
+      requested_target_branch:
+      workspace_strategy:
+    ownership:
+      mission_id:
+      portfolio_id:
+      profile_id:
+      organization_id:
+      principal_id:
+    execution:
+      unattended:
+      require_sandbox:
+      executor_allowlist:
+      validation_allowlist_ref:
+      max_wave_concurrency:
+      permitted_effects:
+      deployment_mode:
+      branch_delivery_policy:
+    cost:
+      budget_scope:
+      budget_scope_id:
+      budget_envelope_id:
+      session_cap_usd:
+      experiment_cap_usd:
+      deployment_cap_usd:
+    policy:
+      policy_digest:
+      policy_version:
+      resolved_layer_digests:
+      authorization_decision_ref:
+    validity:
+      issued_at:
+      expires_at:
+  ```
+- **Out of scope:** raw plan or repository ingestion (Task 143); new policy layers; transport authority; caller
+  executor/task-queue selection; new workflow status; new orchestration engine; weakening attended development paths.
+- **Steps:** (1) Define nested, versioned types and canonical serialization with closed vocabularies and an
+  `ExecutionEnvelopeDigest`; reject unknown schema versions. (2) Implement a kernel resolver that loads ApprovedPlan
+  and artifact, repository declaration, compiled platform/organization/profile/workflow policies, ownership records,
+  budget envelope, capability registry, validation policy and delivery-mode policy; enforce approval expiry/
+  revocation and ownership consistency. (3) Store an append-only immutable envelope record before Temporal start,
+  binding its digest into the workflow ID/idempotency key. (4) Replace caller-carried executor, queue, repository,
+  sandbox, policy and budget choices with envelope-derived internal values; propagate `require_sandbox`, mission ID,
+  `unattended`, actual budget scope and resolved executor allowlist. (5) Verify the stored digest at workflow and
+  activity boundaries and on replay; refuse mutation/substitution/widening. (6) Add the digest to transitions,
+  evidence manifests, extops/cost records and projections. (7) Wire foundryd/API producers through the resolver;
+  retain only intent/reference fields at transports. (8) add canonical, replay, tamper, expiry/revocation, ownership,
+  budget-attribution and live-path tests.
+- **Outputs:** new `internal/kernel/{execution_envelope.go,execution_envelope_store.go,execution_envelope_test.go,execution_envelope_replay_test.go}`;
+  modified `internal/kernel/{start.go,workflow.go,activities.go,budget.go,recordcost.go,transitions.go}`;
+  modified `internal/provenance/artifacts.go`, `internal/policy/compiler/{compiler.go,model.go,load.go}`,
+  `internal/evidence/bundle.go`, and `internal/projection/projector.go`;
+  modified `cmd/foundryd/main.go`, `config/policy/platform.yaml`, and
+  `config/profiles/{personal-autonomous-venture.yaml,organization-10x.yaml}`;
+  `internal/db/migrations/00035_execution_envelopes.sql`; modified `internal/db/migrate_test.go` with up/down coverage;
+  `test/e2e/envelope/{doc.go,run.sh,envelope_live_test.go}`.
+- **Interfaces/DB:** producer = kernel `ResolveExecutionEnvelope`; sources = provenance/artifact, repository,
+  policy/profile/mission/budget/capability stores; consumers = StartDelivery, DeliverPlan workflow/activities,
+  sandbox selection, validation, budget/cost, evidence, transitions and projection. Persist immutable envelope JSON,
+  canonical digest, ownership, validity and revocation/approval references in `execution_envelopes`; foreign records
+  store the digest/reference, not mutable copies. Migration 00035 is reversible and its down path is tested.
+- **Acceptance:** (1) serialization is canonical and deterministic; (2) identical inputs yield a stable digest; (3)
+  schema is versioned; (4) post-start mutation is impossible or detected; (5) altered digest is rejected; (6) expiry
+  is rejected; (7) missing ApprovedPlan is rejected; (8) missing plan artifact is rejected; (9) missing repository
+  revision is rejected; (10) missing policy digest is rejected; (11) missing executor allowlist is rejected; (12)
+  missing validation policy is rejected; (13) a sandbox-required autonomous profile cannot set sandbox false; (14)
+  unattended execution without an envelope is rejected; (15) the correct mission is charged; (16) organization/
+  profile mismatch is rejected; (17) a transport cannot widen a field; (18) Telegram cannot widen a field; (19) an
+  executor cannot widen a field; (20) replay yields the same authority decision; (21) transition/evidence/cost
+  records include the digest; (22) stale or revoked approval invalidates start; (23) unit, integration, replay,
+  tamper and negative tests pass through the authoritative path.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/kernel/... ./internal/provenance/... ./internal/policy/... ./internal/evidence/... ./internal/projection/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/envelope/run.sh`;
+  `make test fitness evidence-verify`.
+- **Evidence:** canonical vectors, resolver source map, migration up/down, replay/tamper transcripts, live workflow
+  history and linked transition/cost/evidence rows archived to `evidence/task-141/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** R4 · **Boundary:** only the kernel resolves or widens authority;
+  transports, PEC and executors carry intent/data only, and missing/ambiguous authority refuses.
+- **Status:** ⬜ Not started
+
+### Task 142 (SEC-05) — Sandbox-compatible autonomous executor adapters
+
+- **Goal:** Make every executor eligible for an autonomous profile genuinely sandbox-compatible or explicitly
+  `host_only`/`unsupported`, then prove one real provider invocation through DeliverPlan in rootless OCI.
+- **Rationale:** the kernel mandatory-sandbox seam, OCI runner, rootless lane and escape corpus already exist, so
+  this card does not rebuild isolation. The audited gap is that production Claude Code, OpenCode, Gemini, Cursor,
+  Copilot, Windsurf, API/local and fake adapters are not all classified and do not all provide the real sandbox spec.
+- **Depends:** 84, 85, 86, 87, 88, 89, 115, 117, 141 · **Governing docs:** C8, C24;
+  `docs/foundry/docs/{architecture/authority-model,security/authorization-model,security/supply-chain}.md`;
+  `docs/foundry/docs/providers/{provider-execution-classes,anthropic,openai,local-models}.md`.
+- **Scope:** capability status `sandbox_supported | host_only | unsupported`; adapter command/spec generation;
+  envelope/capability filtering; existing rootless OCI launch, mounts, egress, secrets, limits, cancellation and
+  artifact collection; protected CI and red-team proof. Audit every configured adapter, including Claude Code,
+  OpenCode, Gemini CLI, Cursor, Copilot, Windsurf, OpenAI/API, local model, fake and future registry entries.
+- **Out of scope:** a new executor; host fallback; Docker socket/SSH agent/host `.env`; SCM/deploy/billing/unrelated
+  credentials; arbitrary DB/Temporal credentials; executor-controlled mounts, policy or egress; replacing the OCI
+  runtime; allowing subscription-seat automation contrary to existing policy.
+- **Steps:** (1) Extend the capability registry schema/loader with exactly one eligibility state and refuse missing/
+  unknown status. (2) Define the complete sandbox spec: executable, argv/stdin, child env and secret references,
+  working directory, read-only mounts, one writable worktree mount, egress destinations, CPU/memory/PID limits,
+  timeout/output cap, cancellation and artifact paths. (3) Implement or classify each production adapter; only
+  `sandbox_supported` may match `require_sandbox=true`, while `host_only` is limited to explicitly attended dev.
+  (4) Make the kernel build specs from recorded envelope/capability data and reject adapter attempts to add mounts,
+  credentials or egress. (5) harden rootless launch/process-tree termination/log redaction and record runtime image,
+  mount and egress digests. (6) Run a genuine API-billed autonomous provider through DeliverPlan plus negative
+  filesystem, traversal, process, timeout, cancellation, egress and secret tests. (7) make the rootless protected V1
+  job non-skippable and extend the escape corpus, including contained `bypassPermissions` where required.
+- **Outputs:** modified `internal/executor/{adapter.go,registry.go}`,
+  `internal/executor/capability/{model.go,load.go,eligible.go}`, and adapter files
+  `internal/executor/{cliexec/cliexec.go,apiexec/apiexec.go,claudecode/adapter.go,fake/fake.go,opencode/adapter.go,geminicli/adapter.go,cursor/adapter.go,copilot/adapter.go,windsurf/adapter.go,openai/adapter.go,local/adapter.go}`
+  plus their tests; modified `internal/executor/sandbox/{oci.go,oci_test.go}`;
+  modified `internal/kernel/{sandboxexec.go,activities.go}`; modified `cmd/foundryd/{main.go,sandbox_runner.go}`;
+  modified `config/executor-capabilities.yaml` and `config/sandbox-egress-allowlist.yaml`; new
+  `config/schemas/executor-capability.schema.json` and `internal/executor/capability/testdata/golden.json`; modified
+  `.github/workflows/ci.yaml`; new `test/e2e/sandbox_autonomous/{doc.go,run.sh,live_test.go}`; modified
+  `test/redteam/sandbox_escape_test.go`.
+- **Interfaces/DB:** producer = selected adapter's `SandboxSpecProvider`; authority filter = kernel using Task 141
+  envelope plus capability registry; consumer = existing `SandboxRunner`; evidence consumer = bundle builder. No new
+  database table: status/spec policy is versioned config and immutable envelope/evidence references capture the
+  resolved registry/image/mount/egress digests.
+- **Acceptance:** a real DeliverPlan invocation proves (1) OCI used; (2) no host adapter call; (3) missing OCI
+  refuses; (4) incompatible adapter excluded; (5) host write fails; (6) parent traversal fails; (7) unauthorized
+  process spawning bounded; (8) timeout kills descendants; (9) cancellation kills descendants; (10) unauthorized
+  egress fails; (11) selected provider egress succeeds; (12) selected child alone sees its provider secret; (13)
+  unrelated secrets absent; (14) SCM credentials absent; (15) deployment credentials absent; (16) logs contain no
+  secret values; (17) evidence includes runtime/image/mount/egress digests; (18) escape corpus passes; (19) protected
+  rootless V1 job cannot skip; (20) any `bypassPermissions` remains contained by OCI.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/executor/... ./internal/kernel/... ./test/redteam/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/sandbox_autonomous/run.sh`;
+  `make test lint fitness` plus the protected rootless CI job URL.
+- **Evidence:** adapter eligibility matrix, specs, rootless live receipt, process/egress/secret negatives, escape
+  report and non-skipped CI logs archived to `evidence/task-142/`.
+- **Risk:** High · **Exec:** go-kernel + security-review · **Rev:** R4 · **Boundary:** the kernel selects; the
+  adapter describes only a pre-authorized execution shape; OCI is the enforcement boundary and absence refuses.
+- **Status:** ⬜ Not started
+
+### Task 143 (RTC-06) — Production plan and repository source resolution
+
+- **Goal:** Remove transport-provided local filesystem paths from production delivery and resolve immutable plan
+  artifacts and repositories from approved identifiers through kernel-owned services.
+- **Rationale:** ApprovedPlan verification, artifact stores, `internal/scm/read`, mirrors and isolated worktrees
+  already work. The missing delta is a durable owned repository registry plus production propagation: today start/
+  API/CLI inputs can carry `PlanFilePath` and `RepoPath` and `LoadApprovedPlan` reads the host filesystem.
+- **Depends:** 9, 24, 105, 128, 141 · **Governing docs:** C4, C7, C8, C24;
+  `docs/foundry/docs/{architecture/authority-model,architecture/data-consistency,security/approval-and-provenance,workflows/direct-plan,workflows/multi-repository}.md`.
+- **Scope:** immutable plan-artifact resolution and digest/signature/revocation/expiry/topology verification;
+  repository registry/ownership/provider/canonical URL/pinned base/target policy; mirror/read resolution and isolated
+  worktrees; kernel/API/CLI production inputs; drift/substitution/path-negative tests.
+- **Out of scope:** rebuilding SCM read/write or worktree managers; caller paths/revisions/executor/task queue/
+  workflow ID/sandbox/policy/budget/credential; canonical-clone writes; accepting a raw PLAN as approved; branch push.
+- **Steps:** (1) Add `internal/repository` authority-neutral registry types/store/resolver with `doc.go`; normalize
+  canonical URLs, validate providers and bind profile/organization/target policy. (2) Extend ApprovedPlan provenance
+  to reference the immutable plan artifact and approved repository context; invalidate approval when that context or
+  artifact digest changes. (3) Resolve ApprovedPlan ID → record → artifact → canonical digest → signature/revocation/
+  expiry → parse/topology before envelope creation. (4) Resolve repository ID/declaration → registry → ownership →
+  provider/URL → pinned base through existing mirror/cache → isolated worktree; reject local paths outside configured
+  roots and canonical clone writes. (5) reduce API/CLI/direct/mission inputs to approved references and intent; wire
+  the kernel resolver into StartDelivery and LoadApprovedPlan. (6) Handle missing/stale/drifted remote revisions
+  deterministically without substitution. (7) add API/CLI parity, duplicate/restart/tamper/wrong-owner/path tests and
+  an e2e delivery containing one real task plus independent validation/evidence.
+- **Outputs:** new `internal/repository/{doc.go,model.go,store.go,resolver.go,store_test.go,resolver_test.go}`;
+  modified `internal/provenance/{artifacts.go,store.go,verify.go}`; modified `internal/scm/read/read.go` and
+  `internal/worktree/manager.go`; modified `internal/kernel/{start.go,workflow.go,activities.go}`;
+  modified `internal/api/{deliver.go,server.go}`, `cmd/foundry/{plan_run.go,main.go}`, `cmd/foundryd/main.go`, and
+  `api/openapi.yaml`; `internal/db/migrations/00036_repository_registry.sql`; modified
+  `internal/db/migrate_test.go` with up/down coverage;
+  `test/e2e/source_resolution/{doc.go,run.sh,source_resolution_live_test.go}`.
+- **Interfaces/DB:** producer = repository registration/admin path plus ApprovedPlan artifact writer; resolver owner =
+  kernel calling `repository.Resolver`; consumers = envelope resolver, SCM read/mirror and worktree manager. Persist
+  repositories, owner/profile/organization, normalized URL/provider, pinned revisions and approval links; existing
+  object store remains plan-artifact source. Migration 00036 is reversible and down-tested.
+- **Acceptance:** `POST /v1/plans/{id}/deliver` authenticates, authorizes, resolves the envelope/artifact/repository,
+  starts Temporal, loads the approved PLAN, creates an isolated worktree, executes ≥1 real task, validates
+  independently and records evidence without caller paths. CLI has the same path. Duplicate start is idempotent and
+  restart resumes. Tampered artifact, wrong/missing/substituted repository, wrong profile/organization, stale or
+  missing revision, revoked/expired approval, malicious local path, canonical-clone target and remote drift all
+  refuse with named results before executor or write side effects.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/repository/... ./internal/provenance/... ./internal/scm/read/... ./internal/worktree/... ./internal/kernel/... ./internal/api/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/source_resolution/run.sh`;
+  `make test fitness evidence-verify`.
+- **Evidence:** API/CLI request/response, immutable artifact and repository records, worktree path/root proof,
+  workflow history, validation bundle and all negative results archived to `evidence/task-143/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** R4 · **Boundary:** transports name approved records only; the
+  kernel resolves immutable sources and only existing SCM-read/worktree code materializes them.
+- **Status:** ⬜ Not started
+
+### Task 144 (INT-07) — Live CLI idea-to-mission convergence
+
+- **Goal:** Make `foundry mission start --idea "Build a SaaS for engineering managers that solves X" --budget-usd 50`
+  execute the real production flow through a started PortfolioLoop/MissionLoop, without fixture flags or a manual
+  “start mission separately” step.
+- **Rationale:** the durable intake stages, candidate/spec/PLAN helpers and API seams already exist. Production CLI
+  still requires opportunity/spec fixtures, mints a placeholder approval reference and stops before mission start;
+  this card wires the existing stages to real providers, approval, readiness, envelope and Temporal.
+- **Depends:** 25, 41, 103, 109, 110, 111, 141, 143, 146 · **Governing docs:** C7, C12, C17, C23, C24;
+  `docs/foundry/docs/{autonomy/admission-tiers,autonomy/mission-setup-ceremony,autonomy/personal-venture-profile,workflows/venture-loop,operations/cli-and-makefile}.md`.
+- **Scope:** authenticated CLI/API intake producer; durable stage outputs/cost/idempotency; bounded real research and
+  signal gate; spec/PLAN/topology/admission; real signed approval and H-tier auth pause; readiness/budget/repository;
+  mission creation/start/status output; stage restart/failure/live tests.
+- **Out of scope:** a new intake state machine; fixture removal from deterministic tests; Telegram (Task 145);
+  mockup/PLAN routing (Task 150); automatic H approval; caller-selected executor/workflow/queue; BUILD without real
+  signal; product implementation inside intake.
+- **Steps:** (1) Add a production intake adapter using existing provider research/spec/plan seams while keeping
+  cassettes test-only. (2) authenticate the principal and durably create/idempotently resume the intake run. (3)
+  call Task 146 signal-backed gate; stop `VALIDATE-MORE` with missing evidence and stop `REJECT` before repository,
+  build budget or deploy. (4) generate spec and PLAN, validate topology/classify admission, persist the real artifact
+  and create/verify a signed ApprovedPlan; H waits for OIDC+WebAuthn and non-H automation requires an explicit grant.
+  (5) run readiness, provision the scoped budget, resolve repository/envelope, create mission and start PortfolioLoop/
+  MissionLoop through the production Temporal client. (6) make every committed stage durable/costed and retry from
+  the last stage without repetition. (7) print all required identifiers/state and expose immediate status. (8) test
+  three verdicts, strong auth, stage-by-stage restart, idempotency, fallback and refusal paths live.
+- **Outputs:** modified `internal/intake/{types.go,pipeline.go,store.go,adapters.go}`; new
+  `internal/intake/{production.go,production_test.go}`; modified `cmd/foundry/{intake.go,intake_live.go,main.go}`;
+  modified `internal/api/{intake.go,server.go}`, `internal/authn/{approve.go,webauthn.go}`,
+  `internal/provenance/{approve.go,store.go}`, `internal/mission/{ceremony.go,store.go,portfolio_workflow.go,workflow.go}`, and
+  `cmd/foundryd/main.go`; `internal/db/migrations/00038_intake_runtime.sql`; modified
+  `internal/db/migrate_test.go` with up/down coverage;
+  `test/e2e/cli_intake/{doc.go,run.sh,intake_live_test.go}`.
+- **Interfaces/DB:** producer = CLI/API `InputRequest` precursor authenticated principal; application producer =
+  existing intake pipeline with new production adapters; consumers = opportunity gate, spec/plan, approval/readiness,
+  Task 141/143 resolution and Temporal client. Migration 00038 adds durable production stage references, real
+  approval/mission/workflow IDs, cost and idempotency links; it is reversible and down-tested.
+- **Acceptance:** live BUILD reaches MissionLoop; live VALIDATE-MORE names missing evidence and creates no build;
+  live REJECT creates no product repo/build budget/deploy; H-tier completes OIDC+WebAuthn before start; duplicate
+  command creates one run/mission; restart at every stage resumes once; provider failure falls back only inside the
+  allowlist or refuses; budget refusal, invalid signal, plan failure and approval revocation prevent start; status is
+  observable immediately. Output includes intake run/opportunity/verdict/missing action/spec digest/PLAN ID+digest/
+  tier/approval/mission/workflow/profile/budget/current status. No fixture flag, placeholder approval, manual next
+  command, caller executor or caller workflow appears on production path; raw LLM/web data remains untrusted.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/intake/... ./cmd/foundry/... ./internal/api/... ./internal/mission/... ./internal/kernel/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/cli_intake/run.sh`;
+  `make test fitness evidence-verify`.
+- **Evidence:** live CLI transcripts for BUILD/VALIDATE-MORE/REJECT/H, stage/restart matrix, approval/readiness,
+  costs, envelope and workflow history archived to `evidence/task-144/`.
+- **Risk:** High · **Exec:** integration + go-kernel · **Rev:** R4 · **Boundary:** intake proposes artifacts and
+  intent; strong auth approves; the kernel resolves authority and starts Temporal; missing production wiring refuses.
+- **Status:** ⬜ Not started
+
+### Task 145 (INT-08) — Telegram production intake and command convergence
+
+- **Goal:** Wire Telegram idea/mockup intake, confirmation, strong-auth escalation and operational commands into
+  the actual production foundryd router using the same application service as CLI/API.
+- **Rationale:** Bot API polling, retry, flood control, durable update offset and basic command handlers already
+  exist. The production router does not durably bind chats/principals or wire in-memory idea drafts/nonces and
+  attachments to the real intake; this card closes that propagation rather than replacing Telegram transport.
+- **Depends:** 112, 113, 114, 144 · **Governing docs:** C11, C12, C24;
+  `docs/foundry/docs/{operations/telegram,operations/control-plane-protection,security/authorization-model,security/approval-and-provenance}.md`.
+- **Scope:** durable bot/chat/principal binding, drafts/artifacts/budgets/nonces/confirmation/intake/workflow/audit;
+  `/idea` and optionally enabled free text; image/PDF/document mockup drafts; confirmation into Task 144/150 shared
+  service; existing operational commands; one-time OIDC+WebAuthn escalation; real Bot API/restart/security tests.
+- **Out of scope:** Telegram high-risk approval; action on unconfirmed free text/attachment; policy/permission
+  widening; direct research, reservation, PLAN approval, mission start, deployment or SCM write from the transport;
+  a second intake pipeline; changing canonical state semantics.
+- **Steps:** (1) Persist registered chat→principal/profile binding, bot identity, draft kind/content/artifact refs,
+  normalized bounded budget, nonce hash/expiry/use/binding, confirmation and linked run/mission/workflow plus command
+  audit. (2) route `/idea …` and enabled free text as untrusted IDEA drafts only; show exact normalized summary and
+  issue a chat/principal/draft-bound nonce. (3) Preserve Telegram image/document/PDF bytes unchanged in the object
+  store, digest them, store caption as untrusted context and create a MOCKUP draft/nonce. (4) make
+  `/confirm <nonce>` atomically consume a valid unchanged draft and call the shared production intake/router once.
+  (5) wire `/status`, `/pause`, `/resume`, `/freeze`, `/veto`, `/rollback`, `/details`, compatible `/cancel`, and only
+  C11-permitted low-risk `/approve` to real workflows with audit/extops idempotency. (6) produce short-lived,
+  single-purpose strong-auth URLs; persist OIDC+WebAuthn approval and resume only the bound waiting workflow before
+  notifying Telegram. (7) preserve offset/retry/flood/retry_after behavior and add real Bot API, restart, replay,
+  injection and cross-chat negatives.
+- **Outputs:** modified `internal/notify/{inbound.go,idea.go,commands.go,store.go}`; new
+  `internal/notify/{draft_store.go,attachments.go,draft_store_test.go,attachments_test.go}`; modified
+  `internal/authn/{telegram.go,webauthn.go}` and `cmd/foundryd/{telegram_inbound.go,main.go}`; new
+  `internal/api/strong_auth.go`; modified `internal/api/server.go`; `internal/db/migrations/00039_telegram_commands.sql`; modified
+  `internal/db/migrate_test.go` with up/down coverage;
+  `test/e2e/telegram_production/{doc.go,run.sh,telegram_live_test.go}`;
+  modified `test/redteam/telegram_injection_test.go`.
+- **Interfaces/DB:** producer = Bot API receiver; identity authority = durable registered chat/principal binding;
+  consumer = Task 150 InputRouter/Task 144 intake, mission command service and strong-auth completion service.
+  Migration 00039 persists bot/chat, draft/artifact, nonce, confirmation, link and audit records with uniqueness for
+  update and nonce use; it is reversible and down-tested.
+- **Acceptance:** real Bot API proves (1) `/idea`; (2) free text creates only a draft; (3) image draft; (4) PDF/
+  document draft; (5) draft restart survival; (6) attachment-ref restart survival; (7) nonce restart survival; (8)
+  expiry; (9) single use; (10) chat binding; (11) principal binding; (12) draft modification invalidates nonce; (13)
+  another chat cannot confirm; (14) budget escalation clamped/refused; (15) injection cannot change policy; (16)
+  unknown chat denied; (17) H approval refused inside Telegram; (18) auth URL short-lived/single-purpose; (19)
+  WebAuthn resumes only intended action; (20) pause/resume/status/freeze/rollback hit real workflows; (21) offset
+  survives restart; (22) retry creates no duplicate mission; (23) flood control holds; (24) `retry_after` honored;
+  (25) every command audited.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/notify/... ./internal/authn/... ./cmd/foundryd/... ./test/redteam/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/telegram_production/run.sh`;
+  `make test fitness evidence-verify`.
+- **Evidence:** Bot API update/message IDs, stored artifacts/digests, draft/nonce/auth/restart records, workflow command
+  receipts, flood/retry logs and injection negatives archived to `evidence/task-145/`.
+- **Risk:** High · **Exec:** integration + security-review · **Rev:** R4 · **Boundary:** Telegram transports
+  untrusted intent and low-risk operations only; strong approval occurs outside Telegram and the kernel owns effects.
+- **Status:** ⬜ Not started
+
+### Task 146 (OPP-06) — Production real-validation-signal wiring
+
+- **Goal:** Connect the existing real-market signal model/store and bounded acquisition activities to the production
+  OpportunityGate, failing closed when store, allowlist, policy or activity wiring is absent.
+- **Rationale:** signal contracts, PostgreSQL store, allowlisting, ingest and `StoreRealSignalVerifier` already exist,
+  but foundryd installs `DenyRealSignal` and does not register the acquisition/ingest activities. This card is
+  production wiring, raw-evidence lifecycle and refusal semantics, not a second opportunity model.
+- **Depends:** 26, 29, 100, 101, 102, 139, 141 · **Governing docs:** C9, C19, C23, C24;
+  `docs/foundry/docs/{architecture/external-operations,operations/cost-accounting,security/authorization-model,autonomy/personal-venture-profile}.md`.
+- **Scope:** authenticated intake/bounded acquisition → provenance/raw artifact/digest → existing signal store →
+  class/environment allowlist → real verifier → deterministic gate; activity registration/callers; expiry,
+  revocation, ownership and tamper rules; spend reservation/extops; real and negative tests.
+- **Out of scope:** synthetic/test-mode/LLM/executor assertion as real signal; request/prompt allowlist changes;
+  unsolicited mass outreach; unbounded audience/event/duration/spend; a new scoring/verdict engine; direct executor
+  research side effects; silent bypass when wiring is missing.
+- **Steps:** (1) Extend signal records with immutable raw artifact reference/digest, authenticated source identity,
+  opportunity/profile ownership, sample/time metadata, eligibility environment, expiry/revocation and ingest
+  idempotency. (2) Wire configured store plus closed policy allowlist into foundryd's `StoreRealSignalVerifier` and
+  register/call the ingest/acquire activities from OpportunityGate; absence selects a named refusal, never deny-then-
+  bypass. (3) enforce eligible allowlisted real conversions, waitlist/inbound/pricing interactions, authorized paid
+  traffic, authenticated interviews/responses or verifiable experiment results; reject all named synthetic,
+  cassette, test Stripe, generated/source-free or incomplete classes. (4) preserve raw bytes before summary and bind
+  exact IDs/digests into BUILD and the later envelope; expired/revoked/deleted/tampered or wrong-owner signals no
+  longer satisfy start. (5) enforce policy/channel/audience/event/duration/spend caps, pre-spend reservation and
+  extops idempotency for acquisition. (6) add production, retry/restart, prompt-injection, tamper and ownership tests.
+- **Outputs:** modified `internal/opportunity/signals/{allowlist.go,ingest.go}`,
+  `internal/opportunity/{model.go,store.go}` and tests; modified
+  `internal/kernel/{validation_signal.go,opportunity_gate.go,activities.go}`; modified `cmd/foundryd/main.go`;
+  modified `config/validation-signal-allowlist.yaml`, `config/opportunity-research.yaml`, and
+  `config/policy/platform.yaml`; `internal/db/migrations/00037_validation_signal_runtime.sql`;
+  modified `internal/db/migrate_test.go` with up/down coverage;
+  `test/e2e/validation_signal/{doc.go,run.sh,validation_signal_live_test.go}`;
+  modified `test/redteam/opportunity_injection_test.go`.
+- **Interfaces/DB:** producers = authenticated signal API and kernel-owned bounded acquisition activity; consumer =
+  existing `StoreRealSignalVerifier`, then OpportunityGate and Task 141 resolver. Migration 00037 extends existing
+  validation-signal persistence with raw artifact, ownership, lifecycle, acquisition reservation/extops and digest
+  fields; it is reversible and down-tested.
+- **Acceptance:** (1) eligible real signal satisfies; (2) synthetic does not; (3) test-mode does not; (4) input
+  cannot widen class; (5) prompt cannot widen allowlist; (6) injection cannot change verdict; (7) raw artifact
+  preserved; (8) summary cannot replace it; (9) duplicate ingest idempotent; (10) acquisition reserved first; (11)
+  retry duplicates no spend; (12) restart reruns no experiment; (13) BUILD records exact IDs/digests; (14)
+  VALIDATE-MORE names missing signal; (15) expired/revoked evidence blocks later start; (16) wrong opportunity
+  rejected; (17) wrong profile rejected; (18) deletion/tamper detected; (19) production uses
+  `StoreRealSignalVerifier`; (20) missing production wiring refuses.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/opportunity/... ./internal/kernel/... ./test/redteam/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/validation_signal/run.sh`;
+  `make test fitness evidence-verify`.
+- **Evidence:** raw/summary records, allowlist decision, reservation/extops/cost rows, BUILD/VALIDATE-MORE bundles,
+  restart/tamper/injection negatives and live source proof archived to `evidence/task-146/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** R4 · **Boundary:** acquisition is a kernel-owned budgeted side
+  effect; signal content proposes evidence only and cannot authorize or mutate policy.
+- **Status:** ⬜ Not started
+
+### Task 147 (VEN-19) — Closed autonomous venture improvement and deployment loop
+
+- **Goal:** Connect MissionLoop, observation, improvement generation, normal admission/delivery, deployment,
+  post-change evaluation and rollback into one closed durable Loop Engineering cycle.
+- **Rationale:** MissionLoop and ContinueAsNew, improvement helpers, DeliverPlan, kernel DeployProduct, health
+  verification and rollback already exist. Production currently needs an operator to construct and signal
+  `DeliverPlanInput`; this card adds the durable workflow caller chain, not another mission or deploy subsystem.
+- **Depends:** 50, 106, 119, 120, 125, 126, 127, 141, 142, 143, 146 · **Governing docs:** C2, C4, C9, C10, C13,
+  C17–C20, C22; `docs/foundry/docs/{workflows/venture-loop,autonomy/mission-contract,autonomy/cumulative-drift-governance,autonomy/personal-venture-profile,workflows/recovery}.md`.
+- **Scope:** observe/evaluate outcome; one-improvement lease; freeze/cumulative/budget controls; deterministic
+  workflow plus activity-based proposal/PLAN/admission/approval; DeliverPlan child; sandbox/validation/evidence;
+  deploy/health/promotion/post-observation/retain-or-rollback; restart/fault/live zero-touch proof.
+- **Out of scope:** workflow-side DB/provider/deploy/nondeterministic generation/SCM calls; operator-crafted delivery
+  signal in the normal path; concurrent improvements per product; multi-concern change; policy/budget mutation; L2+
+  promotion; bypassing normal admission/approval/envelope; a second deployment adapter.
+- **Steps:** (1) Add a dedicated durable `ImprovementLoop` child workflow with deterministic state and activities for
+  all I/O. (2) have MissionLoop's `improve` outcome acquire a product lease and load freeze/change-budget/cooldown/
+  retry/deployment-period/evidence/canary/rollback limits. (3) generate one bounded proposal and real PLAN in
+  activities, resolve normal classification/policy/budget/ApprovedPlan/envelope and pause WAITING for out-of-envelope
+  or H-tier approval. (4) start DeliverPlan child using immutable references; require sandbox and independent
+  validation/evidence. (5) invoke kernel DeployProduct with extops receipt, verify health, record promotion and
+  observe post-change metrics. (6) retain beneficial change or idempotently rollback harm/health failure; continue
+  or exit MissionLoop with canonical results. (7) attribute all costs to the mission and prevent duplicate plan,
+  effects or deploy across failures. (8) test hard limits, kill/freeze, ContinueAsNew and one real zero-avoidable-
+  touch improve/redeploy cycle.
+- **Outputs:** new `internal/mission/{improvement_workflow.go,improvement_activities.go,improvement_workflow_test.go,improvement_replay_test.go}`;
+  modified `internal/mission/{workflow.go,improve.go,store.go}`; modified
+  `internal/kernel/{start.go,workflow.go,deploy_activity.go}`; modified `cmd/foundryd/main.go`;
+  `internal/db/migrations/00040_improvement_runs.sql`; modified `internal/db/migrate_test.go` with up/down coverage;
+  `test/e2e/venture_improvement/{doc.go,run.sh,improvement_live_test.go,faults_test.go}`.
+- **Interfaces/DB:** producer = MissionLoop improve decision; orchestrator = Temporal `ImprovementLoop`; activity
+  consumers = proposal/plan, admission/provenance/envelope, DeliverPlan, DeployProduct, observation and rollback;
+  kernel remains side-effect owner. Migration 00040 stores immutable run/lease/plan/delivery/deploy/promotion/
+  observation/rollback refs and idempotency keys; it is reversible and down-tested.
+- **Acceptance:** (1) real observation yields improve; (2) one bounded proposal; (3) real PLAN; (4) normal admission/
+  provenance; (5) reservation before execution; (6) sandboxed DeliverPlan; (7) independent validation; (8) real
+  deploy; (9) health passes; (10) promotion recorded; (11) post metrics observed; (12) benefit retained; (13) harmful
+  canary rolls back; (14) failed health rolls back; (15) rollback idempotent; (16) freeze blocks next cycle; (17)
+  out-of-envelope WAITING; (18) H-tier pauses; (19) generation restart duplicates no PLAN; (20) delivery restart
+  duplicates no task effect; (21) deploy restart duplicates no deploy; (22) only one improvement; (23) mission cost
+  attribution; (24) one complete cycle has zero avoidable touches after readiness; (25) exit uses canonical results.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/mission/... ./internal/kernel/... ./internal/deploy/... ./internal/observe/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/venture_improvement/run.sh`;
+  `make test fitness evidence-verify`.
+- **Evidence:** full workflow/child histories, limits/lease records, plan/envelope/evidence, cost/extops/deploy/
+  promotion/observation/rollback receipts, faults and touch ledger archived to `evidence/task-147/`.
+- **Risk:** High · **Exec:** go-kernel + integration · **Rev:** R4 · **Boundary:** Temporal sequences; activities do
+  I/O; only the kernel admits, budgets, deploys and rolls back; failure falls to WAITING/refusal, never manual input
+  substitution or unsafe fallback.
+- **Status:** ⬜ Not started
+
+### Task 148 (TX-13) — Full approved-PLAN-to-10x-handoff orchestration
+
+- **Goal:** Create the complete organization workflow from ApprovedPlan to a verified real remote 10x branch
+  handoff; pre-authorized caller change sets are not an authoritative workflow input.
+- **Rationale:** the TenX workflow, PEC proposals, atomic-group/change-set types, durable integrator queue, CAS push,
+  Bitbucket writer, provider policy and prohibitions exist. The workflow currently consumes caller-supplied change
+  sets and only integrates them; this card derives them from verified tasks through existing seams.
+- **Depends:** 55, 56, 57, 58, 59, 60, 108, 124, 137, 140, 141, 142, 143 · **Governing docs:** C2, C4, C5, C7–C10,
+  C14, C15, C22; `docs/foundry/docs/{workflows/ten-x-branch,workflows/multi-repository,architecture/external-operations,security/approval-and-provenance}.md`.
+- **Scope:** ApprovedPlan verification → organization/profile/policy/envelope/repository/topology → PEC proposal →
+  kernel wave validation → bounded sandbox tasks → independent verification/evidence → deterministic atomic groups/
+  manifests → durable queue/policy-selected writer/drift/CAS/readback → evidence/Telegram/exact terminal; real
+  Bitbucket/restart/prohibition proof.
+- **Out of scope:** trusted caller change sets; PEC/executor write authority; partial-group push; PR/merge/staging/
+  deploy; force push; branch creation without explicit organization policy; new SCM provider; changing CAS protocol.
+- **Steps:** (1) Change TenX start input to immutable ApprovedPlan/envelope references; treat any caller change set as
+  untrusted and reject it from the production endpoint. (2) resolve sources and plan topology; obtain PEC wave
+  proposal, then have the kernel validate dependencies, concurrency, effects, policy and budget. (3) dispatch
+  independent tasks in isolated sandbox worktrees, validate each independently and accept only evidence-derived
+  changes. (4) form deterministic atomic groups/change-set manifests; default push after a complete group, allowing
+  per-accepted-task only under explicit buildable-and-testable intermediate invariant. (5) enqueue durably, select
+  provider from compiled policy, run drift guard/CAS through the kernel-only writer and persist before/after receipt;
+  never force push. (6) independently re-read remote SHA, emit handoff evidence/Telegram prohibitions and exact
+  terminal pair. (7) prove queue/crash/retry/idempotency/revocation/provider/drift negatives and real task overlap.
+- **Outputs:** new `internal/kernel/{tenx_orchestration.go,tenx_orchestration_test.go,tenx_replay_test.go}`;
+  modified `internal/kernel/{tenx_workflow.go,tenx_integrate.go,atomicgroup.go,changeset.go,start.go,activities.go}`
+  and `internal/kernel/integrator/{integrator.go,queue_pg.go,drift.go}`;
+  modified `cmd/foundryd/main.go`; `internal/db/migrations/00041_tenx_orchestration.sql`; modified
+  `internal/db/migrate_test.go` with up/down coverage; modified `test/e2e/tenx/{run.sh,live_test.go}` and new
+  `test/e2e/tenx/tenx_faults_test.go`; new `internal/notify/tenx.go`; modified 10x prohibition fixtures.
+- **Interfaces/DB:** producer = kernel TenX orchestration from ApprovedPlan/envelope; PEC only proposes waves;
+  executors produce candidate outputs; verifier/evidence authorizes accepted task material; atomic-group builder feeds
+  durable integrator; kernel-selected `scm/write` consumes manifest. Each receipt records repository ID, provider,
+  branch, before/after SHA, atomic-group ID, manifest digest, execution-envelope digest, policy digest, plan digest,
+  evidence references, idempotency key and timestamp. Migration 00041 stores orchestration/task/group/manifest/
+  queue/receipt/readback refs and idempotency; it is reversible and down-tested.
+- **Acceptance:** real disposable Bitbucket proves (1) ApprovedPlan checked; (2) envelope checked; (3) repositories
+  resolved; (4) two independent tasks overlap; (5) dependencies hold; (6) every task sandboxed; (7) independently
+  verified; (8) deterministic manifest; (9) no partial group; (10) production Integrator configured; (11) Bitbucket
+  writer configured; (12) provider policy-resolved; (13) unset provider refuses; (14) wrong provider refuses; (15)
+  stale SHA refuses; (16) drift never force-pushes; (17) queue survives restart; (18) pre-push crash resumes; (19)
+  post-push/pre-ack crash duplicates no push; (20) duplicate request returns receipt; (21) independent read equals
+  after SHA; (22) no PR API; (23) no merge API; (24) no staging activity; (25) no deploy activity; (26) Telegram
+  names all prohibitions; (27) exact `SUCCEEDED`/`TEN_X_BRANCH_HANDOFF_READY`.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/kernel/... ./internal/pec/... ./internal/scm/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/tenx/run.sh`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash scripts/check_tenx_prohibition.sh .`;
+  `make test fitness evidence-verify`.
+- **Evidence:** approved source/envelope, wave overlap, sandbox/verification records, atomic manifest, queue/restart/
+  crash logs, push/readback receipt, Telegram IDs and negative API call audit archived to `evidence/task-148/`.
+- **Risk:** High · **Exec:** go-kernel + integration + security-review · **Rev:** R4 · **Boundary:** PEC proposes,
+  the kernel decides/dispatches/integrates/writes, evidence derives change sets, and the 10x workflow can only hand off.
+- **Status:** ⬜ Not started
+
+### Task 149 (SEC-06) — Production profile isolation and cost-reconciliation closure
+
+- **Goal:** Enforce the V1 trust-domain rule—one running security deployment per profile/trust domain—and ensure
+  missing provider usage can never become silent or unbounded autonomous spend.
+- **Rationale:** profile IDs already scope worktrees/evidence and S3 prefixes, and cost code already supports
+  reserve/incur/reconcile and shadow pricing. A single foundryd process still shares DB/Temporal/secrets/provider
+  identities, while unknown usage is not a durable freeze-triggering backlog. This card closes deployment validation
+  and reconciliation; it adds no new image or Compose file.
+- **Depends:** 35, 66, 67, 118, 119, 120, 128, 141, 142, 143 · **Governing docs:** C13, C14, C19, C24;
+  `docs/foundry/docs/{architecture/configuration-and-policy,security/authorization-model,security/data-retention-and-privacy,operations/cost-accounting,operations/control-plane-protection}.md`.
+- **Scope:** separately configurable DB/role/schema, Temporal namespace, evidence bucket/prefix/key, secret scope,
+  provider/SCM/deploy/billing credentials, Telegram scope, OIDC/WebAuthn, audit chain, cost ledger and portfolio per
+  trust domain; startup validation; cross-domain red team; durable unknown/unreconciled costs, backlog threshold,
+  freeze/alert/restart/reconcile/unfreeze across executor/research/deploy/billing.
+- **Out of scope:** `profile_id` alone as confidentiality boundary; unsafe single-process multi-profile defaults;
+  new container lineage/Compose file; credential sharing; treating missing usage as zero; cross-profile backlog clear;
+  weakening existing attended/dev modes or budget checks.
+- **Steps:** (1) Define a `RuntimeIsolation` manifest resolved at startup from one selected profile/trust domain and
+  independently addressable resource identities; compare Task 141 ownership and refuse mismatches. (2) validate DB
+  identity, Temporal namespace, evidence encryption/prefix, secrets, provider/SCM/deploy/billing identities,
+  Telegram/auth, audit chain, ledger and portfolio; refuse any claimed multi-profile mode unless every resource is
+  independently resolved. (3) enforce resource identity at store/client construction so supported APIs cannot target
+  another namespace/domain. (4) extend cost records with `observed | derived | shadow | unreconciled`, durable error,
+  provider usage ref and reconciliation attempts; missing usage remains unreconciled, never zero. (5) run a restart-
+  safe reconciler; threshold breaches freeze new unattended reservation, emit an alert, and unfreeze only after
+  durable correction. (6) route executor/research/deploy/billing costs to the same mission/profile ledger and prove
+  concurrency isolation. (7) publish a separate-deployment runbook and add startup/cross-profile/object-store/
+  credentials/ledger negative tests.
+- **Outputs:** new `internal/profile/{runtime.go,runtime_test.go}`; modified
+  `internal/profile/{store.go,types.go,schema.go,schema/profile.schema.json}`; modified
+  `internal/{evidence/store_s3.go,secrets/store.go}`; modified `internal/kernel/{execution_envelope.go,budget.go,recordcost.go}`;
+  modified `internal/ledger/cost/{store.go,reconcile.go,statement.go}`; modified
+  `internal/mission/portfolio.go`, `internal/observe/metrics.go`, `cmd/foundryd/main.go`, `.env.example`,
+  `config/profiles/{personal-autonomous-venture.yaml,organization-10x.yaml}`, and `deploy/prometheus/alerts.yml`;
+  new `docs/runbooks/profile-isolation.md`; `internal/db/migrations/00042_cost_reconciliation.sql`; modified
+  `internal/db/migrate_test.go` with up/down coverage; new `test/redteam/profile_runtime_test.go`.
+- **Interfaces/DB:** producer = startup profile config/secret resolution; consumers = PG/Temporal/object/evidence/
+  secret/provider/SCM/deploy/billing/Telegram/auth/audit/cost/portfolio clients and envelope checker. Cost producers
+  submit provider usage references; durable reconciler consumes them and freeze gate feeds budget admission.
+  Migration 00042 adds resource identity, unreconciled backlog/attempt/freeze linkage and is reversible/down-tested.
+- **Acceptance:** (1) personal cannot read organization DB; (2) organization cannot read personal DB; (3) personal
+  cannot access organization evidence; (4) inverse evidence denial; (5) personal cannot resolve organization
+  secrets; (6) inverse secrets denial; (7) personal cannot use organization SCM identity; (8) organization cannot use
+  personal provider credential; (9) wrong-profile envelope rejected; (10) wrong-organization rejected; (11) wrong
+  Temporal namespace unavailable through supported APIs; (12) object-store isolation verified; (13) audit includes
+  profile/organization; (14) concurrent mission attribution correct; (15) missing usage unreconciled; (16) never
+  silently zero; (17) threshold freezes unattended spend; (18) alert emitted; (19) backlog survives restart; (20)
+  correct reconciliation clears it; (21) another profile cannot clear; (22) separate-deployment runbook exists;
+  (23) startup validator exists; (24) unsupported multi-profile config fails closed.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/profile/... ./internal/evidence/... ./internal/secrets/... ./internal/ledger/cost/... ./internal/kernel/... ./test/redteam/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash scripts/doclint/run.sh`;
+  `make test lint fitness doclint evidence-verify`.
+- **Evidence:** redacted startup manifests, denial matrix, object-store/namespace/credential probes, concurrent cost
+  rows, backlog/freeze/alert/restart/unfreeze trace and runbook check archived to `evidence/task-149/`.
+- **Risk:** High · **Exec:** security-review + infra + go-kernel · **Rev:** R4 · **Boundary:** deployment resources,
+  not a row label, form the trust boundary; the kernel budgets and cost store reconciles; missing isolation or cost
+  refuses/freeze rather than sharing or assuming zero.
+- **Status:** ⬜ Not started
+
+### Task 150 (INT-09) — Unified production input router: IDEA, PLAN and MOCKUP
+
+- **Goal:** Create one production input-routing contract for IDEA, PLAN and MOCKUP that all transports call and that
+  selects the correct personal or organization workflow without duplicated business logic or governance bypass.
+- **Rationale:** CLI/API intake, direct-plan delivery, Telegram drafts and the mockup router exist separately; the
+  mockup command is read/convert-only and production entry surfaces do not share a durable normalized contract.
+  This card composes them behind one authority-neutral application package, leaving all decisions to existing
+  admission/approval/kernel services.
+- **Depends:** 138, 141, 143, 144, 145, 146, 147, 148, 149 · **Governing docs:** C6, C7, C11–C14, C16, C17, C23,
+  C24; `docs/foundry/docs/{workflows/direct-plan,workflows/mockup-to-delivery,workflows/venture-loop,workflows/ten-x-branch,security/approval-and-provenance}.md`.
+- **Scope:** normalized intent-only `InputRequest` (`request_id`, idempotency key, IDEA|PLAN|MOCKUP,
+  CLI|TELEGRAM|API, authenticated principal/profile/organization binding, mode, text, ordered artifact refs, existing
+  plan ref, requested budget, submitted time, client metadata); durable request/route/bundle/idempotency links;
+  deterministic routing matrix; CLI/API/Telegram parity; provenance/touch/injection/restart tests.
+- **Out of scope:** executor/workflow/queue/tier/approval/policy/sandbox/budget scope/credential/deploy/branch authority
+  in a request; organization identity not bound to the principal; a second intake pipeline; approval by upload;
+  authoritative mockup inference; personal opportunity/deploy semantics imposed on organization delivery; governed
+  organization IDEA unless explicitly configured.
+- **Steps:** (1) Add authority-neutral `internal/inputrouter` with `doc.go`, closed input/origin/mode vocabularies,
+  canonical ordered artifact bundle digest and deterministic policy-driven route decision. (2) persist the original
+  request, artifacts/order/source/digests, decision, idempotency and references to intake/plan/approval/mission/
+  workflow/evidence. (3) route personal IDEA through Task 144; personal MOCKUP through original preservation,
+  mandatory Observed/Inferred/Assumed/Unresolved extraction, opportunity/real-signal/spec/PLAN and venture path;
+  personal raw PLAN through parse/topology/effects/admission/approval/envelope/DeliverPlan, optionally MissionLoop
+  only under explicit MissionContract. (4) route organization ApprovedPlan directly to Task 148 and organization
+  mockup through labeled spec/PLAN/strong provenance then Task 148; refuse organization IDEA unless a governed
+  policy route exists. (5) make CLI commands `mission start --idea|--mockup`, `plan submit --file`, `plan deliver
+  --approved-plan`, and `tenx start --approved-plan`, API equivalents and confirmed Telegram drafts use this same
+  service. (6) invalidate downstream approval on changed PLAN/artifact bundle; reject unresolved high-impact mockup
+  assumptions and self-classification/routing injection. (7) add route/restart/idempotency/provenance/touch parity
+  matrix and no-duplicate-pipeline lint/test.
+- **Outputs:** new `internal/inputrouter/{doc.go,model.go,router.go,store.go,artifact.go,router_test.go,store_test.go}`;
+  modified `cmd/foundry/{intake.go,mockup.go,plan_run.go,main.go}`; modified
+  `internal/api/{intake.go,deliver.go,server.go}`; modified `internal/notify/{inbound.go,idea.go,attachments.go}`;
+  modified `internal/spec/mockup/router.go`, `internal/kernel/start.go`, `cmd/foundryd/main.go`, and
+  `api/openapi.yaml`; `internal/db/migrations/00043_input_router.sql`; modified `internal/db/migrate_test.go` with
+  up/down coverage;
+  `test/e2e/input_router/{doc.go,run.sh,input_router_live_test.go,input_router_injection_test.go}`.
+- **Interfaces/DB:** producer = authenticated CLI/API or confirmed Telegram draft; application owner = InputRouter;
+  consumers = existing intake/mockup/direct-plan services, then kernel envelope and MissionLoop/DeliverPlan/TenX.
+  The router returns immutable route/reference data, never authority. Migration 00043 stores requests, ordered
+  bundles, decisions, idempotency and downstream refs; it is reversible and down-tested.
+- **Acceptance:** (1) CLI IDEA reaches real mission; (2) confirmed Telegram IDEA same path; (3) authorized API IDEA
+  same path; (4) CLI MOCKUP reaches spec/PLAN/mission; (5) Telegram image same after confirm; (6) Telegram PDF same;
+  (7) Figma normalized; (8) HTML normalized; (9) multi-image order/provenance preserved; (10) personal PLAN reaches
+  DeliverPlan without ideation; (11) explicit personal MissionContract PLAN may reach MissionLoop; (12) organization
+  PLAN reaches full 10x; (13) organization mockup reaches organization PLAN/10x; (14) it never triggers personal
+  deploy; (15) unsupported organization IDEA explicitly refused; (16) every execution has envelope; (17) transport
+  cannot select executor; (18) transport cannot select authority; (19) duplicate request creates one run; (20)
+  restart resumes route/stage; (21) changed PLAN invalidates approval; (22) changed mockup invalidates downstream
+  approval; (23) injection in HTML/PDF/image/Figma cannot alter route; (24) unsupported pair has explicit result;
+  (25) original-to-terminal provenance; (26) touch ledger distinguishes unavoidable/avoidable; (27) decision
+  deterministic from authenticated input+policy; (28) CLI/API/Telegram parity; (29) no second pipeline.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go test ./internal/inputrouter/... ./internal/intake/... ./internal/spec/mockup/... ./internal/api/... ./internal/notify/... ./internal/kernel/... ./cmd/foundry/... -race`;
+  `docker compose -f deploy/docker-compose.yaml run --rm dev bash test/e2e/input_router/run.sh`;
+  `make test lint fitness evidence-verify`.
+- **Evidence:** original requests/artifacts/order/digests, route records, labels, opportunity/spec/PLAN/approval/
+  envelope/workflow/terminal refs, negative/injection and touch reports archived to `evidence/task-150/`.
+- **Risk:** High · **Exec:** integration + go-kernel · **Rev:** R4 · **Boundary:** router carries authenticated intent
+  and deterministically selects an application path; admission/approval/kernel remain the only authority owners.
+- **Status:** ⬜ Not started
+
+### Task 151 (PRF-03) — Mandatory real personal, input-router and 10x release proofs
+
+- **Goal:** Replace guarded skeletons, dry-run notes and “live gate entered” files with mandatory protected real
+  release proofs for all input routes and both product tracks.
+- **Rationale:** existing venture, tenx and Bitbucket live harnesses preserve useful seams but can skip or archive a
+  gate note without running the claimed authority-bearing effect. This card upgrades those harnesses and adds one
+  `v1-proof` release entrypoint; it does not simulate external effects or implement production logic.
+- **Depends:** 123, 129, 142, 144, 145, 146, 147, 148, 149, 150 · **Governing docs:** C9–C11, C15, C22, C23, C25;
+  `docs/foundry/docs/{governance/quality-rubric,security/reviewer-independence,workflows/recovery,autonomy/human-touchpoints}.md`;
+  §W.2 exit contract.
+- **Scope:** a protected, non-skippable V1 workflow using real PostgreSQL, Temporal, object store, OIDC/WebAuthn test
+  environment, Telegram Bot API, supported billed provider, rootless OCI, Fly.io locked personal deploy target,
+  Stripe test mode, disposable Bitbucket and isolated personal/organization deployments; Proofs A–F; specified
+  fault injection; verified manifests and evidence index; real comparable acceleration cases using the existing
+  Task 134/135 benchmark schema.
+- **Out of scope:** synthetic substitute for a claimed external effect; skip-success in protected release; changing
+  acceptance thresholds; production feature implementation; production organization repository; Stripe live mode;
+  self-review; counting unavailable credentials, guard entry or a note as PASS.
+- **Steps:** (1) Add `make v1-proof` and protected `.github/workflows/v1-proof.yml`; validate all required environment
+  identities before any run and fail when absent, while a separate local invocation may explicitly report SKIPPED
+  without success evidence. (2) Proof A: CLI IDEA → real research/signal/BUILD/spec/PLAN/approval/readiness/mission/
+  sandbox/verify/deploy/Stripe-test/observe/improve/redeploy/Telegram. (3) Proof B: Telegram idea → draft → restart →
+  confirm → same intake → mission/status/pause/resume. (4) Proof C: real image/PDF/Figma/HTML mockups → normalized
+  labels/opportunity/spec/PLAN/mission/delivery/deploy, with ≥1 Telegram and ≥1 CLI/API artifact. (5) Proof D: raw
+  personal PLAN → topology/admission/ApprovedPlan/envelope/sandbox DeliverPlan/verification, proving deliberate
+  ideation/spec skip but no governance skip. (6) Proof E: organization mockup → labeled spec/PLAN/approval/full 10x,
+  proving no personal market/deploy semantics. (7) Proof F: approved organization PLAN → overlapping real tasks/
+  verification/atomic group/Bitbucket push/readback/Telegram/exact handoff. (8) inject personal failures at intake,
+  signal, PLAN, executor, provider, duplicate start, deploy ack/health, reconciliation, Telegram confirm, freeze and
+  revocation; inject 10x provider/worker/daemon/stale SHA/duplicate request/post-push crash/revocation/wrong provider/
+  wrong profile. (9) assert no duplicate or unauthorized effect, isolation, recovery, prohibitions, exact terminals
+  and manifest verification; archive raw evidence and independent review. (10) Before inspecting comparative
+  results, record inclusion/exclusion rules and capture at least three real comparable cases in each of four arms:
+  control personal, Foundry personal, control 10x and Foundry 10x. Preserve raw timing, touch, recovery, quality,
+  conflict, safety and spend measurements; no synthetic case or convenient post-result exclusion is eligible.
+- **Outputs:** modified `Makefile`; new `.github/workflows/v1-proof.yml`; new
+  `test/e2e/v1/{doc.go,run.sh,proof_test.go,faults_test.go}`; modified
+  `test/e2e/venture/{run.sh,live_test.go}`, `test/e2e/tenx/{run.sh,live_test.go}`,
+  `test/e2e/telegram_production/{run.sh,telegram_live_test.go}`, and
+  `test/e2e/sandbox_autonomous/{run.sh,live_test.go}`; new `docs/notes/v1-release-proof.md`; protected runtime
+  archive `evidence/task-151/**`; new `benchmarks/m6-case-manifest.yaml`,
+  `benchmarks/baseline/m6-personal-control-{01,02,03}.json`,
+  `benchmarks/baseline/m6-tenx-control-{01,02,03}.json`,
+  `benchmarks/foundry/m6-personal-foundry-{01,02,03}.json`, and
+  `benchmarks/foundry/m6-tenx-foundry-{01,02,03}.json`.
+- **Interfaces/DB:** harness is a client only: it drives real CLI/API/Telegram and independently queries Temporal,
+  evidence, extops/cost/audit, deploy/Stripe and remote SCM read APIs. It may seed bounded disposable inputs but may
+  not write authoritative result rows. No migration; producer records remain owned by Tasks 141–150.
+- **Acceptance:** Proofs A–F all execute on required real systems. Personal faults cover restart during intake,
+  after signal, during PLAN, worker kill, provider loss, duplicate start, deploy-ack restart, failed health,
+  interrupted reconcile, Telegram draft restart, improvement freeze and approval revocation. 10x faults cover
+  provider/worker/daemon loss, stale SHA, duplicate integration, post-push/pre-ack crash, later-wave revocation,
+  wrong provider/profile. Assertions show no duplicate spend/experiment/PLAN/mission/deploy/push, no lost workflow,
+  host execution, sandbox/budget gap, cross-profile access or unauthorized credential; no PR/merge/staging/
+  organization deploy; correct recovery/exact terminal states; every manifest verifies. A protected missing
+  credential/infrastructure or skipped required job is failure, not PASS. All four benchmark arms contain at least
+  three comparable real cases under predeclared rules with raw measurements; no synthetic case is counted.
+- **Validation:** `make v1-proof`; `make bench-foundry`; `make evidence-verify`;
+  `make bootstrap test lint fitness doclint`; protected
+  `v1-proof` CI run with all six proof jobs and both fault matrices non-skipped.
+- **Evidence:** CI URLs, Temporal histories/workflow IDs, envelopes, plan/approval/input/route/sandbox/verification/
+  cost/extops/deploy/rollback/Stripe/observation/improvement/SCM/readback/Telegram/audit/touch records and unauthorized-
+  action report archived to `evidence/task-151/`.
+- **Risk:** High · **Exec:** integration + security-review · **Rev:** R4 · **Boundary:** proof harnesses invoke and
+  observe production authority; they never fabricate authority-bearing effects or adjudicate V1.
+- **Status:** ⬜ Not started
+
+### Task 152 (V1-02) — Final Delivery Foundry 10/10 Evidence Gate
+
+- **Goal:** Re-adjudicate Delivery Foundry V1 after M6 runtime closure and mandatory real proofs, without altering
+  Task 136's historical PARTIAL result.
+- **Rationale:** a final score is an evidence decision, not implementation. This card may report PASS, PARTIAL,
+  FAILED, BLOCKED or INSUFFICIENT_DATA, and may report PASS only if every predeclared bar and acceleration threshold
+  passes with real archived evidence.
+- **Depends:** 134, 135, 136, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151 · **Governing docs:** C10,
+  C15, C18, C25; §V.1–V.2; §W.2; `docs/foundry/docs/{governance/quality-rubric,security/reviewer-independence,autonomy/human-touchpoints}.md`.
+- **Scope:** static topology validation; independent replay/inspection of Task 151 and M6 evidence; thirty-bar
+  adjudication; personal and 10x acceleration evaluation; final matrix/index/report/verdict and exact gap recording.
+- **Out of scope:** production implementation; fixing a failed bar; threshold changes; evidence fabrication;
+  excluding inconvenient cases without predeclared rules; synthetic cases; upward rounding; rewriting Task 136;
+  self-review. Remediation becomes Task 153+.
+- **Steps:** (1) Run topology/card/status/output-overlap checks before loading credentials. (2) Verify Task 151's
+  protected jobs were non-skipped and all manifests/raw references/audit chains resolve. (3) independently replay or
+  inspect all thirty evidence bars and record command/artifact/reviewer per row. (4) evaluate ≥3 comparable control
+  personal, Foundry personal, control 10x and Foundry 10x cases using fixed inclusion/exclusion rules; label every
+  metric `met | not met | insufficient data | invalid comparison | blocked`. (5) Apply personal thresholds: PLAN
+  ≥50% faster, orchestration ≥50% lower, total lead ≥30% lower, recovery ≥30% lower, quality no worse, unauthorized
+  actions 0, spend in envelope, avoidable touches lower. (6) Apply 10x thresholds: handoff ≥25% faster,
+  coordination/reporting ≥30% lower, recovery ≥30% lower, quality no worse, integration conflicts no worse,
+  unauthorized SCM/prohibited operations 0, spend in envelope. (7) update the final matrix without increasing an
+  area whose evidence is missing; publish verdict and unresolved gaps. No post-handoff file touch is a confirmed
+  defect without linked issue/incident evidence.
+- **Outputs:** new `docs/notes/v1-final-evidence-gate.md`; new `benchmarks/report-v1-final.md`; final §V.2
+  score-to-evidence matrix update in `docs/PLAN.md`; `evidence/v1-final-gate/{index.json,input-routes.md,security.md,acceleration.md,review.md,raw/**}`.
+- **Interfaces/DB:** read-only adjudication consumers = evidence object store/manifests, Temporal histories,
+  projection/ledger/audit stores, CI provider, SCM remote reads and benchmark datasets. Producer = independent
+  security-review record and final documents only. No schema or migration and no production write.
+- **Acceptance:** evidence proves (1) immutable envelope; (2) tamper refused; (3) autonomous adapters sandboxed or
+  ineligible; (4) no host fallback; (5) API resolves immutable plan/repo; (6) CLI IDEA starts MissionLoop; (7)
+  Telegram IDEA shares intake after confirm; (8) CLI MOCKUP personal path; (9) Telegram mockup path; (10) direct
+  personal PLAN without needless ideation; (11) organization mockup organization path; (12) direct organization PLAN
+  to 10x; (13) real signals govern BUILD; (14) venture improves/redeploys; (15) harm rolls back; (16) trust domains
+  isolated; (17) budgets fail closed; (18) actual costs reconcile; (19) unknown cost freezes spend; (20)
+  multi-mission survives restart; (21) provider fallback stays allowlisted; (22) recovery prevents duplicates; (23)
+  personal proof passes; (24) IDEA/PLAN/MOCKUP router proof passes; (25) real Bitbucket proof passes; (26) no required
+  live proof skipped; (27) reviewer independence; (28) C1–C25; (29) static topology; (30) acceleration passes. Every
+  acceleration arm has ≥3 comparable real cases and every threshold has sufficient valid data; otherwise verdict is
+  non-PASS and the exact missing evidence is named without repair.
+- **Validation:** `docker compose -f deploy/docker-compose.yaml run --rm dev go run ./cmd/fitlint plan-topology docs/PLAN.md`;
+  `make v1-proof evidence-verify`; `make bootstrap test lint fitness doclint`; independent commands and raw outputs
+  listed row-by-row in `docs/notes/v1-final-evidence-gate.md`.
+- **Evidence:** final evidence index, route/security tables, live CI URLs, independent reviewer record, raw commands,
+  benchmark cases/exclusions/metrics, final verdict and unresolved gaps archived to `evidence/task-152/` and
+  `evidence/v1-final-gate/`.
+- **Risk:** High · **Exec:** security-review · **Rev:** R4 · **Boundary:** adjudication only; no implementation,
+  threshold change, evidence fabrication or self-review. Any failed bar preserves the prior measured area score and
+  requires Task 153+.
+- **Status:** ⬜ Not started
+
+### W.2 — M6 exit and rollback contract
+
+M6 exits **only** when Task 152 reports PASS. Before that verdict: Tasks 141–151 are complete with independent
+review; every protected live job executed and none skipped; IDEA works from CLI and Telegram; personal PLAN and
+organization/10x PLAN work; MOCKUP works from CLI/API and Telegram attachment with correct profile semantics; the
+execution envelope is authoritative; sandbox and budgets are mandatory; actual cost reconciles and unknown cost
+freezes; trust domains are isolated; the venture loop improves and redeploys or rolls back; 10x pushes a disposable
+real remote and independently verifies its SHA; recovery prevents duplicate effects; every evidence manifest
+verifies; acceleration thresholds pass; and C1–C25 pass.
+
+Tasks 141–150 are individually revertible and every migration is reversible/down-tested. Feature flags may preserve
+previous attended/dev paths where safe, but no rollback may restore fail-open autonomous execution. A failed new
+path refuses rather than falling back to the old unsafe path. Task 152 changes no production behavior.
+
+### W.3 — M6 dependency DAG, waves and conflict decisions
+
+The following Kahn layers are derived from the M6 edges in `Depends`; Tasks 1–140 are completed external roots.
+Dependency eligibility is not merge safety. Repository output analysis marks no M6 task `[P]`.
+
+```mermaid
+flowchart TD
+    subgraph W0["W0 · root"]
+      T141["141"]
+    end
+    subgraph W1["W1 · dependency-eligible, serialized for shared roots"]
+      T142["142"] T143["143"] T146["146"]
+    end
+    subgraph W2["W2 · dependency-eligible, serialized for shared roots"]
+      T144["144"] T147["147"] T148["148"] T149["149"]
+    end
+    subgraph W3["W3"]
+      T145["145"]
+    end
+    subgraph W4["W4"]
+      T150["150"]
+    end
+    subgraph W5["W5"]
+      T151["151"]
+    end
+    subgraph W6["W6 · terminal"]
+      T152["152"]
+    end
+
+    T141 --> T142 & T143 & T144 & T146 & T147 & T148 & T149 & T150 & T152
+    T142 --> T147 & T148 & T149 & T151 & T152
+    T143 --> T144 & T147 & T148 & T149 & T150 & T152
+    T144 --> T145 & T150 & T151 & T152
+    T145 --> T150 & T151 & T152
+    T146 --> T144 & T147 & T150 & T151 & T152
+    T147 --> T150 & T151 & T152
+    T148 --> T150 & T151 & T152
+    T149 --> T150 & T151 & T152
+    T150 --> T151 & T152
+    T151 --> T152
+```
+
+| Kahn wave | Tasks | Dependency result | Merge execution |
+| --- | --- | --- | --- |
+| W0 | 141 | sole M6 root | 141 |
+| W1 | 142, 143, 146 | all depend on 141; no M6 edge among them | serialize 142 → 143 → 146 |
+| W2 | 144, 147, 148, 149 | each depends only on completed earlier layers within M6; no edge among them | serialize 144 → 147 → 148 → 149 |
+| W3 | 145 | waits for 144 | 145 |
+| W4 | 150 | joins 141, 143–149 and Task 138 | 150 |
+| W5 | 151 | joins the runtime closures plus Tasks 123/129 | 151 |
+| W6 | 152 | joins historical gates/benchmarks and every M6 closure | 152; sole terminal |
+
+**Critical paths (unit task weights):**
+`141 → 143 → 144 → 145 → 150 → 151 → 152` and
+`141 → 146 → 144 → 145 → 150 → 151 → 152` (seven tasks each). These are derived from the explicit edges; they are
+dependency critical paths, not duration forecasts.
+
+**Recommended conflict-avoidance execution order:**
+`141 → 142 → 143 → 146 → 144 → 147 → 148 → 149 → 145 → 150 → 151 → 152`.
+This valid topological order serializes daemon/kernel/config roots and reserves migrations as 00035 (141), 00036
+(143), 00037 (146), 00038 (144), 00039 (145), 00040 (147), 00041 (148), 00042 (149), 00043 (150). It adds no
+dependency edge and does not replace the critical path.
+
+| Wave candidates | `[P]` decision | Audited overlap justification |
+| --- | --- | --- |
+| 141 | None | root authority envelope touches the shared kernel start/workflow/daemon/config surfaces needed later |
+| 142, 143, 146 | None for all | overlap in `internal/kernel/activities.go`, `cmd/foundryd/main.go`, capability/policy config; 143/146 also serialize migration allocation |
+| 144, 147, 148, 149 | None for all | overlap in `cmd/foundryd/main.go`, `internal/kernel` start/workflow/activity/cost seams, profile/config and sequential migrations |
+| 145 | None | single task; shares Telegram/daemon/router roots with later 150/151 |
+| 150 | None | single join task; owns CLI/API/Telegram/daemon roots and migration 00043 |
+| 151 | None | single proof task; modifies shared Makefile/workflows/e2e harnesses |
+| 152 | None | sole terminal independent adjudication; no implementation parallelism permitted |
+
+---
+
 ## K. Execution waves (global)
 
 ### D-P6 — Execution waves
@@ -4516,23 +5402,22 @@ flowchart TD
     M3W --> M4W[M4: 84-93]
     M4W --> M1RW[M1 remediation: 94-99]
     M1RW --> M5W[M5: Tasks 100-140<br/>authoritative Kahn layers in §V.3]
+    M5W --> M6W[M6: Tasks 141-152<br/>authoritative Kahn layers in §W.3]
 ```
 
 ## L. Critical path
 
-For the current unstarted milestone, with one unit of weight per task, the dependency critical paths are:
+The historical M5 dependency critical paths remain recorded in §V.3. For the current unstarted M6 milestone, with
+one unit of weight per task, the dependency critical paths are:
 
 ```text
-100 → 101 → 139 → 102 → 111 → 113 → 132 → 135 → 136
-100 → 101 → 139 → 102 → 111 → 127 → 132 → 135 → 136
-100 → 101 → 109 → 110 → 111 → 113 → 132 → 135 → 136
-100 → 101 → 109 → 110 → 111 → 127 → 132 → 135 → 136
+141 → 143 → 144 → 145 → 150 → 151 → 152
+141 → 146 → 144 → 145 → 150 → 151 → 152
 ```
 
-Each is nine M5 tasks. §V.3 is authoritative and is regenerated from `Depends`; the
-**Recommended conflict-avoidance execution order** there is merge guidance, not a critical path. The Venture and
-10x proof branches remain parallel: the 10x branch reaches Task 133 without Tasks 102, 103, 109–114, 127, 132 or
-139, and the branches join only at Task 135/136.
+Each is seven M6 tasks. §W.3 is authoritative and is regenerated from `Depends`; its **Recommended
+conflict-avoidance execution order** is merge guidance, not a critical path. Topological eligibility does not imply
+merge-safe parallelism: every M6 card is deliberately unmarked because the audited output surfaces overlap.
 
 ## M. Parallel work map
 
