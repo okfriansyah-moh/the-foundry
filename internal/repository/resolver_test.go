@@ -11,9 +11,9 @@ func TestResolverHappyPath(t *testing.T) {
 	s := repository.NewMemStore()
 	if err := s.Upsert(context.Background(), repository.Record{
 		ID: "repo-ok", Provider: repository.ProviderGitHub,
-		CanonicalURL: "https://github.com/acme/app",
-		ProfileID: "personal-autonomous-venture",
-		PinnedBaseRevision: "deadbeef",
+		CanonicalURL:        "https://github.com/acme/app",
+		ProfileID:           "personal-autonomous-venture",
+		PinnedBaseRevision:  "deadbeef",
 		DefaultTargetBranch: "main",
 	}); err != nil {
 		t.Fatal(err)

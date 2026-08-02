@@ -25,16 +25,16 @@ var (
 
 // Record is one owned repository declaration.
 type Record struct {
-	ID                   string
-	Provider             string
-	CanonicalURL         string
-	Alias                string
-	ProfileID            string
-	OrganizationID       string
-	PinnedBaseRevision   string
-	DefaultTargetBranch  string
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	ID                  string
+	Provider            string
+	CanonicalURL        string
+	Alias               string
+	ProfileID           string
+	OrganizationID      string
+	PinnedBaseRevision  string
+	DefaultTargetBranch string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // Validate checks closed vocabularies and required identity fields.

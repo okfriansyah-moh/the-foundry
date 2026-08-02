@@ -18,8 +18,8 @@ type Store interface {
 
 // MemStore is an in-memory Store for tests.
 type MemStore struct {
-	mu   sync.Mutex
-	byID map[string]Record
+	mu    sync.Mutex
+	byID  map[string]Record
 	byURL map[string]string
 }
 

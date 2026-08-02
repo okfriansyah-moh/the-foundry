@@ -12,8 +12,8 @@ func TestNormalizeAndStore(t *testing.T) {
 	s := repository.NewMemStore()
 	rec := repository.Record{
 		ID: "repo-1", Provider: repository.ProviderGitHub,
-		CanonicalURL: "https://GitHub.com/Example/X.git/",
-		ProfileID: "personal-autonomous-venture",
+		CanonicalURL:       "https://GitHub.com/Example/X.git/",
+		ProfileID:          "personal-autonomous-venture",
 		PinnedBaseRevision: "abc123",
 	}
 	if err := s.Upsert(context.Background(), rec); err != nil {
@@ -37,7 +37,7 @@ func TestResolverOwnershipAndPin(t *testing.T) {
 	_ = s.Upsert(context.Background(), repository.Record{
 		ID: "repo-2", Provider: repository.ProviderBitbucket,
 		CanonicalURL: "https://bitbucket.org/org/x",
-		ProfileID: "organization-10x", OrganizationID: "org-1",
+		ProfileID:    "organization-10x", OrganizationID: "org-1",
 	})
 	r := repository.Resolver{Store: s}
 	_, err := r.Resolve(context.Background(), repository.ResolveInput{
@@ -59,7 +59,7 @@ func TestResolverLocalPathTraversal(t *testing.T) {
 	_ = s.Upsert(context.Background(), repository.Record{
 		ID: "repo-local", Provider: repository.ProviderLocal,
 		CanonicalURL: "file:///tmp/../etc/passwd",
-		ProfileID: "personal-autonomous-venture", PinnedBaseRevision: "local",
+		ProfileID:    "personal-autonomous-venture", PinnedBaseRevision: "local",
 	})
 	r := repository.Resolver{Store: s}
 	_, err := r.Resolve(context.Background(), repository.ResolveInput{

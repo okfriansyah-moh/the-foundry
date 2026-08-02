@@ -9,8 +9,8 @@ import (
 
 // ResolveInput is the kernel-facing intent for repository resolution.
 type ResolveInput struct {
-	RepositoryID string
-	ProfileID    string
+	RepositoryID   string
+	ProfileID      string
 	OrganizationID string
 	// AllowedLocalRoots, when set, confines ProviderLocal paths.
 	AllowedLocalRoots []string
