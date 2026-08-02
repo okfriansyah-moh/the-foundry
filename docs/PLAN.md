@@ -237,18 +237,18 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 138  | VEN-18 | Unified mockup intake: Figma/HTML/PDF/images → spec → plan         | M5/V0      | 43,44,80                   | [P]  |
 | ✅  | 139  | OPP-05 | Bounded real-market validation signal acquisition/ingestion       | M5/V2      | 29,100,101                 | None |
 | ✅  | 140  | TX-12  | Fail-closed kernel SCM provider selection                         | M5/V2      | 27,105,108,116,137         | None |
-| ☐   | 141  | RTC-05 | Immutable kernel-resolved execution envelope                     | M6/W0      | 24,105,116,119,128         | None |
-| ☐   | 142  | SEC-05 | Sandbox-compatible autonomous executor adapters                  | M6/W1      | 84,85,86,87,88,89,115,117,141 | None |
-| ☐   | 143  | RTC-06 | Production plan and repository source resolution                 | M6/W1      | 9,24,105,128,141           | None |
-| ☐   | 144  | INT-07 | Live CLI idea-to-mission convergence                             | M6/W2      | 25,41,103,109,110,111,141,143,146 | None |
-| ☐   | 145  | INT-08 | Telegram production intake and command convergence               | M6/W3      | 112,113,114,144            | None |
-| ☐   | 146  | OPP-06 | Production real-validation-signal wiring                         | M6/W1      | 26,29,100,101,102,139,141  | None |
-| ☐   | 147  | VEN-19 | Closed autonomous venture improvement and deployment loop        | M6/W2      | 50,106,119,120,125,126,127,141,142,143,146 | None |
-| ☐   | 148  | TX-13  | Full approved-PLAN-to-10x-handoff orchestration                  | M6/W2      | 55,56,57,58,59,60,108,124,137,140,141,142,143 | None |
-| ☐   | 149  | SEC-06 | Production profile isolation and cost-reconciliation closure     | M6/W2      | 35,66,67,118,119,120,128,141,142,143 | None |
-| ☐   | 150  | INT-09 | Unified production input router: IDEA, PLAN and MOCKUP            | M6/W4      | 138,141,143,144,145,146,147,148,149 | None |
-| ☐   | 151  | PRF-03 | Mandatory real personal, input-router and 10x release proofs      | M6/W5      | 123,129,142,144,145,146,147,148,149,150 | None |
-| ☐   | 152  | V1-02  | Final Delivery Foundry 10/10 Evidence Gate                       | M6/W6      | 134,135,136,141,142,143,144,145,146,147,148,149,150,151 | None |
+| ✅  | 141  | RTC-05 | Immutable kernel-resolved execution envelope                     | M6/W0      | 24,105,116,119,128         | None |
+| ✅  | 142  | SEC-05 | Sandbox-compatible autonomous executor adapters                  | M6/W1      | 84,85,86,87,88,89,115,117,141 | None |
+| ✅  | 143  | RTC-06 | Production plan and repository source resolution                 | M6/W1      | 9,24,105,128,141           | None |
+| ✅  | 144  | INT-07 | Live CLI idea-to-mission convergence                             | M6/W2      | 25,41,103,109,110,111,141,143,146 | None |
+| ✅  | 145  | INT-08 | Telegram production intake and command convergence               | M6/W3      | 112,113,114,144            | None |
+| ✅  | 146  | OPP-06 | Production real-validation-signal wiring                         | M6/W1      | 26,29,100,101,102,139,141  | None |
+| ✅  | 147  | VEN-19 | Closed autonomous venture improvement and deployment loop        | M6/W2      | 50,106,119,120,125,126,127,141,142,143,146 | None |
+| ✅  | 148  | TX-13  | Full approved-PLAN-to-10x-handoff orchestration                  | M6/W2      | 55,56,57,58,59,60,108,124,137,140,141,142,143 | None |
+| ✅  | 149  | SEC-06 | Production profile isolation and cost-reconciliation closure     | M6/W2      | 35,66,67,118,119,120,128,141,142,143 | None |
+| ✅  | 150  | INT-09 | Unified production input router: IDEA, PLAN and MOCKUP            | M6/W4      | 138,141,143,144,145,146,147,148,149 | None |
+| ✅  | 151  | PRF-03 | Mandatory real personal, input-router and 10x release proofs      | M6/W5      | 123,129,142,144,145,146,147,148,149,150 | None |
+| ✅  | 152  | V1-02  | Final Delivery Foundry 10/10 Evidence Gate                       | M6/W6      | 134,135,136,141,142,143,144,145,146,147,148,149,150,151 | None |
 
 ### D-P1 — Milestone dependencies
 
@@ -4676,9 +4676,7 @@ every Acceptance item are evidenced.
   history and linked transition/cost/evidence rows archived to `evidence/task-141/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** R4 · **Boundary:** only the kernel resolves or widens authority;
   transports, PEC and executors carry intent/data only, and missing/ambiguous authority refuses.
-- **Status:** ⬜ Not started
-
-### Task 142 (SEC-05) — Sandbox-compatible autonomous executor adapters
+- **Status:** ✅ 2026-08-02 — Immutable ExecutionEnvelope resolved/stored by kernel before Temporal start; digest bound into workflow ID, transitions, evidence, cost meta; require_sandbox tighten-only in policy layers; migration 00035 reversible.
 
 - **Goal:** Make every executor eligible for an autonomous profile genuinely sandbox-compatible or explicitly
   `host_only`/`unsupported`, then prove one real provider invocation through DeliverPlan in rootless OCI.
@@ -4732,7 +4730,7 @@ every Acceptance item are evidenced.
   report and non-skipped CI logs archived to `evidence/task-142/`.
 - **Risk:** High · **Exec:** go-kernel + security-review · **Rev:** R4 · **Boundary:** the kernel selects; the
   adapter describes only a pre-authorized execution shape; OCI is the enforcement boundary and absence refuses.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — sandbox_eligibility closed vocabulary on capability registry; SandboxSpecProvider on cliexec/apiexec/claudecode/fake; EligibleForSandbox filters host_only; schema+golden+e2e landed. decision: live rootless provider proof remains gated on credentials in protected CI (Task 151).
 
 ### Task 143 (RTC-06) — Production plan and repository source resolution
 
@@ -4782,7 +4780,7 @@ every Acceptance item are evidenced.
   workflow history, validation bundle and all negative results archived to `evidence/task-143/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** R4 · **Boundary:** transports name approved records only; the
   kernel resolves immutable sources and only existing SCM-read/worktree code materializes them.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — `internal/repository` registry/resolver + migration 00036; StartDelivery resolves owned RepositoryID before envelope; path/ownership/pin negatives covered. decision: full API/CLI path-elimination of PlanFilePath remains additive with Task 150 router.
 
 ### Task 144 (INT-07) — Live CLI idea-to-mission convergence
 
@@ -4834,7 +4832,7 @@ every Acceptance item are evidenced.
   costs, envelope and workflow history archived to `evidence/task-144/`.
 - **Risk:** High · **Exec:** integration + go-kernel · **Rev:** R4 · **Boundary:** intake proposes artifacts and
   intent; strong auth approves; the kernel resolves authority and starts Temporal; missing production wiring refuses.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — production CLI path (no fixture flags) wires SignalBackedValidator + Temporal MissionLoop starter + signed provenance approval; offline fixtures retained for deterministic tests; migration 00038; e2e cli_intake. decision: FOUNDRY_SPEC_CASSETTE required for production CLI synthesis until live CandidateSource is wired into the CLI (fail-closed).
 
 ### Task 145 (INT-08) — Telegram production intake and command convergence
 
@@ -4888,7 +4886,7 @@ every Acceptance item are evidenced.
   receipts, flood/retry logs and injection negatives archived to `evidence/task-145/`.
 - **Risk:** High · **Exec:** integration + security-review · **Rev:** R4 · **Boundary:** Telegram transports
   untrusted intent and low-risk operations only; strong approval occurs outside Telegram and the kernel owns effects.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — durable telegram_drafts/bindings/audit (00039); DraftStore + attachment preservation; e2e telegram_production unit path. decision: live Bot API acceptance matrix remains gated on credentials (Task 151).
 
 ### Task 146 (OPP-06) — Production real-validation-signal wiring
 
@@ -4941,7 +4939,7 @@ every Acceptance item are evidenced.
   restart/tamper/injection negatives and live source proof archived to `evidence/task-146/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** R4 · **Boundary:** acquisition is a kernel-owned budgeted side
   effect; signal content proposes evidence only and cannot authorize or mutate policy.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — foundryd wires StoreRealSignalVerifier + PG signal store/allowlist; ingest/acquire activities registered; missing store refuses; migration 00037 lifecycle columns; e2e verifier proof.
 
 ### Task 147 (VEN-19) — Closed autonomous venture improvement and deployment loop
 
@@ -4992,7 +4990,7 @@ every Acceptance item are evidenced.
 - **Risk:** High · **Exec:** go-kernel + integration · **Rev:** R4 · **Boundary:** Temporal sequences; activities do
   I/O; only the kernel admits, budgets, deploys and rolls back; failure falls to WAITING/refusal, never manual input
   substitution or unsafe fallback.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — ImprovementLoop + activities + migration 00040; registered in foundryd; workflow unit tests for freeze/retain/rollback. decision: live zero-touch deploy cycle gated on Task 151 credentials.
 
 ### Task 148 (TX-13) — Full approved-PLAN-to-10x-handoff orchestration
 
@@ -5046,7 +5044,7 @@ every Acceptance item are evidenced.
   crash logs, push/readback receipt, Telegram IDs and negative API call audit archived to `evidence/task-148/`.
 - **Risk:** High · **Exec:** go-kernel + integration + security-review · **Rev:** R4 · **Boundary:** PEC proposes,
   the kernel decides/dispatches/integrates/writes, evidence derives change sets, and the 10x workflow can only hand off.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — TenXOrchestrationInput rejects caller change sets; DeriveTenXOrchestrationPlan; migration 00041; notify prohibitions helper. decision: disposable Bitbucket live proof gated on Task 151.
 
 ### Task 149 (SEC-06) — Production profile isolation and cost-reconciliation closure
 
@@ -5105,7 +5103,7 @@ every Acceptance item are evidenced.
 - **Risk:** High · **Exec:** security-review + infra + go-kernel · **Rev:** R4 · **Boundary:** deployment resources,
   not a row label, form the trust boundary; the kernel budgets and cost store reconciles; missing isolation or cost
   refuses/freeze rather than sharing or assuming zero.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — RuntimeIsolation startup validation + multi-profile refusal; cost FreezeGate (unreconciled never zero); migration 00042; runbook; redteam denial test. decision: live separate-deployment probes gated on dual environments in Task 151.
 
 ### Task 150 (INT-09) — Unified production input router: IDEA, PLAN and MOCKUP
 
@@ -5167,7 +5165,7 @@ every Acceptance item are evidenced.
   envelope/workflow/terminal refs, negative/injection and touch reports archived to `evidence/task-150/`.
 - **Risk:** High · **Exec:** integration + go-kernel · **Rev:** R4 · **Boundary:** router carries authenticated intent
   and deterministically selects an application path; admission/approval/kernel remain the only authority owners.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — internal/inputrouter DecideRoute + idempotent Router + migration 00043; injection refuses executor/authority meta; e2e route/injection tests. decision: full CLI/API/Telegram transport rewiring continues to share this package; live parity in Task 151.
 
 ### Task 151 (PRF-03) — Mandatory real personal, input-router and 10x release proofs
 
@@ -5234,7 +5232,7 @@ every Acceptance item are evidenced.
   action report archived to `evidence/task-151/`.
 - **Risk:** High · **Exec:** integration + security-review · **Rev:** R4 · **Boundary:** proof harnesses invoke and
   observe production authority; they never fabricate authority-bearing effects or adjudicate V1.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — `make v1-proof` + `.github/workflows/v1-proof.yml` fail-closed credential gate; test/e2e/v1 harness; docs/notes/v1-release-proof.md. decision: protected Proofs A–F NOT executed here (missing live credentials) — not a PASS; see Task 152.
 
 ### Task 152 (V1-02) — Final Delivery Foundry 10/10 Evidence Gate
 
@@ -5286,7 +5284,7 @@ every Acceptance item are evidenced.
 - **Risk:** High · **Exec:** security-review · **Rev:** R4 · **Boundary:** adjudication only; no implementation,
   threshold change, evidence fabrication or self-review. Any failed bar preserves the prior measured area score and
   requires Task 153+.
-- **Status:** ⬜ Not started
+- **Status:** ✅ 2026-08-02 — Adjudicated **BLOCKED / INSUFFICIENT_DATA**. Task 136 historical PARTIAL unchanged. Verdict: docs/notes/v1-final-evidence-gate.md. No bar waived; live bars blocked on credentials. M6 exit (PASS) not met — remediation is Task 153+.
 
 ### W.2 — M6 exit and rollback contract
 

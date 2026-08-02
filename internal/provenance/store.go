@@ -235,6 +235,12 @@ type PGRawStore struct {
 	db *sql.DB
 }
 
+// NewPGRawStore wraps an existing *sql.DB (docs/PLAN.md Task 144 production
+// intake shares the CLI connection pool with the intake store).
+func NewPGRawStore(db *sql.DB) *PGRawStore {
+	return &PGRawStore{db: db}
+}
+
 // OpenPGRawStore opens a PGRawStore against dsn using the pgx
 // database/sql driver, matching the pattern already used by
 // cmd/foundry/doctor.go.
@@ -243,7 +249,7 @@ func OpenPGRawStore(dsn string) (*PGRawStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("provenance: open postgres: %w", err)
 	}
-	return &PGRawStore{db: db}, nil
+	return NewPGRawStore(db), nil
 }
 
 // Close closes the underlying connection pool.

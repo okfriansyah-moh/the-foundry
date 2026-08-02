@@ -1,0 +1,13 @@
+{
+  "claude-code": "sandbox_supported",
+  "opencode": "sandbox_supported",
+  "gemini-cli": "sandbox_supported",
+  "cursor": "sandbox_supported",
+  "copilot": "sandbox_supported",
+  "windsurf": "sandbox_supported",
+  "openai": "sandbox_supported",
+  "local": "host_only",
+  "fake": "sandbox_supported",
+  "kimi": "unsupported",
+  "kilo": "unsupported"
+}

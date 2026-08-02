@@ -88,6 +88,10 @@ type Policy struct {
 	ValidationAllowlistRef string                     `json:"validation_allowlist_ref"`
 	NotificationClasses    []string                   `json:"notification_classes"`
 	RiskTierControls       map[string]RiskTierControl `json:"risk_tier_controls"`
+	// RequireSandbox is docs/PLAN.md Task 141: when true, autonomous
+	// execution must run inside the OCI sandbox (C24). Tighten-only:
+	// false→true allowed; true→false is a compile error.
+	RequireSandbox bool `json:"require_sandbox"`
 }
 
 // LayerPolicy is what a single layer may declare. Every field is optional:
@@ -103,7 +107,11 @@ type LayerPolicy struct {
 	ValidationAllowlistRef *string
 	NotificationClasses    []string
 	RiskTierControls       map[string]RiskTierControl
+	RequireSandbox         *bool
 }
+
+// RequireSandbox reports whether p mandates sandboxed autonomous execution.
+func RequireSandbox(p Policy) bool { return p.RequireSandbox }
 
 // fieldRules is the schema this task's Step (1) requires: every merged
 // field annotated tighten-only, fixed, or free. Field values have
@@ -121,6 +129,7 @@ var fieldRules = map[string]Rule{
 	"validation_allowlist_ref": RuleFixed,
 	"notification_classes":     RuleTightenOnly,
 	"risk_tier_controls":       RuleTightenOnly,
+	"require_sandbox":          RuleTightenOnly,
 }
 
 // CompileError names the exact layer and field that violated its rule, per

@@ -14,8 +14,10 @@ import (
 
 	"github.com/okfriansyah-moh/the-foundry/internal/authn"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
+	"github.com/okfriansyah-moh/the-foundry/internal/kernel"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy"
+	compiler "github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/profile"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
 )
@@ -48,6 +50,13 @@ type Dependencies struct {
 	// non-empty; an empty one makes StartDelivery refuse (fail-closed, C4).
 	QueueConfig              observe.QueueConfig
 	DeliverExecutorAllowlist []string
+	// EnvelopeStore + ResolvedPolicy back Task 141 execution-envelope
+	// resolution on POST /v1/plans/{id}/deliver. When both are set, the
+	// kernel persists an immutable envelope before Temporal start.
+	EnvelopeStore  kernel.EnvelopeStore
+	ResolvedPolicy *compiler.Resolved
+	PolicyLayers   []string
+	PolicyVersion  string
 
 	// ApprovalSigningKey signs an ApprovedPlan when an approver is
 	// recorded (mirrors cmd/foundry/plan_approve.go's local Ed25519 key).

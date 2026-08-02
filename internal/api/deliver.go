@@ -46,6 +46,10 @@ func (s *Server) handleDeliverPlan(w http.ResponseWriter, r *http.Request) {
 		LaneSelector:      kernel.LaneSelector{},
 		ExecutorAllowlist: s.deps.DeliverExecutorAllowlist,
 		Transitions:       kernel.NewPGTransitionStore(s.deps.DB),
+		EnvelopeStore:     s.deps.EnvelopeStore,
+		Policy:            s.deps.ResolvedPolicy,
+		LayerDigests:      s.deps.PolicyLayers,
+		PolicyVersion:     s.deps.PolicyVersion,
 	}, kernel.StartDeliveryInput{
 		PlanID: planID,
 		Lane:   lane,

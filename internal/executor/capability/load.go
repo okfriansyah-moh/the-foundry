@@ -65,6 +65,14 @@ func (r Registry) validate() error {
 		if rec.RequiresSandbox != nil && !*rec.RequiresSandbox && rec.SandboxOptOutReason == "" {
 			return fmt.Errorf("provider %q: requires_sandbox=false must name a sandbox_optout_reason", rec.Provider)
 		}
+		switch rec.SandboxEligibility {
+		case SandboxSupported, SandboxHostOnly, SandboxUnsupported:
+		case "":
+			return fmt.Errorf("provider %q: missing sandbox_eligibility", rec.Provider)
+		default:
+			return fmt.Errorf("provider %q: sandbox_eligibility must be %q, %q, or %q, got %q",
+				rec.Provider, SandboxSupported, SandboxHostOnly, SandboxUnsupported, rec.SandboxEligibility)
+		}
 	}
 	return nil
 }

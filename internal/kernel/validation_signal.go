@@ -23,9 +23,11 @@ type StoreRealSignalVerifier struct {
 }
 
 // HasAllowlistedRealSignal reports whether opportunityID has an eligible real signal.
+// A missing store is a named failure (Task 146), never a silent false that
+// callers could treat as "no signal yet, keep going".
 func (v StoreRealSignalVerifier) HasAllowlistedRealSignal(ctx context.Context, opportunityID string) (bool, error) {
 	if v.Store == nil {
-		return false, nil
+		return false, fmt.Errorf("kernel: StoreRealSignalVerifier missing signal store (production wiring refused)")
 	}
 	return signals.HasAllowlistedReal(ctx, v.Store, v.Allowlist, opportunityID)
 }

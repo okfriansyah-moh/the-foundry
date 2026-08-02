@@ -53,3 +53,7 @@ risk_tier_controls:
   H:
     auto_allowed: false
     require_review: true
+
+# docs/PLAN.md Task 141: platform default is attended-ok (false). Autonomous
+# profiles tighten to true; true→false is a compile error.
+require_sandbox: false

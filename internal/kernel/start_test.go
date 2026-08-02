@@ -110,7 +110,7 @@ func TestStartDeliverySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartDelivery: %v", err)
 	}
-	if out.WorkflowID != kernel.DeliveryWorkflowID(digest, 0) {
+	if out.WorkflowID != kernel.DeliveryWorkflowID(digest, 0, "") {
 		t.Fatalf("workflow id not deterministic: %s", out.WorkflowID)
 	}
 	if out.TaskQueue == "" || out.TaskQueue == "foundry-core" {
@@ -167,14 +167,17 @@ func TestStartDeliveryRevokedPlanRefused(t *testing.T) {
 }
 
 func TestDeliveryWorkflowIDStableAndAttemptSensitive(t *testing.T) {
-	a := kernel.DeliveryWorkflowID("d1", 0)
-	if a != kernel.DeliveryWorkflowID("d1", 0) {
+	a := kernel.DeliveryWorkflowID("d1", 0, "")
+	if a != kernel.DeliveryWorkflowID("d1", 0, "") {
 		t.Fatal("workflow id not deterministic")
 	}
-	if a == kernel.DeliveryWorkflowID("d1", 1) {
+	if a == kernel.DeliveryWorkflowID("d1", 1, "") {
 		t.Fatal("attempt ordinal must change the id")
 	}
-	if a == kernel.DeliveryWorkflowID("d2", 0) {
+	if a == kernel.DeliveryWorkflowID("d2", 0, "") {
 		t.Fatal("plan digest must change the id")
+	}
+	if a == kernel.DeliveryWorkflowID("d1", 0, "sha256:abc") {
+		t.Fatal("envelope digest must change the id")
 	}
 }

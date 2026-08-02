@@ -1,7 +1,7 @@
 COMPOSE := docker compose -f deploy/docker-compose.yaml
 RUN := $(COMPOSE) run --rm dev
 
-.PHONY: bootstrap up down doctor test lint fitness fitness-tenx fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-bitbucket e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status bench-baseline bench-foundry drill-brownout backup restore drill-backup-restore m1-exit chaos soak-fairness alerts-drill redteam dr-drill soak-telegram release-dryrun upgrade-drill soak-72h soak-learning
+.PHONY: bootstrap up down doctor test lint fitness fitness-tenx fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-bitbucket e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status bench-baseline bench-foundry drill-brownout backup restore drill-backup-restore m1-exit chaos soak-fairness alerts-drill redteam dr-drill soak-telegram release-dryrun upgrade-drill soak-72h soak-learning v1-proof
 
 bootstrap:
 	$(COMPOSE) build dev
@@ -120,7 +120,13 @@ e2e-tenx:
 	$(RUN) bash test/e2e/tenx/run.sh
 
 evidence-verify:
-	@echo "not yet: evidence-verify" && exit 1
+	$(RUN) bash scripts/evidence_verify.sh
+
+# docs/PLAN.md Task 151 (PRF-03): protected mandatory V1 release proofs.
+# Missing credentials/infrastructure fails (exit 1). Explicit local
+# V1_PROOF_ALLOW_SKIP=1 yields exit 2 SKIPPED — never counted as PASS.
+v1-proof:
+	$(RUN) bash scripts/v1_proof.sh
 
 # docs/PLAN.md Task 39 (FND-20) M1-exit Acceptance's "projection rebuild"
 # bullet: `foundry projection rebuild`'s own round-trip proof (Task 14's

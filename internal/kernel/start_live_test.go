@@ -47,7 +47,7 @@ func TestStartDeliveryLive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartDelivery: %v", err)
 	}
-	if out.WorkflowID != kernel.DeliveryWorkflowID(digest, 0) {
+	if out.WorkflowID != kernel.DeliveryWorkflowID(digest, 0, "") {
 		t.Fatalf("non-deterministic workflow id: %s", out.WorkflowID)
 	}
 	if out.RunID == "" {

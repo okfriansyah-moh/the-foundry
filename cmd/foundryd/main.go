@@ -50,6 +50,7 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
 	"github.com/okfriansyah-moh/the-foundry/internal/opportunity"
+	"github.com/okfriansyah-moh/the-foundry/internal/opportunity/signals"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy/pdp"
 	"github.com/okfriansyah-moh/the-foundry/internal/profile"
@@ -208,21 +209,28 @@ func run() error {
 		verify.NewRunner(validationAllowlist),
 	)
 
-	// docs/PLAN.md Task 102 (OPP-03): the kernel-owned opportunity verdict
-	// gate. It re-derives the scorecard from stored evidence and refuses any
-	// build whose BUILD verdict is missing, expired, unreproducible, out of
-	// envelope or unbacked by a real validation signal (Constitution C4/C23).
-	// RealSignal is fail-closed (DenyRealSignal) until Task 139 supplies the
-	// allowlisted real-signal verifier.
+	// docs/PLAN.md Task 146 (OPP-06): wire StoreRealSignalVerifier + signal
+	// store/allowlist into OpportunityGate. Absence of allowlist config is a
+	// hard startup error (named refusal), never DenyRealSignal-then-bypass.
 	oppConfig, err := opportunity.LoadConfig(envOr("FOUNDRY_OPPORTUNITY_THRESHOLDS", "config/opportunity-thresholds.yaml"))
 	if err != nil {
 		return fmt.Errorf("load opportunity thresholds: %w", err)
 	}
+	signalAllowlist, err := signals.LoadAllowlist(envOr("FOUNDRY_VALIDATION_SIGNAL_ALLOWLIST", "config/validation-signal-allowlist.yaml"))
+	if err != nil {
+		return fmt.Errorf("load validation-signal allowlist (Task 146 fail-closed): %w", err)
+	}
+	signalStore := &signals.PGStore{DB: db}
+	activities.SignalStore = signalStore
+	activities.SignalAllowlist = signalAllowlist
 	oppGate := &kernel.OpportunityGate{
-		Loader:     opportunity.NewStore(db),
-		Config:     oppConfig,
-		Reserver:   oppValidationReserver{store: cost.NewStore(db)},
-		RealSignal: kernel.DenyRealSignal{},
+		Loader:   opportunity.NewStore(db),
+		Config:   oppConfig,
+		Reserver: oppValidationReserver{store: cost.NewStore(db)},
+		RealSignal: kernel.StoreRealSignalVerifier{
+			Store:     signalStore,
+			Allowlist: signalAllowlist,
+		},
 	}
 
 	// docs/PLAN.md Task 106 (RTC-02): construct MissionLoop's activities from
@@ -438,6 +446,7 @@ func run() error {
 		registerActivities(lw, activities)
 		lw.RegisterActivityWithOptions(oppGate.RequireBuildVerdict, activity.RegisterOptions{Name: kernel.ActivityRequireBuildVerdict})
 		lw.RegisterWorkflow(mission.MissionLoop)
+		lw.RegisterWorkflow(mission.ImprovementLoop)
 		registerMissionActivities(lw, missionActs)
 		lw.RegisterWorkflow(kernel.TenXDeliver)
 		lw.RegisterActivityWithOptions(activities.SelectBranchDeliveryPolicy, activity.RegisterOptions{Name: kernel.ActivitySelectBranchDeliveryPolicy})
@@ -701,6 +710,9 @@ func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN str
 		Provenance:               provenance.NewStore(rawStore, approverKeys.Public),
 		QueueConfig:              deliverQueueCfg,
 		DeliverExecutorAllowlist: deliverAllowlist,
+		EnvelopeStore:            kernel.NewPGEnvelopeStore(db),
+		ResolvedPolicy:           resolved,
+		PolicyVersion:            "1",
 		ApprovalSigningKey:       approverKeys.Private,
 		SessionPub:               &sessionKey.PublicKey,
 		WebAuthn:                 waSvc,
@@ -736,6 +748,8 @@ func registerActivities(w worker.Worker, a *kernel.Activities) {
 	w.RegisterActivityWithOptions(a.RecordCost, activity.RegisterOptions{Name: kernel.ActivityRecordCost})
 	w.RegisterActivityWithOptions(a.RecordFailureSignature, activity.RegisterOptions{Name: kernel.ActivityRecordFailureSignature})
 	w.RegisterActivityWithOptions(a.DeployProduct, activity.RegisterOptions{Name: kernel.ActivityDeployProduct})
+	w.RegisterActivityWithOptions(a.IngestValidationSignal, activity.RegisterOptions{Name: kernel.ActivityIngestValidationSignal})
+	w.RegisterActivityWithOptions(a.AcquireValidationSignal, activity.RegisterOptions{Name: kernel.ActivityAcquireValidationSignal})
 }
 
 // registerMissionActivities registers MissionLoop's eight activities under the

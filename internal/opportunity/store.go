@@ -173,6 +173,26 @@ ORDER BY seq ASC`
 	return out, nil
 }
 
+// LookupIDByStatement returns the most recent opportunity whose statement
+// exactly matches idea text (docs/PLAN.md Task 144 production intake binding).
+// Exact match only — never fuzzy or LLM-assisted.
+func (s *Store) LookupIDByStatement(ctx context.Context, statement string) (string, error) {
+	const q = `
+SELECT id FROM opportunities
+WHERE statement = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 1`
+	var id string
+	err := s.db.QueryRowContext(ctx, q, statement).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("opportunity: lookup by statement: %w", err)
+	}
+	return id, nil
+}
+
 // LoadOpportunity reconstructs an opportunity from its row plus its
 // append-only evidence.
 func (s *Store) LoadOpportunity(ctx context.Context, oppID string) (Opportunity, error) {

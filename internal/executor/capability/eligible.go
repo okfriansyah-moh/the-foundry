@@ -37,6 +37,19 @@ func (r Registry) Eligible(profile string, required []string) []Record {
 	return out
 }
 
+// EligibleForSandbox returns Eligible(profile, required) filtered to
+// sandbox_supported records only (docs/PLAN.md Task 142). host_only and
+// unsupported never match require_sandbox=true.
+func (r Registry) EligibleForSandbox(profile string, required []string) []Record {
+	var out []Record
+	for _, rec := range r.Eligible(profile, required) {
+		if rec.IsSandboxSupported() {
+			out = append(out, rec)
+		}
+	}
+	return out
+}
+
 func contains(set []string, v string) bool {
 	for _, s := range set {
 		if s == v {

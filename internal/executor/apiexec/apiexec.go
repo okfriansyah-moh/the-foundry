@@ -210,6 +210,36 @@ func (a *Adapter) Collect(context.Context) (executor.Artifacts, error) {
 	return executor.Artifacts{Paths: paths}, nil
 }
 
+// SandboxSpec implements executor.SandboxSpecProvider (docs/PLAN.md Task 142).
+// API adapters run a bounded helper inside OCI that performs the HTTP call
+// with only the declared secret and egress destination.
+func (a *Adapter) SandboxSpec(_ context.Context, ws worktree.Workspace, packet executor.TaskPacket) (executor.SandboxSpec, error) {
+	timeout := a.cfg.DefaultTimeout
+	if packet.TimeoutSec > 0 {
+		timeout = time.Duration(packet.TimeoutSec) * time.Second
+	}
+	envAllow := []string{"PATH"}
+	var secrets []string
+	if a.cfg.APIKeyEnv != "" {
+		envAllow = append(envAllow, a.cfg.APIKeyEnv)
+		secrets = []string{a.cfg.APIKeyEnv}
+	}
+	var egress []string
+	if a.cfg.BaseURL != "" {
+		egress = []string{a.cfg.BaseURL}
+	}
+	return executor.SandboxSpec{
+		Executable:         "foundry-api-exec",
+		Argv:               []string{"foundry-api-exec", a.cfg.Provider},
+		EnvAllowlist:       envAllow,
+		SecretRefs:         secrets,
+		WorkingDir:         ws.Path,
+		Timeout:            timeout,
+		EgressDestinations: egress,
+		ArtifactPaths:      []string{requestFileName, responseFileName},
+	}, nil
+}
+
 func (a *Adapter) parseSummary(body []byte) executor.Summary {
 	var r chatResponse
 	if err := json.Unmarshal(body, &r); err != nil || len(r.Choices) == 0 {

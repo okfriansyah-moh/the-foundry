@@ -28,6 +28,7 @@ const bundleDir = "../../../config/policy/rego"
 // config/policy/rego/authz.rego.
 func testPlatform() compiler.LayerPolicy {
 	ref := "config/validation-allowlist.yaml"
+	requireSandbox := false
 	return compiler.LayerPolicy{
 		PermissionsAllowlist: []string{"repo-read", "repo-write", "ci-trigger"},
 		DeploymentModes: map[string]compiler.Mode{
@@ -48,6 +49,7 @@ func testPlatform() compiler.LayerPolicy {
 			"A2": {AutoAllowed: true, RequireReview: true},
 			"H":  {AutoAllowed: false, RequireReview: true},
 		},
+		RequireSandbox: &requireSandbox,
 	}
 }
 
@@ -256,6 +258,7 @@ func TestConformance_RemovingCompilerBreaksPrecedence(t *testing.T) {
 			ValidationAllowlistRef: *platform.ValidationAllowlistRef,
 			NotificationClasses:    platform.NotificationClasses, // still includes Telegram — org's tightening never applied
 			RiskTierControls:       platform.RiskTierControls,
+			RequireSandbox:         false,
 		},
 		Digest: "sha256:uncompiled-fixture-digest",
 	}

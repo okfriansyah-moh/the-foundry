@@ -11,6 +11,7 @@ import (
 // platform-incomplete case).
 func basePlatform() LayerPolicy {
 	ref := "config/validation-allowlist.yaml"
+	requireSandbox := false
 	return LayerPolicy{
 		PermissionsAllowlist: []string{"repo-read", "repo-write", "ci-trigger"},
 		DeploymentModes: map[string]Mode{
@@ -31,6 +32,7 @@ func basePlatform() LayerPolicy {
 			"A2": {AutoAllowed: true, RequireReview: true},
 			"H":  {AutoAllowed: false, RequireReview: true},
 		},
+		RequireSandbox: &requireSandbox,
 	}
 }
 

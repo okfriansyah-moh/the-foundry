@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://foundry.local/schemas/executor-capability.schema.json",
+  "title": "ExecutorCapabilityRegistry",
+  "type": "object",
+  "required": ["executors"],
+  "additionalProperties": false,
+  "properties": {
+    "executors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["provider", "execution_class", "availability", "sandbox_eligibility", "last_verified_at"],
+        "additionalProperties": false,
+        "properties": {
+          "provider": { "type": "string", "minLength": 1 },
+          "execution_class": { "type": "string", "minLength": 1 },
+          "features": { "type": "array", "items": { "type": "string" } },
+          "availability": { "type": "string", "enum": ["supported", "unsupported"] },
+          "sandbox_eligibility": { "type": "string", "enum": ["sandbox_supported", "host_only", "unsupported"] },
+          "profile_allow": { "type": "array", "items": { "type": "string" } },
+          "profile_deny": { "type": "array", "items": { "type": "string" } },
+          "requires_sandbox": { "type": "boolean" },
+          "sandbox_optout_reason": { "type": "string" },
+          "last_verified_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

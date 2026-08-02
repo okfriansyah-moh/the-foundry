@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/executor"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	"github.com/okfriansyah-moh/the-foundry/internal/worktree"
 )
 
@@ -63,13 +64,20 @@ func (a *Activities) decideSandbox(execName string, requireSandbox bool) sandbox
 		// The profile does not demand sandboxing for this task; legacy path.
 		return sandboxDecision{required: false}
 	}
-	// The profile demands sandboxing. The executor's capability record refines
-	// it: an executor that opted out (requires_sandbox=false) is refused for a
-	// sandbox-demanding profile.
-	if rec, ok := a.CapabilityRegistry.Lookup(execName); ok && !rec.SandboxRequired() {
-		return sandboxDecision{
-			refusal: ClassificationSandboxOptOutRefused,
-			reason:  fmt.Sprintf("executor %q opted out of the sandbox (%s) but this profile demands it", execName, rec.SandboxOptOutReason),
+	// The profile demands sandboxing. Task 142: only sandbox_supported
+	// executors may match; host_only/unsupported refuse.
+	if rec, ok := a.CapabilityRegistry.Lookup(execName); ok {
+		if rec.SandboxEligibility == capability.SandboxHostOnly || rec.SandboxEligibility == capability.SandboxUnsupported {
+			return sandboxDecision{
+				refusal: ClassificationSandboxIncompatible,
+				reason:  fmt.Sprintf("executor %q sandbox_eligibility=%q is not eligible for require_sandbox", execName, rec.SandboxEligibility),
+			}
+		}
+		if !rec.SandboxRequired() {
+			return sandboxDecision{
+				refusal: ClassificationSandboxOptOutRefused,
+				reason:  fmt.Sprintf("executor %q opted out of the sandbox (%s) but this profile demands it", execName, rec.SandboxOptOutReason),
+			}
 		}
 	}
 	return sandboxDecision{required: true}
