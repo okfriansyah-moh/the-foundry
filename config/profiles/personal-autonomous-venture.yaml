@@ -41,3 +41,6 @@ risk_tier_controls:
   H:
     auto_allowed: false
     require_review: true
+
+# docs/PLAN.md Task 141 / C24: autonomous personal profile requires sandbox.
+require_sandbox: true

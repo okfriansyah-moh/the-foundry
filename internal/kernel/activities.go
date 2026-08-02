@@ -263,6 +263,12 @@ type ReserveBudgetInput struct {
 	// unmetered (C19/C24). An attended/interactive reservation without an
 	// envelope stays unmetered, preserving interactive use.
 	Unattended bool
+	// EnvelopeDigest / BudgetScope / BudgetScopeID are Task 141 authority
+	// attribution fields. When BudgetScopeID is set it overrides MissionID for
+	// the reservation scope id so the correct mission is charged.
+	EnvelopeDigest string
+	BudgetScope    string
+	BudgetScopeID  string
 }
 
 // ReserveBudgetOutput is ReserveBudget's output. Exhausted reports a
@@ -310,14 +316,34 @@ func (a *Activities) ReserveBudget(ctx context.Context, in ReserveBudgetInput) (
 	return withReceipt(ctx, a.ReceiptStore, key, func() (ReserveBudgetOutput, error) {
 		amountUSD := a.CostDefaults.DefaultUSD
 		meta := map[string]string{"task_id": in.TaskID}
+		if in.EnvelopeDigest != "" {
+			meta["envelope_digest"] = in.EnvelopeDigest
+		}
 
 		// Task 119 (COST-01): align the reservation scope with the scope the
 		// budget is actually provisioned at. A mission task reserves at
 		// ScopeMission/MissionID (where mission budgets live), not
 		// ScopeWorkflow/WorkflowID (where nothing was ever provisioned).
+		// Task 141: envelope budget scope/id take precedence so the correct
+		// mission is charged from the immutable authority record.
 		scope, scopeID := cost.ScopeWorkflow, in.WorkflowID
 		if in.MissionID != "" {
 			scope, scopeID = cost.ScopeMission, in.MissionID
+		}
+		if in.BudgetScopeID != "" {
+			scopeID = in.BudgetScopeID
+			switch in.BudgetScope {
+			case BudgetScopeMission:
+				scope = cost.ScopeMission
+			case BudgetScopeSession:
+				scope = cost.ScopeSession
+			case BudgetScopeWorkflow:
+				scope = cost.ScopeWorkflow
+			default:
+				if in.MissionID != "" || in.BudgetScope == "" {
+					scope = cost.ScopeMission
+				}
+			}
 		}
 
 		if isSubscriptionExecutor(in.ExecutorName) {
@@ -481,6 +507,10 @@ type ExecuteTaskInput struct {
 	// A rollback cannot set this false for a profile whose policy demands
 	// sandboxing — the workflow derives it from policy, not from a flag.
 	RequireSandbox bool
+	// EnvelopeDigest is the Task 141 execution-envelope digest authorizing
+	// this task. Propagated for evidence/cost attribution; never widened by
+	// the executor.
+	EnvelopeDigest string
 }
 
 // ExecuteTaskOutput is ExecuteTask's output. Failed/ErrorMessage carry the
@@ -795,6 +825,9 @@ type RecordEvidenceInput struct {
 	// (docs/PLAN.md Task 85 Step 3), recorded on the evidence manifest so
 	// every task's bundle names which adapter actually ran.
 	ExecutorUsed string
+	// EnvelopeDigest is the Task 141 execution-envelope digest authorizing
+	// this evidence (C4/C7).
+	EnvelopeDigest string
 }
 
 // RecordEvidenceOutput is RecordEvidence's output.
@@ -826,9 +859,10 @@ func (a *Activities) RecordEvidence(ctx context.Context, in RecordEvidenceInput)
 			exitCode = 1
 		}
 		manifest := evidence.Manifest{
-			WorkflowID:   in.WorkflowID,
-			TaskID:       in.TaskID,
-			ExecutorUsed: in.ExecutorUsed,
+			WorkflowID:     in.WorkflowID,
+			TaskID:         in.TaskID,
+			ExecutorUsed:   in.ExecutorUsed,
+			EnvelopeDigest: in.EnvelopeDigest,
 			Commands: []evidence.CommandRecord{{
 				Cmd:      "executor.Run", // coarse record: Task 13's Runner replaces this with per-command records.
 				ExitCode: exitCode,

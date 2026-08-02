@@ -28,6 +28,7 @@ type layerYAML struct {
 	ValidationAllowlistRef *string                    `yaml:"validation_allowlist_ref"`
 	NotificationClasses    []string                   `yaml:"notification_classes"`
 	RiskTierControls       map[string]RiskTierControl `yaml:"risk_tier_controls"`
+	RequireSandbox         *bool                      `yaml:"require_sandbox"`
 	// OrgGovernance is the org-layer-only governance extension (Task 54). It is
 	// ignored for non-org layers (a profile/workflow that sets it is a load
 	// error via KnownFields on the layer-specific decoders below).
@@ -43,6 +44,7 @@ func (l layerYAML) toLayerPolicy() LayerPolicy {
 		ValidationAllowlistRef: l.ValidationAllowlistRef,
 		NotificationClasses:    l.NotificationClasses,
 		RiskTierControls:       l.RiskTierControls,
+		RequireSandbox:         l.RequireSandbox,
 	}
 }
 

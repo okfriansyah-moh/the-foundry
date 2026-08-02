@@ -96,9 +96,14 @@ type Artifacts struct {
 
 // SandboxSpec is the command an adapter would run, expressed so the kernel can
 // run it INSIDE the mandatory sandbox instead of on the host (docs/PLAN.md Task
-// 115 / SEC-01). No shell is invoked — Argv is executed directly.
+// 115 / SEC-01, Task 142 / SEC-05). No shell is invoked — Argv is executed
+// directly. Adapters describe only a pre-authorized shape; the kernel rejects
+// attempts to add mounts, credentials or egress beyond the recorded envelope.
 type SandboxSpec struct {
-	// Argv is the command and its arguments (argv[0] is the binary).
+	// Executable is argv[0] when set; otherwise Argv[0] is used.
+	Executable string
+	// Argv is the command and its arguments (argv[0] is the binary when
+	// Executable is empty).
 	Argv []string
 	// Stdin is written to the command's standard input, if any.
 	Stdin []byte
@@ -106,8 +111,28 @@ type SandboxSpec struct {
 	// sandboxed command's environment (the scrub discipline, applied at the
 	// container boundary).
 	EnvAllowlist []string
+	// SecretRefs names secret-store keys injected as child env (never host
+	// .env wholesale).
+	SecretRefs []string
+	// WorkingDir is the sandboxed working directory (defaults to the
+	// writable worktree mount).
+	WorkingDir string
+	// ReadOnlyMounts are additional read-only paths the kernel may grant
+	// from the recorded allowlist — adapters cannot invent arbitrary mounts.
+	ReadOnlyMounts []string
+	// EgressDestinations are allowlisted network destinations for this
+	// provider; empty inherits the sandbox default allowlist.
+	EgressDestinations []string
+	// CPULimit / MemoryBytes / PIDLimit bound the sandboxed process tree.
+	CPULimit    float64
+	MemoryBytes int64
+	PIDLimit    int
 	// Timeout bounds the command; zero means the sandbox default.
 	Timeout time.Duration
+	// OutputCapBytes bounds captured stdout/stderr; zero means sandbox default.
+	OutputCapBytes int64
+	// ArtifactPaths are relative paths collected after the run.
+	ArtifactPaths []string
 }
 
 // SandboxSpecProvider is an OPTIONAL Adapter capability (additive to the

@@ -1,0 +1,43 @@
+name: v1-proof
+# docs/PLAN.md Task 151 — protected mandatory release proofs.
+# Required secrets must be present; jobs must not skip-success.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v1-proof-*"]
+
+jobs:
+  env-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse missing secrets
+        env:
+          PG_DSN: ${{ secrets.PG_DSN }}
+          TEMPORAL_HOSTPORT: ${{ secrets.TEMPORAL_HOSTPORT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          STRIPE_TEST_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+          BITBUCKET_TOKEN: ${{ secrets.BITBUCKET_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          for v in PG_DSN TEMPORAL_HOSTPORT TELEGRAM_BOT_TOKEN STRIPE_TEST_KEY BITBUCKET_TOKEN FLY_API_TOKEN; do
+            if [ -z "${!v}" ]; then echo "missing $v"; exit 1; fi
+          done
+  proof-a-f:
+    needs: env-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: make v1-proof
+        run: make bootstrap v1-proof
+        env:
+          V1_PROOF_LIVE: "1"
+          PG_DSN: ${{ secrets.PG_DSN }}
+          TEMPORAL_HOSTPORT: ${{ secrets.TEMPORAL_HOSTPORT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          STRIPE_TEST_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+          BITBUCKET_TOKEN: ${{ secrets.BITBUCKET_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FOUNDRY_EVIDENCE_STORE: ${{ secrets.FOUNDRY_EVIDENCE_STORE }}
+          OIDC_ISSUER: ${{ secrets.OIDC_ISSUER }}
+          FOUNDRY_LLM_PROVIDER: ${{ secrets.FOUNDRY_LLM_PROVIDER }}

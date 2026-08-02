@@ -38,6 +38,10 @@ func shuffledPlatform(r *rand.Rand) LayerPolicy {
 	}
 
 	ref := *base.ValidationAllowlistRef
+	requireSandbox := false
+	if base.RequireSandbox != nil {
+		requireSandbox = *base.RequireSandbox
+	}
 	return LayerPolicy{
 		PermissionsAllowlist:   perms(base.PermissionsAllowlist),
 		DeploymentModes:        modes,
@@ -46,6 +50,7 @@ func shuffledPlatform(r *rand.Rand) LayerPolicy {
 		ValidationAllowlistRef: &ref,
 		NotificationClasses:    perms(base.NotificationClasses),
 		RiskTierControls:       tiers,
+		RequireSandbox:         &requireSandbox,
 	}
 }
 

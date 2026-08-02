@@ -27,6 +27,7 @@ type platformYAML struct {
 	ValidationAllowlistRef string                     `yaml:"validation_allowlist_ref"`
 	NotificationClasses    []string                   `yaml:"notification_classes"`
 	RiskTierControls       map[string]RiskTierControl `yaml:"risk_tier_controls"`
+	RequireSandbox         bool                       `yaml:"require_sandbox"`
 }
 
 // PlatformDefaults loads and parses the embedded platform.yaml into a
@@ -41,6 +42,7 @@ func PlatformDefaults() (LayerPolicy, error) {
 		return LayerPolicy{}, fmt.Errorf("policy compiler: parse embedded platform.yaml: %w", err)
 	}
 	ref := py.ValidationAllowlistRef
+	requireSandbox := py.RequireSandbox
 	return LayerPolicy{
 		PermissionsAllowlist:   py.PermissionsAllowlist,
 		DeploymentModes:        py.DeploymentModes,
@@ -49,5 +51,6 @@ func PlatformDefaults() (LayerPolicy, error) {
 		ValidationAllowlistRef: &ref,
 		NotificationClasses:    py.NotificationClasses,
 		RiskTierControls:       py.RiskTierControls,
+		RequireSandbox:         &requireSandbox,
 	}, nil
 }

@@ -193,6 +193,15 @@ func (a *ApprovedPlan) RevocationReason() string { return a.revocationReason }
 // after a successful Load.
 func (a *ApprovedPlan) ExpiresAt() time.Time { return a.expiresAt }
 
+// Signature returns a copy of the Ed25519 signature bytes binding this
+// ApprovedPlan (docs/PLAN.md Task 141 — envelope approval_signature_ref).
+func (a *ApprovedPlan) Signature() []byte {
+	if len(a.signature) == 0 {
+		return nil
+	}
+	return append([]byte(nil), a.signature...)
+}
+
 // approvedPlanWire is the full JSON wire/storage representation of an
 // ApprovedPlan, including the signature. Field order is fixed by struct
 // declaration order, which is what makes encoding/json's output

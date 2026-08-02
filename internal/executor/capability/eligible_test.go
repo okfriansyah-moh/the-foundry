@@ -24,11 +24,13 @@ func TestLoadValid(t *testing.T) {
     execution_class: cli-agentic
     features: [reasoning.adaptive, tools.strict]
     availability: supported
+    sandbox_eligibility: sandbox_supported
     last_verified_at: 2026-07-28T00:00:00Z
   - provider: kimi
     execution_class: cli-agentic
     features: []
     availability: unsupported
+    sandbox_eligibility: unsupported
     last_verified_at: 2026-07-28T00:00:00Z
 `)
 	reg, err := Load(p)
@@ -57,6 +59,7 @@ func TestLoadRejectsUnknownRecordKey(t *testing.T) {
   - provider: claude-code
     execution_class: cli-agentic
     availability: supported
+    sandbox_eligibility: sandbox_supported
     last_verified_at: 2026-07-28T00:00:00Z
     surprise: 1
 `)
@@ -82,10 +85,12 @@ func TestLoadRejectsDuplicateProvider(t *testing.T) {
   - provider: claude-code
     execution_class: cli-agentic
     availability: supported
+    sandbox_eligibility: sandbox_supported
     last_verified_at: 2026-07-28T00:00:00Z
   - provider: claude-code
     execution_class: api
     availability: supported
+    sandbox_eligibility: sandbox_supported
     last_verified_at: 2026-07-28T00:00:00Z
 `)
 	if _, err := Load(p); err == nil {
@@ -98,6 +103,7 @@ func TestLoadRejectsMissingLastVerified(t *testing.T) {
   - provider: claude-code
     execution_class: cli-agentic
     availability: supported
+    sandbox_eligibility: sandbox_supported
 `)
 	if _, err := Load(p); err == nil {
 		t.Fatal("expected load error for missing last_verified_at, got nil")

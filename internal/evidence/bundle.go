@@ -46,11 +46,14 @@ type Manifest struct {
 	// bundle's digest byte-identical — the field is additive and non-breaking.
 	// Migration note: existing bundles carry no profile and are treated as
 	// personal-profile by definition (recorded decision, not a rewrite).
-	Profile     string `json:",omitempty"`
-	Commands    []CommandRecord
-	Artifacts   []ArtifactRef
-	Transitions []state.Transition
-	CreatedAt   time.Time
+	Profile string `json:",omitempty"`
+	// EnvelopeDigest is the Task 141 execution-envelope digest that authorized
+	// this evidence bundle. omitempty keeps pre-Task-141 digests stable.
+	EnvelopeDigest string `json:",omitempty"`
+	Commands       []CommandRecord
+	Artifacts      []ArtifactRef
+	Transitions    []state.Transition
+	CreatedAt      time.Time
 }
 
 // canonicalJSON renders m deterministically: json.Marshal already emits

@@ -276,3 +276,36 @@ func parseSummary(stdout string) executor.Summary {
 func (a *Adapter) Collect(context.Context) (executor.Artifacts, error) {
 	return executor.Artifacts{Paths: []string{promptFileName}}, nil
 }
+
+// SandboxSpec implements executor.SandboxSpecProvider (docs/PLAN.md Task 142).
+// The kernel runs this shape inside OCI; the adapter does not add mounts,
+// credentials, or egress beyond the recorded allowlist.
+func (a *Adapter) SandboxSpec(_ context.Context, ws worktree.Workspace, packet executor.TaskPacket) (executor.SandboxSpec, error) {
+	bin := a.binary
+	if bin == "" {
+		bin = defaultBinary
+		if v := os.Getenv(binaryEnvOverride); v != "" {
+			bin = v
+		}
+	}
+	timeout := defaultTimeout
+	if packet.TimeoutSec > 0 {
+		timeout = time.Duration(packet.TimeoutSec) * time.Second
+	}
+	prompt := filepath.Join(ws.Path, promptFileName)
+	raw, err := os.ReadFile(prompt)
+	if err != nil {
+		return executor.SandboxSpec{}, fmt.Errorf("claudecode: sandbox spec read prompt: %w", err)
+	}
+	return executor.SandboxSpec{
+		Executable:     bin,
+		Argv:           []string{bin, "-p", "--output-format", "json", "--permission-mode", "bypassPermissions"},
+		Stdin:          raw,
+		EnvAllowlist:   append([]string(nil), allowedEnv...),
+		SecretRefs:     []string{defaultSecretsEnvVar},
+		WorkingDir:     ws.Path,
+		Timeout:        timeout,
+		ArtifactPaths:  []string{promptFileName},
+		EgressDestinations: []string{"api.anthropic.com"},
+	}, nil
+}

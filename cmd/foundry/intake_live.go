@@ -1,22 +1,39 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
+	"go.temporal.io/sdk/client"
+
 	"github.com/okfriansyah-moh/the-foundry/internal/intake"
+	"github.com/okfriansyah-moh/the-foundry/internal/mission"
 )
 
-// startMissionViaTemporal is the live mission-start seam for the intake
-// pipeline. The offline/default path uses a recording starter (proving
-// orchestration with zero network); a live intake start reuses the same
-// admission-approved provenance the human-authored `mission create` +
-// `mission start <id>` path uses. Wiring the generated-plan → MissionContract →
-// Temporal execution end to end is the mission-runtime work (Task 105/121); the
-// intake pipeline deliberately stops at a recorded, approved, ready run and
-// hands that off, rather than duplicating the starter here.
+// startMissionViaTemporal is the live mission-start seam for Task 144:
+// production intake starts MissionLoop through Temporal without a manual
+// "start mission separately" handoff.
 func startMissionViaTemporal(f *intakeFlags, in intake.StartMissionInput) (intake.StartMissionOutput, error) {
-	return intake.StartMissionOutput{}, fmt.Errorf(
-		"mission start --idea: live Temporal start (hostport %q) is driven by the mission runtime; "+
-			"the approved, ready run %s is recorded — start it via `foundry mission start <mission-id>` or use --dry-run",
-		f.temporalHostPort, in.RunID)
+	host := f.temporalHostPort
+	if host == "" {
+		return intake.StartMissionOutput{}, fmt.Errorf("mission start --idea: TEMPORAL_HOSTPORT / --temporal-hostport required for live start")
+	}
+	c, err := client.Dial(client.Options{HostPort: host})
+	if err != nil {
+		return intake.StartMissionOutput{}, fmt.Errorf("mission start --idea: dial temporal: %w", err)
+	}
+	defer c.Close()
+
+	missionID := "mission-" + in.RunID
+	workflowID := "missionloop-" + missionID
+	_, err = c.ExecuteWorkflow(context.Background(), client.StartWorkflowOptions{
+		ID:        workflowID,
+		TaskQueue: "foundry-core",
+	}, mission.MissionLoop, mission.MissionLoopInput{
+		MissionID: missionID,
+	})
+	if err != nil {
+		return intake.StartMissionOutput{}, fmt.Errorf("mission start --idea: start MissionLoop: %w", err)
+	}
+	return intake.StartMissionOutput{MissionID: missionID}, nil
 }

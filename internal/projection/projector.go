@@ -78,6 +78,9 @@ WHERE projection_offsets.last_seq < EXCLUDED.last_seq`
 	// (EXCLUDED.occurred_at, EXCLUDED.last_seq) against the tuple already
 	// stored: Postgres row-value comparison is lexicographic, so a strictly
 	// newer occurred_at always wins regardless of seq, and last_seq is only
+	// a tie-breaker. Task 141 stamps EnvelopeDigest onto Transition payloads;
+	// the projector stores the full payload JSON, so envelope attribution is
+	// preserved without a schema change here.
 	// consulted as the tiebreaker when two transitions share the exact same
 	// occurred_at (workflow.Now(ctx) can return the same instant for two
 	// back-to-back activity calls). The stored side is wrapped in

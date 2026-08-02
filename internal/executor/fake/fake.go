@@ -80,3 +80,14 @@ func (f *Fake) Collect(context.Context) (executor.Artifacts, error) {
 	}
 	return executor.Artifacts{Paths: paths}, nil
 }
+
+// SandboxSpec implements executor.SandboxSpecProvider so RequireSandbox
+// profiles can run the fake adapter inside OCI (docs/PLAN.md Task 142).
+func (f *Fake) SandboxSpec(_ context.Context, ws worktree.Workspace, _ executor.TaskPacket) (executor.SandboxSpec, error) {
+	return executor.SandboxSpec{
+		Executable: "/bin/true",
+		Argv:       []string{"/bin/true"},
+		WorkingDir: ws.Path,
+		Timeout:    30 * time.Second,
+	}, nil
+}

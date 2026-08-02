@@ -12,10 +12,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/okfriansyah-moh/the-foundry/internal/admission"
 	"github.com/okfriansyah-moh/the-foundry/internal/intake"
-	"github.com/okfriansyah-moh/the-foundry/internal/opportunity"
-	"github.com/okfriansyah-moh/the-foundry/internal/spec"
 )
 
 // docs/PLAN.md Task 111 (INT-03): the `foundry mission start --idea` intake
@@ -89,7 +86,7 @@ func runIntakeStart(args []string) error {
 		store = intake.NewPGStore(db)
 	}
 
-	deps, err := buildIntakeDeps(store, f)
+	deps, err := buildIntakeDeps(store, f, db)
 	if err != nil {
 		return err
 	}
@@ -109,62 +106,19 @@ func runIntakeStart(args []string) error {
 	return nil
 }
 
-// buildIntakeDeps assembles the pipeline seams from the offline, cassette-backed
-// adapters. A live deployment substitutes the research intake path and a
-// Temporal-backed starter; the seams are identical.
-func buildIntakeDeps(store intake.Store, f *intakeFlags) (intake.Deps, error) {
-	if f.opportunityFixture == "" || f.specCassette == "" {
-		return intake.Deps{}, errors.New("mission start --idea: --opportunity-fixtures and --spec-cassette are required for the offline intake path")
-	}
-	cfg, err := opportunity.LoadConfig(f.opportunityConfig)
-	if err != nil {
-		return intake.Deps{}, fmt.Errorf("mission start --idea: load opportunity config: %w", err)
-	}
-	replay, err := spec.LoadReplaySource(f.specCassette)
-	if err != nil {
-		return intake.Deps{}, fmt.Errorf("mission start --idea: load spec cassette: %w", err)
-	}
-
-	starter := intake.FuncStarter(func(_ context.Context, in intake.StartMissionInput) (intake.StartMissionOutput, error) {
-		if f.dryRun || f.temporalHostPort == "" {
-			// Recording starter: proves orchestration without a live Temporal.
-			return intake.StartMissionOutput{MissionID: "draft-" + in.RunID}, nil
-		}
-		return startMissionViaTemporal(f, in)
-	})
-
-	// Local approver: records approval intent for a non-H plan. An H-tier plan
-	// never reaches here — FuncApprover refuses it (ErrStrongAuthRequired) and
-	// the pipeline pauses, so the CLI never self-approves (C6/C12).
-	approver := intake.FuncApprover(func(_ context.Context, in intake.ApproveInput) (intake.ApproveOutput, error) {
-		return intake.ApproveOutput{ApprovalRef: "cli-approved:" + in.RunID}, nil
-	})
-
-	return intake.Deps{
-		Store:     store,
-		Validator: intake.OpportunityValidatorAdapter{Config: cfg, Resolver: intake.FileOpportunityResolver{Dir: f.opportunityFixture}},
-		Synth:     intake.SpecSynthesizerAdapter{Synth: spec.Synthesizer{Source: replay}},
-		PlanGen: intake.PlanGeneratorAdapter{Mission: spec.MissionContext{
-			RepoAlias:       f.repoAlias,
-			RepoURL:         f.repoURL,
-			RepoBranch:      f.repoBranch,
-			RepoWriteTarget: f.repoWriteTarget,
-		}},
-		Admitter:  intake.AdmitterAdapter{Policy: admission.NoopPolicyView{}},
-		Approver:  approver,
-		Readiness: intake.AlwaysReady,
-		Starter:   starter,
-	}, nil
-}
-
 // printIntakeRun renders a run's terminal or paused state, including the
-// operator's next actions for a terminal-by-design outcome.
+// operator's next actions for a terminal-by-design outcome (Task 144 output
+// contract: run/opportunity/verdict/spec/plan/tier/approval/mission/status).
 func printIntakeRun(run intake.Run) {
 	fmt.Printf("intake run %s\n  stage:  %s\n  status: %s\n  spent:  $%.4f of $%.2f envelope\n",
 		run.ID, run.CurrentStage, run.Status, run.SpentUSD, run.Caps.EnvelopeUSD)
+	if run.MissionID != "" {
+		fmt.Printf("  mission: %s\n", run.MissionID)
+	}
 	switch run.CurrentStage {
 	case intake.StageMissionStarted:
-		fmt.Printf("  mission: %s (running)\n", run.MissionID)
+		fmt.Printf("  workflow: missionloop-%s\n", run.MissionID)
+		fmt.Println("  outcome: MissionLoop started (production Temporal path)")
 	case intake.StageOpportunityRejected, intake.StageOpportunityValidationRequired:
 		fmt.Println("  outcome: build nothing (this is a successful terminal outcome)")
 	case intake.StageAwaitingStrongAuth:
@@ -226,7 +180,7 @@ func runIntakeResume(args []string) error {
 	}
 	defer func() { _ = db.Close() }()
 	store := intake.NewPGStore(db)
-	deps, err := buildIntakeDeps(store, f)
+	deps, err := buildIntakeDeps(store, f, db)
 	if err != nil {
 		return err
 	}

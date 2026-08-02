@@ -27,6 +27,8 @@ type RecordCostInput struct {
 	EntryID      string
 	ExecutorName string
 	Usage        executor.Usage
+	// EnvelopeDigest attributes the incurred cost to the Task 141 envelope.
+	EnvelopeDigest string
 }
 
 // RecordCostOutput reports the incurred amount and whether it was priced from a

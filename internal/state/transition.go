@@ -23,6 +23,9 @@ type Transition struct {
 	NextAction   string
 	WakeAt       *time.Time
 	OccurredAt   time.Time
+	// EnvelopeDigest is the Task 141 execution-envelope digest that authorized
+	// this transition. omitempty keeps pre-Task-141 transition digests stable.
+	EnvelopeDigest string `json:",omitempty"`
 }
 
 // legalTransitions is the canonical status-transition graph (state-model.md

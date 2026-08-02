@@ -89,6 +89,16 @@ type DeliverPlanInput struct {
 	// profile's max_runners quota, so the workflow itself stays deterministic
 	// (no config read inside workflow code). 0 uses defaultWaveConcurrency.
 	MaxWaveConcurrency int
+	// EnvelopeID / EnvelopeDigest bind Task 141's immutable execution envelope
+	// into the workflow. When EnvelopeDigest is set, activities verify it at
+	// boundaries and refuse mutation/substitution/widening.
+	EnvelopeID     string
+	EnvelopeDigest string
+	MissionID      string
+	Unattended     bool
+	RequireSandbox bool
+	BudgetScope    string
+	BudgetScopeID  string
 }
 
 // TaskResult reports one task's outcome within the plan.
@@ -178,9 +188,9 @@ func DeliverPlan(ctx workflow.Context, in DeliverPlanInput) (DeliverPlanResult, 
 	// edge — every workflow passes through RUNNING first, even one that
 	// fails immediately on its very first activity. No task has completed
 	// yet, so the checkpoint recorded here is always the empty one.
-	appendTransition(ctx, opts.noRetry, workflowID, state.StatusPending, state.StatusRunning, "", recovery.Checkpoint{}, nextTransitionSeq())
+	appendTransition(ctx, opts.noRetry, workflowID, state.StatusPending, state.StatusRunning, "", recovery.Checkpoint{}, nextTransitionSeq(), in.EnvelopeDigest)
 	if loadErr != nil {
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, "admission-rejected", recovery.Checkpoint{}, nextTransitionSeq())
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, "admission-rejected", recovery.Checkpoint{}, nextTransitionSeq(), in.EnvelopeDigest)
 		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: string(state.ResultAdmissionRejected)}, loadErr
 	}
 
@@ -266,11 +276,11 @@ waveLoop:
 
 	switch classification {
 	case "":
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusSucceeded, "", checkpoint, nextTransitionSeq())
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusSucceeded, "", checkpoint, nextTransitionSeq(), in.EnvelopeDigest)
 		return DeliverPlanResult{Status: string(state.StatusSucceeded), Tasks: results}, nil
 	case "cancelled":
 		disconnected, _ := workflow.NewDisconnectedContext(ctx)
-		appendTransition(disconnected, opts.noRetry, workflowID, state.StatusRunning, state.StatusCancelled, "", checkpoint, nextTransitionSeq())
+		appendTransition(disconnected, opts.noRetry, workflowID, state.StatusRunning, state.StatusCancelled, "", checkpoint, nextTransitionSeq(), in.EnvelopeDigest)
 		return DeliverPlanResult{Status: string(state.StatusCancelled), Tasks: results}, ctx.Err()
 	case "admission-rejected":
 		// A mid-flight RecheckApproval failure (revoked or expired
@@ -278,10 +288,10 @@ waveLoop:
 		// LoadApprovedPlan admission failure above, so both admission
 		// rejections (start-of-workflow and mid-flight) are
 		// indistinguishable to a consumer of the result code.
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq())
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq(), in.EnvelopeDigest)
 		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: string(state.ResultAdmissionRejected), Tasks: results}, nil
 	default:
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq())
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusFailed, state.Reason(classification), checkpoint, nextTransitionSeq(), in.EnvelopeDigest)
 		return DeliverPlanResult{Status: string(state.StatusFailed), ResultCode: classification, Tasks: results}, nil
 	}
 }
@@ -314,12 +324,12 @@ func runTaskWithBudget(ctx workflow.Context, opts activityOptions, workflowID st
 			return result, evidenceID, cls
 		}
 		workflow.GetLogger(ctx).Warn("kernel: budget exhausted, task waiting", "workflow_id", workflowID, "task_id", task.ID)
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonBudget, checkpoint, nextTransitionSeq())
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusRunning, state.StatusWaiting, state.ReasonBudget, checkpoint, nextTransitionSeq(), in.EnvelopeDigest)
 		workflow.GetSignalChannel(ctx, SignalBudgetRaised).Receive(ctx, nil)
 		if ctx.Err() != nil {
 			return result, evidenceID, "cancelled"
 		}
-		appendTransition(ctx, opts.noRetry, workflowID, state.StatusWaiting, state.StatusRunning, "", checkpoint, nextTransitionSeq())
+		appendTransition(ctx, opts.noRetry, workflowID, state.StatusWaiting, state.StatusRunning, "", checkpoint, nextTransitionSeq(), in.EnvelopeDigest)
 	}
 }
 
@@ -359,10 +369,15 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 	reserveCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
 	var reserved ReserveBudgetOutput
 	if err := workflow.ExecuteActivity(reserveCtx, ActivityReserveBudget, ReserveBudgetInput{
-		WorkflowID:   workflowID,
-		TaskID:       task.ID,
-		ExecutorName: executorName,
-		Attempt:      budgetAttempt,
+		WorkflowID:     workflowID,
+		TaskID:         task.ID,
+		ExecutorName:   executorName,
+		Attempt:        budgetAttempt,
+		MissionID:      in.MissionID,
+		Unattended:     in.Unattended,
+		EnvelopeDigest: in.EnvelopeDigest,
+		BudgetScope:    in.BudgetScope,
+		BudgetScopeID:  in.BudgetScopeID,
 	}).Get(reserveCtx, &reserved); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
 	}
@@ -421,6 +436,8 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		TaskClass:         task.Class,
 		ExecutorAllowlist: in.ExecutorAllowlist,
 		WorkspacePath:     ws.Path,
+		RequireSandbox:    in.RequireSandbox,
+		EnvelopeDigest:    in.EnvelopeDigest,
 		Packet: executor.TaskPacket{
 			PlanID:             in.PlanID,
 			TaskID:             task.ID,
@@ -442,12 +459,13 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 		recordCtx := workflow.WithActivityOptions(ctx, opts.noRetry)
 		var recorded RecordCostOutput
 		_ = workflow.ExecuteActivity(recordCtx, ActivityRecordCost, RecordCostInput{
-			WorkflowID:   workflowID,
-			TaskID:       task.ID,
-			Attempt:      budgetAttempt,
-			EntryID:      reserved.EntryID,
-			ExecutorName: execOut.ExecutorUsed,
-			Usage:        execOut.Usage,
+			WorkflowID:     workflowID,
+			TaskID:         task.ID,
+			Attempt:        budgetAttempt,
+			EntryID:        reserved.EntryID,
+			ExecutorName:   execOut.ExecutorUsed,
+			Usage:          execOut.Usage,
+			EnvelopeDigest: in.EnvelopeDigest,
 		}).Get(recordCtx, &recorded)
 	}
 
@@ -466,13 +484,14 @@ func runTask(ctx workflow.Context, opts activityOptions, workflowID string, in D
 	evidenceCtx := workflow.WithActivityOptions(ctx, opts.retry)
 	var evidenced RecordEvidenceOutput
 	if err := workflow.ExecuteActivity(evidenceCtx, ActivityRecordEvidence, RecordEvidenceInput{
-		WorkflowID:    workflowID,
-		TaskID:        task.ID,
-		Attempt:       1,
-		WorkspacePath: ws.Path,
-		ArtifactPaths: execOut.ArtifactPaths,
-		ExecuteFailed: execOut.Failed,
-		ExecutorUsed:  execOut.ExecutorUsed,
+		WorkflowID:     workflowID,
+		TaskID:         task.ID,
+		Attempt:        1,
+		WorkspacePath:  ws.Path,
+		ArtifactPaths:  execOut.ArtifactPaths,
+		ExecuteFailed:  execOut.Failed,
+		ExecutorUsed:   execOut.ExecutorUsed,
+		EnvelopeDigest: in.EnvelopeDigest,
 	}).Get(evidenceCtx, &evidenced); err != nil {
 		return failed, "", cancelOr(ctx, "environment")
 	}
@@ -535,13 +554,14 @@ func cancelOr(ctx workflow.Context, fallback string) string {
 // the initial PENDING->RUNNING and a later WAITING->RUNNING resume) — `to`
 // alone is no longer a unique key, so seq disambiguates them; without it,
 // withReceipt's idempotency cache would silently drop the second write.
-func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workflowID string, from, to state.Status, reason state.Reason, checkpoint recovery.Checkpoint, seq int) {
+func appendTransition(ctx workflow.Context, opts workflow.ActivityOptions, workflowID string, from, to state.Status, reason state.Reason, checkpoint recovery.Checkpoint, seq int, envelopeDigest string) {
 	t := state.Transition{
-		WorkflowID:   workflowID,
-		Status:       to,
-		Reason:       reason,
-		CheckpointID: checkpoint.ID(),
-		OccurredAt:   workflow.Now(ctx),
+		WorkflowID:     workflowID,
+		Status:         to,
+		Reason:         reason,
+		CheckpointID:   checkpoint.ID(),
+		OccurredAt:     workflow.Now(ctx),
+		EnvelopeDigest: envelopeDigest,
 	}
 	if err := t.Validate(from, to); err != nil {
 		workflow.GetLogger(ctx).Error("kernel: invalid transition", "error", err, "from", from, "to", to)

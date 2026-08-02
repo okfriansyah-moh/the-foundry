@@ -15,6 +15,7 @@ func TestFieldRulesCoversEveryMergedField(t *testing.T) {
 		"validation_allowlist_ref": RuleFixed,
 		"notification_classes":     RuleTightenOnly,
 		"risk_tier_controls":       RuleTightenOnly,
+		"require_sandbox":          RuleTightenOnly,
 	}
 	if len(fieldRules) != len(want) {
 		t.Fatalf("fieldRules has %d entries, want %d", len(fieldRules), len(want))

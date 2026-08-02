@@ -1,0 +1,11 @@
+# Task 151/152 — inclusion rules declared before results inspection.
+inclusion:
+  - real disposable systems only
+  - no synthetic cases
+  - predeclared exclusions only
+arms:
+  - personal-control
+  - personal-foundry
+  - tenx-control
+  - tenx-foundry
+status: insufficient_data

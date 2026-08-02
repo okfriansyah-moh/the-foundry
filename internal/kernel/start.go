@@ -13,7 +13,9 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
+	compiler "github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
+	"github.com/okfriansyah-moh/the-foundry/internal/repository"
 	"github.com/okfriansyah-moh/the-foundry/internal/state"
 )
 
@@ -40,21 +42,48 @@ type WorkflowStarter interface {
 // transport may name the plan, the resolved plan source, the repo working
 // path and (optionally) a lane and attempt ordinal — it may NOT name an
 // executor, a task queue or a workflow ID: those are kernel-resolved
-// (Constitution C4).
+// (Constitution C4). Task 141 adds ownership/intent references only; authority
+// fields are resolved into an ExecutionEnvelope.
 type StartDeliveryInput struct {
 	PlanID       string
 	PlanFilePath string
 	RepoPath     string
 	Lane         string
 	Attempt      int
+
+	// Intent / ownership references (Task 141). Transports may set these;
+	// they never carry executor/policy/budget/sandbox authority.
+	MissionID          string
+	PortfolioID        string
+	ProfileID          string
+	OrganizationID     string
+	PrincipalID        string
+	Unattended         bool
+	RepositoryID       string
+	Provider           string
+	CanonicalURL       string
+	RepositoryAlias    string
+	PinnedBaseRevision string
+	TargetBranch       string
+	PlanArtifactRef    string
+	BudgetEnvelopeID   string
+	SessionCapUSD      float64
+	ExperimentCapUSD   float64
+	DeploymentCapUSD   float64
+	MaxWaveConcurrency int
+	BranchDeliveryPolicy string
+	PermittedEffects   []string
+	AuthorizationDecisionRef string
 }
 
 // StartDeliveryOutput reports what the kernel resolved and started.
 type StartDeliveryOutput struct {
-	WorkflowID string
-	RunID      string
-	TaskQueue  string
-	Lane       string
+	WorkflowID     string
+	RunID          string
+	TaskQueue      string
+	Lane           string
+	EnvelopeID     string
+	EnvelopeDigest string
 }
 
 // StartDeps bundles the kernel-owned resolution inputs StartDelivery needs.
@@ -67,20 +96,38 @@ type StartDeps struct {
 	// Transitions, when set, records an initial started transition so
 	// `foundry status` observes the execution immediately.
 	Transitions TransitionStore
+	// EnvelopeStore + Policy resolve and persist the Task 141 execution
+	// envelope before Temporal start. Unattended starts refuse when either
+	// is missing (C24).
+	EnvelopeStore EnvelopeStore
+	Policy        *compiler.Resolved
+	LayerDigests  []string
+	PolicyVersion string
+	Now           func() time.Time
+	// RepositoryStore resolves owned repository IDs (Task 143) when
+	// StartDeliveryInput.RepositoryID is set.
+	RepositoryStore repository.Store
+	AllowedLocalRoots []string
 }
 
 // DeliveryWorkflowID derives the deterministic workflow ID from the plan
-// digest and attempt ordinal, so a double-click, a retried HTTP request and a
-// Telegram retry all collapse to one execution rather than three.
-func DeliveryWorkflowID(planDigest string, attempt int) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%d", planDigest, attempt)))
+// digest, attempt ordinal, and (when present) execution-envelope digest, so a
+// double-click, a retried HTTP request and a Telegram retry all collapse to
+// one execution rather than three (docs/PLAN.md Task 141 binds the envelope
+// digest into the idempotency key).
+func DeliveryWorkflowID(planDigest string, attempt int, envelopeDigest string) string {
+	payload := fmt.Sprintf("%s|%d", planDigest, attempt)
+	if envelopeDigest != "" {
+		payload = fmt.Sprintf("%s|%s", payload, envelopeDigest)
+	}
+	sum := sha256.Sum256([]byte(payload))
 	return "deliver-" + hex.EncodeToString(sum[:])[:32]
 }
 
 // StartDelivery is Foundry's single production edge from an ApprovedPlan to a
-// running DeliverPlan execution (docs/PLAN.md Task 105 / RTC-01). The kernel —
-// never the transport — resolves the lane, the executor allowlist and the
-// workflow ID (Constitution C4).
+// running DeliverPlan execution (docs/PLAN.md Task 105 / RTC-01, Task 141 /
+// RTC-05). The kernel — never the transport — resolves the lane, the executor
+// allowlist, the execution envelope and the workflow ID (Constitution C4).
 func StartDelivery(ctx context.Context, deps StartDeps, in StartDeliveryInput) (StartDeliveryOutput, error) {
 	if deps.Starter == nil {
 		return StartDeliveryOutput{}, fmt.Errorf("kernel: StartDelivery requires a workflow starter")
@@ -90,6 +137,11 @@ func StartDelivery(ctx context.Context, deps StartDeps, in StartDeliveryInput) (
 	}
 	if in.PlanID == "" {
 		return StartDeliveryOutput{}, fmt.Errorf("kernel: StartDelivery requires a plan id")
+	}
+
+	now := time.Now().UTC()
+	if deps.Now != nil {
+		now = deps.Now().UTC()
 	}
 
 	// (1) Load the ApprovedPlan through provenance.Store.Load so revocation
@@ -108,25 +160,124 @@ func StartDelivery(ctx context.Context, deps StartDeps, in StartDeliveryInput) (
 		return StartDeliveryOutput{}, fmt.Errorf("%w: %v", ErrStartRefused, err)
 	}
 
-	// (3) The executor allowlist must be non-nil and non-empty. A nil/empty
+	// (3) Resolve the execution envelope when policy+store are wired, or when
+	// the start is unattended (mandatory). Unattended without wiring refuses.
+	var env *ExecutionEnvelope
+	executorAllowlist := append([]string(nil), deps.ExecutorAllowlist...)
+	maxWave := in.MaxWaveConcurrency
+	requireSandbox := false
+	unattended := in.Unattended
+	missionID := in.MissionID
+
+	if in.Unattended && (deps.EnvelopeStore == nil || deps.Policy == nil) {
+		return StartDeliveryOutput{}, fmt.Errorf("%w: unattended execution without an envelope", ErrStartRefused)
+	}
+
+	// Task 143: when a repository ID is named, resolve it from the owned
+	// registry before envelope creation — never trust a transport path as
+	// authority for production unattended starts.
+	if in.RepositoryID != "" && deps.RepositoryStore != nil {
+		resolvedRepo, resolveErr := (repository.Resolver{Store: deps.RepositoryStore}).Resolve(ctx, repository.ResolveInput{
+			RepositoryID:      in.RepositoryID,
+			ProfileID:         in.ProfileID,
+			OrganizationID:    in.OrganizationID,
+			AllowedLocalRoots: deps.AllowedLocalRoots,
+			RequirePinned:     in.Unattended,
+		})
+		if resolveErr != nil {
+			return StartDeliveryOutput{}, fmt.Errorf("%w: repository: %v", ErrStartRefused, resolveErr)
+		}
+		in.Provider = resolvedRepo.Record.Provider
+		in.CanonicalURL = resolvedRepo.Record.CanonicalURL
+		in.RepositoryAlias = resolvedRepo.Record.Alias
+		if in.PinnedBaseRevision == "" {
+			in.PinnedBaseRevision = resolvedRepo.Record.PinnedBaseRevision
+		}
+		if in.TargetBranch == "" {
+			in.TargetBranch = resolvedRepo.Record.DefaultTargetBranch
+		}
+	}
+
+	if deps.Policy != nil && deps.EnvelopeStore != nil {
+		resolved, resolveErr := ResolveExecutionEnvelope(ctx, EnvelopeResolverDeps{
+			Provenance:    deps.Provenance,
+			Policy:        deps.Policy,
+			LayerDigests:  deps.LayerDigests,
+			PolicyVersion: deps.PolicyVersion,
+			Now:           func() time.Time { return now },
+		}, ResolveExecutionEnvelopeInput{
+			PlanID:                   in.PlanID,
+			PlanArtifactRef:          in.PlanArtifactRef,
+			RepositoryID:             in.RepositoryID,
+			Provider:                 in.Provider,
+			CanonicalURL:             in.CanonicalURL,
+			RepositoryAlias:          in.RepositoryAlias,
+			PinnedBaseRevision:       in.PinnedBaseRevision,
+			TargetBranch:             in.TargetBranch,
+			MissionID:                in.MissionID,
+			PortfolioID:              in.PortfolioID,
+			ProfileID:                in.ProfileID,
+			OrganizationID:           in.OrganizationID,
+			PrincipalID:              in.PrincipalID,
+			Unattended:               in.Unattended,
+			MaxWaveConcurrency:       in.MaxWaveConcurrency,
+			BudgetEnvelopeID:         in.BudgetEnvelopeID,
+			SessionCapUSD:            in.SessionCapUSD,
+			ExperimentCapUSD:         in.ExperimentCapUSD,
+			DeploymentCapUSD:         in.DeploymentCapUSD,
+			BranchDeliveryPolicy:     in.BranchDeliveryPolicy,
+			PermittedEffects:         in.PermittedEffects,
+			AuthorizationDecisionRef: in.AuthorizationDecisionRef,
+			IssuedAt:                 now,
+		})
+		if resolveErr != nil {
+			return StartDeliveryOutput{}, fmt.Errorf("%w: %v", ErrStartRefused, resolveErr)
+		}
+		if err := deps.EnvelopeStore.Insert(ctx, resolved); err != nil {
+			return StartDeliveryOutput{}, fmt.Errorf("kernel: persist execution envelope: %w", err)
+		}
+		env = resolved
+		executorAllowlist = append([]string(nil), resolved.Execution.ExecutorAllowlist...)
+		maxWave = resolved.Execution.MaxWaveConcurrency
+		requireSandbox = resolved.Execution.RequireSandbox
+		unattended = resolved.Execution.Unattended
+		missionID = resolved.Ownership.MissionID
+	}
+
+	// (4) The executor allowlist must be non-nil and non-empty. A nil/empty
 	// allowlist is the fail-open path Task 116 closes — refuse rather than run
 	// with no policy (Constitution C4).
-	if len(deps.ExecutorAllowlist) == 0 {
+	if len(executorAllowlist) == 0 {
 		return StartDeliveryOutput{}, fmt.Errorf("%w: empty executor allowlist", ErrStartRefused)
 	}
 
-	// (4) Deterministic, idempotent workflow ID.
-	workflowID := DeliveryWorkflowID(approved.PlanDigest(), in.Attempt)
+	envelopeDigest := ""
+	envelopeID := ""
+	if env != nil {
+		envelopeDigest = env.EnvelopeDigest
+		envelopeID = env.EnvelopeID
+	}
+
+	// (5) Deterministic, idempotent workflow ID (envelope-bound when present).
+	workflowID := DeliveryWorkflowID(approved.PlanDigest(), in.Attempt, envelopeDigest)
 
 	run, err := deps.Starter.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
 		ID:                    workflowID,
 		TaskQueue:             queue,
 		WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 	}, DeliverPlan, DeliverPlanInput{
-		PlanID:            in.PlanID,
-		PlanFilePath:      in.PlanFilePath,
-		RepoPath:          in.RepoPath,
-		ExecutorAllowlist: deps.ExecutorAllowlist,
+		PlanID:             in.PlanID,
+		PlanFilePath:       in.PlanFilePath,
+		RepoPath:           in.RepoPath,
+		ExecutorAllowlist:  executorAllowlist,
+		MaxWaveConcurrency: maxWave,
+		EnvelopeID:         envelopeID,
+		EnvelopeDigest:     envelopeDigest,
+		MissionID:          missionID,
+		Unattended:         unattended,
+		RequireSandbox:     requireSandbox,
+		BudgetScope:        envelopeBudgetScope(env),
+		BudgetScopeID:      envelopeBudgetScopeID(env),
 	})
 	if err != nil {
 		var already *serviceerror.WorkflowExecutionAlreadyStarted
@@ -137,25 +288,42 @@ func StartDelivery(ctx context.Context, deps StartDeps, in StartDeliveryInput) (
 	}
 
 	out := StartDeliveryOutput{
-		WorkflowID: workflowID,
-		RunID:      run.GetRunID(),
-		TaskQueue:  queue,
-		Lane:       laneOrDefault(in.Lane),
+		WorkflowID:     workflowID,
+		RunID:          run.GetRunID(),
+		TaskQueue:      queue,
+		Lane:           laneOrDefault(in.Lane),
+		EnvelopeID:     envelopeID,
+		EnvelopeDigest: envelopeDigest,
 	}
 
-	// (5) Record an initial transition so `foundry status` sees the execution
+	// (6) Record an initial transition so `foundry status` sees the execution
 	// immediately (best-effort: a transition-store failure does not undo a
 	// started workflow).
 	if deps.Transitions != nil {
 		_, _ = deps.Transitions.Append(ctx, workflowID, state.Transition{
-			WorkflowID: workflowID,
-			Status:     state.StatusRunning,
-			PhaseFrom:  state.PhaseIntake,
-			PhaseTo:    state.PhaseIntake,
-			OccurredAt: time.Now().UTC(),
+			WorkflowID:     workflowID,
+			Status:         state.StatusRunning,
+			PhaseFrom:      state.PhaseIntake,
+			PhaseTo:        state.PhaseIntake,
+			OccurredAt:     now,
+			EnvelopeDigest: envelopeDigest,
 		})
 	}
 	return out, nil
+}
+
+func envelopeBudgetScope(env *ExecutionEnvelope) string {
+	if env == nil {
+		return ""
+	}
+	return env.Cost.BudgetScope
+}
+
+func envelopeBudgetScopeID(env *ExecutionEnvelope) string {
+	if env == nil {
+		return ""
+	}
+	return env.Cost.BudgetScopeID
 }
 
 func laneOrDefault(lane string) string {

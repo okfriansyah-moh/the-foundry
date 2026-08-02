@@ -101,6 +101,9 @@ func platformEffective(p LayerPolicy) (Policy, error) {
 	if len(p.RiskTierControls) == 0 {
 		return Policy{}, missing("risk_tier_controls")
 	}
+	if p.RequireSandbox == nil {
+		return Policy{}, missing("require_sandbox")
+	}
 	for env, mode := range p.DeploymentModes {
 		if !mode.valid() {
 			return Policy{}, &CompileError{Layer: LayerPlatform, Field: "deployment_modes", Message: fmt.Sprintf("env %q: invalid mode %q", env, mode)}
@@ -115,6 +118,7 @@ func platformEffective(p LayerPolicy) (Policy, error) {
 		ValidationAllowlistRef: *p.ValidationAllowlistRef,
 		NotificationClasses:    sortedCopy(p.NotificationClasses),
 		RiskTierControls:       copyMap(p.RiskTierControls),
+		RequireSandbox:         *p.RequireSandbox,
 	}, nil
 }
 
@@ -173,7 +177,39 @@ func applyLayer(eff *Policy, layer Layer, next LayerPolicy, overrides *[]Overrid
 		}
 		appendIfSet(overrides, ov)
 	}
+	if next.RequireSandbox != nil {
+		ov, err := mergeRequireSandbox(layer, eff.RequireSandbox, *next.RequireSandbox)
+		if err != nil {
+			return err
+		}
+		if ov != nil {
+			eff.RequireSandbox = *next.RequireSandbox
+			appendIfSet(overrides, ov)
+		}
+	}
 	return nil
+}
+
+// mergeRequireSandbox enforces tighten-only on require_sandbox: false→true
+// is allowed; true→false is a widening and refuses.
+func mergeRequireSandbox(layer Layer, prev, next bool) (*Override, error) {
+	if next == prev {
+		return nil, nil
+	}
+	if prev && !next {
+		return nil, &CompileError{
+			Layer:   layer,
+			Field:   "require_sandbox",
+			Message: "attempted to weaken require_sandbox true -> false",
+		}
+	}
+	return &Override{
+		Field:     "require_sandbox",
+		FromLayer: layer,
+		Old:       fmt.Sprintf("%v", prev),
+		New:       fmt.Sprintf("%v", next),
+		Direction: DirectionTightened,
+	}, nil
 }
 
 func appendIfSet(overrides *[]Override, ov *Override) {

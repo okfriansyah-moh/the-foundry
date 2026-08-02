@@ -15,6 +15,14 @@ const (
 	AvailabilityUnsupported = "unsupported"
 )
 
+// Sandbox eligibility (docs/PLAN.md Task 142 / SEC-05). Exactly one state per
+// record; missing/unknown refuses load.
+const (
+	SandboxSupported = "sandbox_supported"
+	SandboxHostOnly  = "host_only"
+	SandboxUnsupported = "unsupported"
+)
+
 // Record is one executor provider's declared capabilities. It is pure data
 // mirroring provider-execution-classes.md §6.7's capability contract.
 type Record struct {
@@ -52,12 +60,21 @@ type Record struct {
 	// SandboxOptOutReason is the mandatory justification when RequiresSandbox
 	// is explicitly false.
 	SandboxOptOutReason string `yaml:"sandbox_optout_reason,omitempty"`
+	// SandboxEligibility is docs/PLAN.md Task 142: exactly one of
+	// sandbox_supported | host_only | unsupported. Missing/unknown refuses
+	// load. Only sandbox_supported may match require_sandbox=true.
+	SandboxEligibility string `yaml:"sandbox_eligibility"`
 }
 
 // SandboxRequired reports whether this executor must run inside the sandbox.
 // The default (unset) is true — sandboxing is opt-out, not opt-in (C24).
 func (r Record) SandboxRequired() bool {
 	return r.RequiresSandbox == nil || *r.RequiresSandbox
+}
+
+// IsSandboxSupported reports Task 142 eligibility for autonomous sandbox runs.
+func (r Record) IsSandboxSupported() bool {
+	return r.SandboxEligibility == SandboxSupported
 }
 
 // StalenessLimit is how old a Record.LastVerifiedAt may be before the

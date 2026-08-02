@@ -130,6 +130,35 @@ func (a *Adapter) Collect(context.Context) (executor.Artifacts, error) {
 	return executor.Artifacts{Paths: []string{a.cfg.PromptFile}}, nil
 }
 
+// SandboxSpec implements executor.SandboxSpecProvider (docs/PLAN.md Task 142).
+func (a *Adapter) SandboxSpec(_ context.Context, ws worktree.Workspace, packet executor.TaskPacket) (executor.SandboxSpec, error) {
+	bin := a.binary
+	if bin == "" {
+		bin = a.cfg.Binary
+	}
+	timeout := a.cfg.DefaultTimeout
+	if packet.TimeoutSec > 0 {
+		timeout = time.Duration(packet.TimeoutSec) * time.Second
+	}
+	argv := []string{bin}
+	argv = append(argv, a.cfg.Args...)
+	var stdin []byte
+	if a.promptPath != "" {
+		if raw, err := os.ReadFile(a.promptPath); err == nil {
+			stdin = raw
+		}
+	}
+	return executor.SandboxSpec{
+		Executable:   bin,
+		Argv:         argv,
+		Stdin:        stdin,
+		EnvAllowlist: append([]string(nil), a.cfg.AllowedEnv...),
+		WorkingDir:   ws.Path,
+		Timeout:      timeout,
+		ArtifactPaths: []string{a.cfg.PromptFile},
+	}, nil
+}
+
 // RenderPrompt turns a TaskPacket into the delimited prompt text handed to a
 // CLI provider. Identical in shape to Task 17's claude-code prompt: the
 // packet is kernel/PEC-approved task content, presented as a clearly
