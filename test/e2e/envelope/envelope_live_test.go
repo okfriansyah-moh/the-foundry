@@ -17,9 +17,9 @@ import (
 
 type e2eRun struct{ id, runID string }
 
-func (r e2eRun) GetID() string                                             { return r.id }
-func (r e2eRun) GetRunID() string                                          { return r.runID }
-func (r e2eRun) Get(context.Context, any) error                            { return nil }
+func (r e2eRun) GetID() string                  { return r.id }
+func (r e2eRun) GetRunID() string               { return r.runID }
+func (r e2eRun) Get(context.Context, any) error { return nil }
 func (r e2eRun) GetWithOptions(context.Context, any, client.WorkflowRunGetOptions) error {
 	return nil
 }

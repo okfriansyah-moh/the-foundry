@@ -9,8 +9,8 @@ import (
 
 func TestSignalGateRefuseBUILDWithoutRealSignal(t *testing.T) {
 	v := intake.SignalBackedValidator{
-		Inner: fixed{out: intake.ValidateOutput{Verdict: "BUILD"}},
-		RealSignal: deny{},
+		Inner:                fixed{out: intake.ValidateOutput{Verdict: "BUILD"}},
+		RealSignal:           deny{},
 		OpportunityIDForIdea: func(string) string { return "opp" },
 	}
 	out, err := v.Validate(context.Background(), intake.ValidateInput{Idea: "idea"})
