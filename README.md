@@ -13,6 +13,60 @@
 
 The golden rule: **evidence-based completion**. Nothing is “done” because an agent said so — manifests, digests, budgets, and independent verification decide.
 
+### Loop engineering
+
+Foundry is not a one-shot codegen pipeline. It runs **nested loops** that share evidence but not authority — the kernel sequences side effects; the PEC only proposes; security and budgets constrain every hop.
+
+```mermaid
+flowchart TB
+  subgraph Outer["Portfolio / mission loop"]
+    INTENT["IDEA · MOCKUP · PLAN · mission"]
+    INVEST["Choose what deserves investment<br/>budget · profile · readiness"]
+  end
+
+  subgraph Delivery["Delivery loop"]
+    ADMIT["Deterministic admission<br/>A0 / A1 / A2 / H"]
+    BUILD["Sandbox build"]
+    REVIEW["Independent review"]
+    VERIFY["Evidence verify"]
+    SHIP["Ship<br/>personal deploy · or · 10x branch handoff"]
+  end
+
+  subgraph Feedback["Observe → improve"]
+    OBSERVE["Observe<br/>activation · billing · drift · CI"]
+    IMPROVE["Bounded improvement plan<br/>still re-admitted"]
+    DECIDE{"Retain · roll back · pause · kill"}
+  end
+
+  subgraph Cross["Cross-cutting loops"]
+    RECOVERY["Recovery<br/>checkpoint · retry · reroute · rollback"]
+    CAPACITY["Capacity<br/>reserve · wait · fail over"]
+    CAPABILITY["Capability<br/>discover · evaluate · canary"]
+    LEARNING["Learning<br/>propose from evidence"]
+    MEMORY["Memory<br/>promote trusted knowledge"]
+    SECURITY["Security<br/>authorize · audit · contain · revoke"]
+  end
+
+  INTENT --> INVEST --> ADMIT
+  ADMIT --> BUILD --> REVIEW --> VERIFY --> SHIP
+  SHIP --> OBSERVE --> DECIDE
+  DECIDE -->|"improve"| IMPROVE --> ADMIT
+  DECIDE -->|"retain"| OBSERVE
+  DECIDE -->|"roll back"| RECOVERY
+  DECIDE -->|"pause / kill"| INTENT
+
+  RECOVERY <--> Delivery
+  CAPACITY <--> Delivery
+  CAPABILITY --> LEARNING --> MEMORY --> ADMIT
+
+  SECURITY -. constrains .-> Outer
+  SECURITY -. constrains .-> Delivery
+  SECURITY -. constrains .-> Feedback
+  SECURITY -. constrains .-> Cross
+```
+
+In practice, Track A closes the product loop (`MissionLoop` → `DeliverPlan` → deploy → observe → `ImprovementLoop` → re-admit). Track B stops at verified branch handoff — no PR, merge, or deploy.
+
 ---
 
 ## How it works
