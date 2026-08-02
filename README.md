@@ -477,11 +477,11 @@ make plan-run
 
 ---
 
-## Installation
+## Run locally
 
-## Installation
+Yes — local run is Docker-first. Host needs only **Docker + Compose + GNU make + Git**. No local Go, Node, Playwright, or Postgres install.
 
-### What you need
+### Prerequisites
 
 | Tool                     | Version / notes |
 | ------------------------ | --------------- |
@@ -490,9 +490,7 @@ make plan-run
 | GNU Make                 | 3.81+           |
 | Git                      | any recent      |
 
-No local Go, Node, Playwright, or Postgres install is required. Those live inside the `dev` image (`deploy/Dockerfile.dev`).
-
-### Clone and configure
+### 1. Clone and env
 
 ```sh
 git clone https://github.com/okfriansyah-moh/the-foundry.git
@@ -500,7 +498,7 @@ cd the-foundry
 cp .env.example .env
 ```
 
-Edit `.env` only as needed. Defaults already point `dev` at compose services:
+Defaults already point `dev` at compose services. Edit `.env` only when you need extras:
 
 | Variable                                  | Purpose                                                                           |
 | ----------------------------------------- | --------------------------------------------------------------------------------- |
@@ -512,7 +510,7 @@ Edit `.env` only as needed. Defaults already point `dev` at compose services:
 | `FOUNDRY_OIDC_*` / `FOUNDRY_WEBAUTHN_*`   | Strong-auth IdP (required for H-tier / production strong auth)                    |
 | `GITHUB_TOKEN` / `BITBUCKET_API_TOKEN`    | Kernel SCM write tokens (least privilege; never for sandbox)                      |
 
-### Build the toolchain and start services
+### 2. Build toolchain + start Postgres / Temporal
 
 ```sh
 make bootstrap   # build `dev` image + go mod download
@@ -526,50 +524,84 @@ make doctor      # Docker health + PG SELECT 1 + Temporal GetSystemInfo
 | `postgres` | Internal only (`postgres:5432`)                        |
 | `temporal` | Internal only (`temporal:7233`)                        |
 
-Optional observability profile:
+Optional observability:
 
 ```sh
 make up PROFILE=obs   # also starts prometheus + grafana
 ```
 
-Stop services:
+### 3. Migrate + keys + quality check
 
 ```sh
-make down             # stop and remove volumes
-make down KEEP_DATA=1 # keep the postgres volume
-```
-
----
-
-## Quick Start
-
-```sh
-# 1. Clone + env
-git clone https://github.com/okfriansyah-moh/the-foundry.git
-cd the-foundry
-cp .env.example .env
-
-# 2. Toolchain + runtime deps
-make bootstrap
-make up
-make doctor
-
-# 3. Quality gate (same shape as CI `build`)
-make test lint fitness
-
-# 4. Apply migrations (also covered by CI `migrations` job)
 make migrate-up
+make test lint fitness   # same shape as CI `build` (optional on first boot)
 
-# 5. Generate local approver keys (for plan approve / production intake)
 docker compose -f deploy/docker-compose.yaml run --rm dev \
   go run ./cmd/foundry keygen
+```
 
-# 6. Run the daemon (Temporal workers + API) when you need live workflows
+### 4. Run the daemon (live workflows)
+
+In a dedicated terminal — keep it running while you use the CLI:
+
+```sh
 docker compose -f deploy/docker-compose.yaml run --rm --service-ports dev \
   go run ./cmd/foundryd
 ```
 
-Then use `go run ./cmd/foundry …` (always through `dev`) for CLI operations.
+`foundryd` registers Temporal workers (`DeliverPlan`, `MissionLoop`, `ImprovementLoop`, TenX, …) and serves the control-plane API. Unit tests / `make fitness` do **not** need it; mission start / `plan run` do.
+
+### 5. Use the CLI (always through `dev`)
+
+```sh
+# Shorthand used in this README:
+FOUNDRY='docker compose -f deploy/docker-compose.yaml run --rm dev go run ./cmd/foundry'
+
+$FOUNDRY doctor
+$FOUNDRY plan submit ./path/to/PLAN.md
+$FOUNDRY plan approve ./path/to/PLAN.md
+$FOUNDRY plan run --plan-id <id>
+```
+
+Offline idea rehearsal (no daemon):
+
+```sh
+$FOUNDRY mission start \
+  --idea "…" \
+  --budget 50 \
+  --repo-url https://example.com/you/product.git \
+  --repo-write-target src/ \
+  --opportunity-fixtures test/fixtures/opportunity \
+  --spec-cassette test/cassettes/spec/idea-scheduling.json \
+  --dry-run
+```
+
+More entry paths: [Scenarios](#scenarios).
+
+### 6. Stop
+
+```sh
+# Ctrl+C the foundryd terminal, then:
+make down             # stop and remove volumes
+make down KEEP_DATA=1 # keep the postgres volume
+```
+
+### Quick copy-paste
+
+```sh
+git clone https://github.com/okfriansyah-moh/the-foundry.git
+cd the-foundry
+cp .env.example .env
+make bootstrap && make up && make doctor
+make migrate-up
+docker compose -f deploy/docker-compose.yaml run --rm dev go run ./cmd/foundry keygen
+
+# Terminal A — daemon
+docker compose -f deploy/docker-compose.yaml run --rm --service-ports dev go run ./cmd/foundryd
+
+# Terminal B — CLI
+docker compose -f deploy/docker-compose.yaml run --rm dev go run ./cmd/foundry doctor
+```
 
 ---
 
