@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Process · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="process" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Process</h1>
+        <p class="lede">Workflows in <strong>this</strong> foundryd only. Filter by mission to see one goal loop’s children. Profile is not a filter here — other profiles live on other processes.</p>
+      </div>
+
+      <div id="mission-scope" class="authority-note" style="display:none;margin-bottom:1rem"></div>
+
+      <div class="filters">
+        <label for="f-mission">Mission</label>
+        <select id="f-mission">
+          <option value="">all missions in this process</option>
+          <option value="none">no mission (standalone)</option>
+        </select>
+        <label for="f-phase">Phase</label>
+        <select id="f-phase">
+          <option value="">all</option>
+          <option>intake</option>
+          <option>planning</option>
+          <option>admission</option>
+          <option>implementation</option>
+          <option>verifying</option>
+          <option>reviewing</option>
+          <option>integrating</option>
+          <option>deploying</option>
+          <option>observing</option>
+          <option>curating</option>
+        </select>
+        <label for="f-reason">Wait reason</label>
+        <select id="f-reason">
+          <option value="">all</option>
+          <option>human-approval</option>
+          <option>unforeseen-human-gate</option>
+          <option>budget</option>
+          <option>provider-capacity</option>
+          <option>security-hold</option>
+        </select>
+        <label>
+          <input type="checkbox" id="f-table" /> Table view
+        </label>
+      </div>
+
+      <div id="board" class="board"></div>
+      <div id="table-view" class="panel" style="display:none;margin-top:1rem">
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr><th>ID</th><th>Title</th><th>Status</th><th>Phase</th><th>Reason</th><th>Mission</th></tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const statuses = ["PENDING", "RUNNING", "WAITING", "SUCCEEDED", "FAILED", "CANCELLED"];
+      const missionSelect = document.getElementById("f-mission");
+
+      M.missionsInScope().forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.id + " — " + m.title;
+        missionSelect.appendChild(opt);
+      });
+
+      const fromUrl = M.qs("mission");
+      if (fromUrl) missionSelect.value = fromUrl;
+      if (M.qs("phase")) document.getElementById("f-phase").value = M.qs("phase");
+      if (M.qs("reason")) document.getElementById("f-reason").value = M.qs("reason");
+
+      function syncUrl() {
+        const params = new URLSearchParams();
+        params.set("deployment", M.activeProfile);
+        if (missionSelect.value) params.set("mission", missionSelect.value);
+        const phase = document.getElementById("f-phase").value;
+        if (phase) params.set("phase", phase);
+        const reason = document.getElementById("f-reason").value;
+        if (reason) params.set("reason", reason);
+        history.replaceState(null, "", "process.html?" + params.toString());
+      }
+
+      function updateScopeBanner() {
+        const el = document.getElementById("mission-scope");
+        const mission = missionSelect.value;
+        if (!mission) {
+          el.style.display = "none";
+          return;
+        }
+        el.style.display = "block";
+        if (mission === "none") {
+          el.innerHTML =
+            "Scoped to <strong>standalone workflows</strong> in " +
+            M.activeProfile +
+            '. <a href="process.html">Clear mission filter</a>';
+          return;
+        }
+        const m = M.mission(mission);
+        el.innerHTML =
+          "Mission <strong>" +
+          mission +
+          "</strong>" +
+          (m ? " — " + m.title : "") +
+          " · profile " +
+          M.activeProfile +
+          '. <a href="mission.html?id=' +
+          mission +
+          '">Open mission</a> · <a href="process.html">Clear filter</a>';
+      }
+
+      function filtered() {
+        const mission = missionSelect.value;
+        const phase = document.getElementById("f-phase").value;
+        const reason = document.getElementById("f-reason").value;
+        return M.workflowsInScope().filter((w) => {
+          if (mission === "none" && w.mission_id) return false;
+          if (mission && mission !== "none" && w.mission_id !== mission) return false;
+          if (phase && w.phase !== phase) return false;
+          if (reason && w.reason !== reason) return false;
+          return true;
+        });
+      }
+
+      function render() {
+        syncUrl();
+        updateScopeBanner();
+        const items = filtered();
+        const board = document.getElementById("board");
+        board.innerHTML = "";
+        statuses.forEach((s) => {
+          const col = document.createElement("div");
+          col.className = "board-col";
+          const list = items.filter((w) => w.status === s);
+          col.innerHTML =
+            '<div class="board-col-head"><span class="' +
+            M.statusClass(s) +
+            '">' +
+            s +
+            '</span><span class="n">' +
+            list.length +
+            "</span></div>";
+          const cards = document.createElement("div");
+          cards.className = "board-cards";
+          list.forEach((w) => {
+            const a = document.createElement("a");
+            a.className = "wf-card";
+            a.href = "workflow.html?id=" + w.id;
+            a.innerHTML =
+              '<div class="id">' +
+              w.id +
+              "</div>" +
+              '<div class="title">' +
+              w.title +
+              "</div>" +
+              '<div class="meta">' +
+              w.phase +
+              (w.reason ? " · " + w.reason : "") +
+              (w.mission_id && !missionSelect.value ? " · " + w.mission_id : "") +
+              "</div>";
+            cards.appendChild(a);
+          });
+          col.appendChild(cards);
+          board.appendChild(col);
+        });
+
+        const tbody = document.getElementById("table-body");
+        tbody.innerHTML = "";
+        items.forEach((w) => {
+          const tr = document.createElement("tr");
+          const missionCell = w.mission_id
+            ? '<a class="row-link" href="mission.html?id=' + w.mission_id + '">' + w.mission_id + "</a>"
+            : '<span class="dim">—</span>';
+          tr.innerHTML =
+            '<td><a class="row-link" href="workflow.html?id=' +
+            w.id +
+            '">' +
+            w.id +
+            "</a></td>" +
+            "<td>" +
+            w.title +
+            "</td>" +
+            '<td><span class="' +
+            M.statusClass(w.status) +
+            '">' +
+            w.status +
+            "</span></td>" +
+            '<td class="mono muted">' +
+            w.phase +
+            "</td>" +
+            '<td class="mono muted">' +
+            (w.reason || "—") +
+            "</td>" +
+            "<td>" +
+            missionCell +
+            "</td>";
+          tbody.appendChild(tr);
+        });
+      }
+
+      function syncView() {
+        const table = document.getElementById("f-table").checked;
+        document.getElementById("board").style.display = table ? "none" : "grid";
+        document.getElementById("table-view").style.display = table ? "block" : "none";
+      }
+
+      ["f-mission", "f-phase", "f-reason"].forEach((id) => {
+        document.getElementById(id).addEventListener("change", render);
+      });
+      document.getElementById("f-table").addEventListener("change", syncView);
+      render();
+    })();
+  </script>
+</body>
+</html>

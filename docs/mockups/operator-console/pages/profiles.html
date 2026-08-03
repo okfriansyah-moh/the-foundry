@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profiles · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="profiles" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Profiles &amp; deployments</h1>
+        <p class="lede">A profile is a trust domain. This console talks to <strong>one</strong> foundryd process (<code class="mono">FOUNDRY_PROFILE</code>). Running venture and 10x at once means two processes — never one mixed kernel.</p>
+        <p class="authority-note">RefuseMultiProfileSingleProcess: shared DB/Temporal/evidence across profiles fails closed. Switching below opens another deployment’s API, it does not flip a flag inside this process.</p>
+      </div>
+
+      <div class="grid-2" id="profile-panels"></div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const root = document.getElementById("profile-panels");
+      M.deployments.forEach((d) => {
+        const bound = d.id === M.activeProfile;
+        const wfs = M.workflows.filter((w) => w.profile === d.id);
+        const msns = M.missions.filter((m) => m.profile === d.id);
+        const activeMsns = msns.filter((m) => ["RUNNING", "WAITING", "PENDING"].includes(m.status)).length;
+        const el = document.createElement("section");
+        el.className = "panel" + (bound ? "" : " other-deploy");
+        el.innerHTML =
+          '<div class="panel-head"><h2>' +
+          d.id +
+          '</h2><div class="actions">' +
+          (bound
+            ? '<span class="layer-badge">this process</span>'
+            : '<span class="layer-badge ceiling">other process</span>') +
+          "</div></div>" +
+          '<div class="panel-body pad">' +
+          '<table class="config-kv"><tbody>' +
+          "<tr><th>Track</th><td>" +
+          d.track +
+          "</td></tr>" +
+          "<tr><th>API (mock)</th><td class=\"mono\">" +
+          d.api +
+          "</td></tr>" +
+          "<tr><th>max_active_missions</th><td class=\"mono\">" +
+          activeMsns +
+          " / " +
+          d.max_active_missions +
+          "</td></tr>" +
+          "<tr><th>Workflows in domain</th><td class=\"mono\">" +
+          wfs.length +
+          "</td></tr>" +
+          "<tr><th>Missions in domain</th><td class=\"mono\">" +
+          msns.length +
+          "</td></tr>" +
+          (d.id === "personal-autonomous-venture"
+            ? "<tr><th>Billing</th><td>Stripe test mode until maturity</td></tr><tr><th>Deploy</th><td>Fly.io · personal allowlist</td></tr>"
+            : "<tr><th>SCM</th><td>Configurable · Bitbucket 10x live-proof</td></tr><tr><th>Handoff</th><td class=\"mono\">TEN_X_BRANCH_HANDOFF_READY</td></tr>") +
+          "</tbody></table>" +
+          '<div class="row" style="margin-top:1rem">' +
+          (bound
+            ? '<a class="btn btn-primary" href="missions.html">Missions in this process</a><a class="btn btn-ghost" href="config.html">Resolved policy</a>'
+            : '<button class="btn btn-primary" data-action="switch-deployment" data-deployment="' +
+              d.id +
+              '">Open that foundryd</button><span class="dim" style="font-size:0.8rem;align-self:center">Separate trust domain</span>') +
+          "</div></div>";
+        root.appendChild(el);
+      });
+    })();
+  </script>
+</body>
+</html>

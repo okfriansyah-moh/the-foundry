@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Missions · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="missions" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Missions</h1>
+        <p class="lede">Missions in this foundryd only. Concurrent missions allowed up to <code class="mono">max_active_missions</code>. Process board shows each mission’s workflows via <code class="mono">mission_id</code>.</p>
+      </div>
+      <div class="quota-bar" id="quota-bar"></div>
+      <section class="panel">
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Mission</th>
+                <th>Status</th>
+                <th>Reason</th>
+                <th>Cycle</th>
+                <th>Progress</th>
+                <th>No-progress</th>
+                <th>Process</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+      <p style="margin-top:1rem"><a href="intake.html">Intake runs →</a> · <a href="profiles.html">Other deployments →</a></p>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const dep = M.deployment();
+      document.getElementById("quota-bar").innerHTML =
+        "Active missions <strong class=\"mono\">" +
+        M.activeMissionsCount() +
+        " / " +
+        dep.max_active_missions +
+        "</strong> · profile <strong>" +
+        M.activeProfile +
+        "</strong>";
+
+      const tbody = document.getElementById("tbody");
+      M.missionsInScope().forEach((m) => {
+        const tr = document.createElement("tr");
+        let progress = "—";
+        if (m.target_mrr != null && m.net_mrr_usd != null) {
+          const pct = Math.min(100, Math.round((m.net_mrr_usd / m.target_mrr) * 100));
+          progress =
+            '<span class="mono">$' +
+            m.net_mrr_usd.toFixed(2) +
+            " / $" +
+            m.target_mrr +
+            '</span><div class="meter' +
+            (pct >= 85 ? " warn" : "") +
+            '" style="width:80px"><span style="width:' +
+            pct +
+            '%"></span></div>';
+        } else {
+          progress = '<span class="dim">org track · no MRR target</span>';
+        }
+        tr.innerHTML =
+          '<td><a class="row-link" href="mission.html?id=' +
+          m.id +
+          '">' +
+          m.id +
+          '</a><div class="muted" style="font-size:0.75rem">' +
+          m.title +
+          "</div></td>" +
+          '<td><span class="' +
+          M.statusClass(m.status) +
+          '">' +
+          m.status +
+          "</span></td>" +
+          '<td class="mono muted">' +
+          (m.reason || m.result_code || "—") +
+          "</td>" +
+          '<td class="mono">' +
+          m.cycle +
+          "</td>" +
+          "<td>" +
+          progress +
+          "</td>" +
+          '<td class="mono">' +
+          m.no_progress_cycles +
+          "</td>" +
+          '<td><a class="btn btn-ghost" href="process.html?mission=' +
+          m.id +
+          '">Board</a></td>';
+        tbody.appendChild(tr);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Budgets · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="budgets" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Budgets</h1>
+        <p class="lede">Cost ledger for this foundryd. Raise requests become Approvals; kernel applies after review — UI does not write budgets.</p>
+      </div>
+
+      <div class="grid-3" id="budget-cards" style="margin-bottom:1rem"></div>
+
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head"><h2>Raise request</h2></div>
+          <div class="panel-body pad">
+            <label class="dim" for="raise-amt" style="display:block;margin-bottom:0.35rem">Additional monthly USD</label>
+            <input id="raise-amt" type="number" value="40" min="1" style="width:120px;margin-bottom:0.75rem" />
+            <div class="row">
+              <button class="btn btn-primary" data-action="raise-budget">Request raise</button>
+              <a class="btn btn-ghost" href="approvals.html">Approvals inbox</a>
+            </div>
+            <p class="authority-note">Creates Approvals item kind=budget. Matching workflows stay WAITING reason=budget until resolved.</p>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Recent cost entries</h2></div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr><th>When</th><th>Workflow</th><th>Kind</th><th>USD</th></tr>
+              </thead>
+              <tbody id="cost-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const dep = M.deployment();
+      const pct = Math.round((dep.spent_usd / dep.monthly_cap_usd) * 100);
+      const meter = pct >= 80 ? "danger" : pct >= 60 ? "warn" : "";
+      document.getElementById("budget-cards").innerHTML =
+        '<div class="panel"><div class="panel-body pad">' +
+        '<div class="dim" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Monthly cap</div>' +
+        '<div class="mono" style="font-size:1.5rem;margin:0.35rem 0">$' +
+        dep.monthly_cap_usd.toFixed(2) +
+        "</div>" +
+        '<div class="muted" style="font-size:0.8rem">' +
+        M.activeProfile +
+        "</div>" +
+        '<div class="meter ' +
+        meter +
+        '" style="margin-top:0.75rem"><span style="width:' +
+        pct +
+        '%"></span></div>' +
+        '<div class="mono muted" style="margin-top:0.35rem;font-size:0.8rem">$' +
+        dep.spent_usd.toFixed(2) +
+        " used · " +
+        pct +
+        "%</div></div></div>" +
+        '<div class="panel"><div class="panel-body pad">' +
+        '<div class="dim" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Session cap</div>' +
+        '<div class="mono" style="font-size:1.5rem;margin:0.35rem 0">$25.00</div>' +
+        '<div class="muted" style="font-size:0.8rem">cost-defaults · this process</div>' +
+        '<div class="meter warn" style="margin-top:0.75rem"><span style="width:74%"></span></div></div></div>' +
+        '<div class="panel"><div class="panel-body pad">' +
+        '<div class="dim" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Quotas</div>' +
+        '<div style="margin-top:0.5rem;font-size:0.85rem">' +
+        "<div>max_active_missions <code class=\"mono\">" +
+        M.activeMissionsCount() +
+        " / " +
+        dep.max_active_missions +
+        "</code></div>" +
+        '<div style="margin-top:0.35rem">workflows in scope <code class="mono">' +
+        M.workflowsInScope().length +
+        "</code></div></div>" +
+        '<a href="config.html" style="display:inline-block;margin-top:0.75rem;font-size:0.8rem">Open quotas.yaml</a></div></div>';
+
+      const body = document.getElementById("cost-body");
+      M.workflowsInScope()
+        .slice(0, 5)
+        .forEach((w, i) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="mono muted">08-0' +
+            (3 - (i % 2)) +
+            "</td>" +
+            '<td class="mono"><a class="row-link" href="workflow.html?id=' +
+            w.id +
+            '">' +
+            w.id +
+            "</a></td>" +
+            "<td>executor</td>" +
+            '<td class="mono">' +
+            (8 + i * 3).toFixed(2) +
+            "</td>";
+          body.appendChild(tr);
+        });
+    })();
+  </script>
+</body>
+</html>

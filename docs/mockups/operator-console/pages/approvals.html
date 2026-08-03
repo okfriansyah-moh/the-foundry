@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Approvals · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="approvals" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Approvals</h1>
+        <p class="lede">Gates for this foundryd only. High-risk → WebAuthn. Telegram notifies; it never executes high-risk approve (C11).</p>
+        <p class="authority-note">Switching deployment in the top bar loads another process’s inbox — it does not merge venture and 10x gates.</p>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Inbox</h2></div>
+        <div class="panel-body" id="inbox"></div>
+      </section>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const inbox = document.getElementById("inbox");
+      const items = M.approvalsInScope();
+      if (!items.length) {
+        inbox.innerHTML = '<div class="panel-body pad muted">No open gates in this process.</div>';
+        return;
+      }
+      items.forEach((a) => {
+        const row = document.createElement("div");
+        row.className = "inbox-item";
+        let actions = "";
+        if (a.high_risk) {
+          actions =
+            '<div class="inbox-actions">' +
+            '<a class="btn btn-primary" href="approve.html?id=' +
+            a.id +
+            '">Secure approve</a>' +
+            '<button class="btn btn-danger" data-action="reject-plan">Reject</button>' +
+            '<span class="dim" style="font-size:0.7rem">Telegram: notify only</span></div>';
+        } else {
+          actions =
+            '<div class="inbox-actions">' +
+            '<button class="btn btn-primary" data-action="toast" data-msg="Low-risk ack recorded (mock)" data-kind="ok">Acknowledge</button>' +
+            (a.kind === "config-proposal"
+              ? '<a class="btn btn-ghost" href="config-edit.html">View diff</a>'
+              : '<a class="btn btn-ghost" href="budgets.html">Budgets</a>') +
+            "</div>";
+        }
+        row.innerHTML =
+          '<span class="prio prio-' +
+          a.prio +
+          '">' +
+          a.prio +
+          "</span>" +
+          "<div><div class=\"title\">" +
+          a.title +
+          "</div>" +
+          '<div class="detail"><code>' +
+          a.kind +
+          "</code> · " +
+          a.detail +
+          (a.workflow_id
+            ? ' · <a href="workflow.html?id=' + a.workflow_id + '">' + a.workflow_id + "</a>"
+            : "") +
+          "</div></div>" +
+          actions;
+        inbox.appendChild(row);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workflow · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="process" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>GET /v1/workflows/{id}/status</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Projection is rebuildable read model — not decision authority.</div>
+    </aside>
+    <main class="main" id="main"></main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const id = M.qs("id") || M.workflowsInScope()[0]?.id || "wf-7a2c91";
+      let w = M.workflow(id);
+      if (!w || w.profile !== M.activeProfile) {
+        document.getElementById("main").innerHTML =
+          '<div class="page-head"><h1>Workflow not in this process</h1>' +
+          '<p class="lede"><code class="mono">' +
+          id +
+          "</code> belongs to another trust domain.</p>" +
+          (w
+            ? '<button class="btn btn-primary" data-action="switch-deployment" data-deployment="' +
+              w.profile +
+              '">Open ' +
+              w.profile +
+              "</button> "
+            : "") +
+          '<a class="btn" href="process.html">Process board</a></div>';
+        return;
+      }
+
+      const timeline = [
+        { t: "2026-08-02T20:01:00Z", title: "PENDING → RUNNING", detail: "phase: planning" },
+        { t: "2026-08-02T21:14:00Z", title: "phase → admission", detail: "AdmissionClassifier tier A2" },
+        { t: "2026-08-02T21:20:00Z", title: "phase → implementation", detail: "wave dispatched (PEC proposed)" },
+        { t: "2026-08-03T00:55:00Z", title: "phase → reviewing", detail: "evidence attached ev-901" },
+        {
+          t: "2026-08-03T01:12:00Z",
+          title: "RUNNING → WAITING",
+          detail: "reason: " + (w.reason || "human-approval") + " · awaiting secure approve",
+        },
+      ];
+
+      document.getElementById("main").innerHTML =
+        '<div class="page-head">' +
+        "<h1>" + w.title + "</h1>" +
+        '<p class="lede mono">' + w.id + " · profile " + w.profile +
+        (w.mission_id ? ' · <a href="mission.html?id=' + w.mission_id + '">' + w.mission_id + "</a>" : "") +
+        "</p></div>" +
+        '<div class="grid-3" style="margin-bottom:1rem">' +
+        '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Status</div>' +
+        '<div style="margin-top:0.4rem"><span class="' + M.statusClass(w.status) + '">' + w.status + "</span></div></div></div>" +
+        '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Phase</div>' +
+        '<div class="mono" style="margin-top:0.4rem;font-size:1.1rem">' + w.phase + "</div></div></div>" +
+        '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Reason / result</div>' +
+        '<div class="mono" style="margin-top:0.4rem;font-size:0.95rem">' + (w.reason || w.result_code || "—") + "</div></div></div>" +
+        "</div>" +
+        '<div class="grid-2">' +
+        '<section class="panel"><div class="panel-head"><h2>Transition timeline</h2>' +
+        '<div class="actions"><a class="btn btn-ghost" href="process.html">Back to board</a></div></div>' +
+        '<ul class="timeline">' +
+        timeline
+          .map(
+            (x) =>
+              "<li><div class=\"t-time\">" +
+              x.t +
+              '</div><div class="t-title">' +
+              x.title +
+              '</div><div class="t-detail">' +
+              x.detail +
+              "</div></li>"
+          )
+          .join("") +
+        "</ul></section>" +
+        '<section class="panel"><div class="panel-head"><h2>Links</h2></div><div class="panel-body pad stack">' +
+        '<a href="evidence.html">Evidence · ev-901</a>' +
+        (w.status === "WAITING" && (w.reason === "human-approval" || w.reason === "unforeseen-human-gate")
+          ? '<a class="btn btn-primary" href="approve.html?id=apr-01">Open secure approve</a>'
+          : "") +
+        '<p class="authority-note">X-Foundry-Consistency: projected. Use ?consistency=fresh for Temporal + latest transition (CLI: foundry status --fresh).</p>' +
+        "</div></section></div>";
+    })();
+  </script>
+</body>
+</html>

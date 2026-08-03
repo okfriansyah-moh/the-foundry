@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overview · Delivery Foundry</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="overview" data-root=".">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="index.html">Overview</a>
+      <a data-nav="process" href="pages/process.html">Process</a>
+      <a data-nav="approvals" href="pages/approvals.html">Approvals</a>
+      <a data-nav="missions" href="pages/missions.html">Missions</a>
+      <a data-nav="config" href="pages/config.html">Config</a>
+      <a data-nav="budgets" href="pages/budgets.html">Budgets</a>
+      <a data-nav="evidence" href="pages/evidence.html">Evidence</a>
+      <a data-nav="profiles" href="pages/profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="pages/process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="pages/approvals.html">Approvals <span class="count alert">0</span></a>
+      <a class="nav-item" data-nav="missions" href="pages/missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="pages/config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="pages/budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="pages/evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="pages/profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="pages/intake.html">Intake</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Overview</h1>
+        <p class="lede">What needs you in <strong>this</strong> foundryd trust domain. Use the top-bar switcher to open another deployment (separate process). CLI + Telegram remain live clients of the same REST API.</p>
+      </div>
+
+      <div class="quota-bar" id="quota-bar"></div>
+
+      <div class="attention">
+        <a class="attention-item warn" href="pages/approvals.html" id="att-gates">
+          <div class="label">Open gates</div>
+          <div class="value" id="v-gates">—</div>
+          <div class="hint" id="h-gates">this process only</div>
+        </a>
+        <a class="attention-item danger" href="pages/budgets.html">
+          <div class="label">Budget used</div>
+          <div class="value" id="v-budget">—</div>
+          <div class="hint" id="h-budget">monthly cap</div>
+        </a>
+        <a class="attention-item danger" href="pages/process.html">
+          <div class="label">FAILED admissions</div>
+          <div class="value" id="v-fail">—</div>
+          <div class="hint">result_code ADMISSION_REJECTED</div>
+        </a>
+        <a class="attention-item warn" href="pages/missions.html">
+          <div class="label">Missions paused</div>
+          <div class="value" id="v-paused">—</div>
+          <div class="hint">WAITING in this process</div>
+        </a>
+      </div>
+
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Needs attention</h2>
+            <div class="actions"><a class="btn btn-ghost" href="pages/approvals.html">All approvals</a></div>
+          </div>
+          <div class="panel-body" id="needs-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Active process</h2>
+            <div class="actions"><a class="btn btn-ghost" href="pages/process.html">Board</a></div>
+          </div>
+          <div class="panel-body pad">
+            <div class="row" style="gap:1.5rem;margin-bottom:1rem">
+              <div><span class="dim">RUNNING</span> <strong class="mono" id="n-running">—</strong></div>
+              <div><span class="dim">WAITING</span> <strong class="mono" id="n-waiting">—</strong></div>
+              <div><span class="dim">PENDING</span> <strong class="mono" id="n-pending">—</strong></div>
+            </div>
+            <div class="muted" style="font-size:0.8rem;margin-bottom:0.35rem">Completion rate (placeholder — Grafana owns SLOs)</div>
+            <div class="spark" id="spark" aria-hidden="true"></div>
+            <p class="authority-note" style="margin-top:1.25rem">Kernel owns sequencing and side effects. High-risk approve uses WebAuthn — not Telegram. One profile per process.</p>
+            <p style="margin-top:0.75rem;font-size:0.8rem"><a href="pages/intake.html">Intake</a> · <a href="pages/config.html">Config</a> · <a href="pages/profiles.html">Deployments</a></p>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel" style="margin-top:1rem">
+        <div class="panel-head"><h2>Recent terminal outcomes</h2></div>
+        <div class="table-wrap">
+          <table class="data" id="terminal-table">
+            <thead>
+              <tr><th>Workflow</th><th>Status</th><th>Result</th><th>Phase</th><th>Mission</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const dep = M.deployment();
+      const wfs = M.workflowsInScope();
+      const apr = M.approvalsInScope();
+      const msns = M.missionsInScope();
+      const pct = Math.round((dep.spent_usd / dep.monthly_cap_usd) * 100);
+
+      document.getElementById("quota-bar").innerHTML =
+        "<strong>" +
+        M.activeProfile +
+        "</strong> · active missions <span class=\"mono\">" +
+        M.activeMissionsCount() +
+        " / " +
+        dep.max_active_missions +
+        "</span> · API <span class=\"mono\">" +
+        dep.api +
+        "</span>";
+
+      document.getElementById("v-gates").textContent = apr.length;
+      document.getElementById("h-gates").textContent = apr
+        .slice(0, 3)
+        .map((a) => a.kind)
+        .join(" · ") || "none";
+      document.getElementById("v-budget").textContent = pct + "%";
+      document.getElementById("h-budget").textContent =
+        "$" + dep.spent_usd + " / $" + dep.monthly_cap_usd + " monthly";
+      const attBudget = document.querySelector('a[href="pages/budgets.html"]');
+      if (attBudget) {
+        attBudget.classList.toggle("danger", pct >= 80);
+        attBudget.classList.toggle("warn", pct >= 60 && pct < 80);
+      }
+      document.getElementById("v-fail").textContent = wfs.filter(
+        (w) => w.result_code === "ADMISSION_REJECTED"
+      ).length;
+      document.getElementById("v-paused").textContent = msns.filter(
+        (m) => m.status === "WAITING"
+      ).length;
+
+      document.getElementById("n-running").textContent = wfs.filter((w) => w.status === "RUNNING").length;
+      document.getElementById("n-waiting").textContent = wfs.filter((w) => w.status === "WAITING").length;
+      document.getElementById("n-pending").textContent = wfs.filter((w) => w.status === "PENDING").length;
+
+      const list = document.getElementById("needs-list");
+      apr.slice(0, 4).forEach((a) => {
+        const row = document.createElement("div");
+        row.className = "inbox-item";
+        row.innerHTML =
+          '<span class="prio prio-' +
+          a.prio +
+          '">' +
+          a.prio +
+          "</span>" +
+          "<div><div class=\"title\">" +
+          a.title +
+          "</div>" +
+          '<div class="detail"><code>' +
+          a.kind +
+          "</code> · " +
+          a.detail +
+          "</div></div>" +
+          (a.high_risk
+            ? '<a class="btn btn-primary" href="pages/approve.html?id=' + a.id + '">Secure approve</a>'
+            : '<a class="btn" href="pages/approvals.html">Review</a>');
+        list.appendChild(row);
+      });
+      if (!apr.length) {
+        list.innerHTML = '<div class="panel-body pad muted">No open gates in this process.</div>';
+      }
+
+      const heights = [40, 55, 48, 62, 58, 70, 65, 72, 68, 80, 75, 78];
+      const spark = document.getElementById("spark");
+      heights.forEach((h) => {
+        const i = document.createElement("i");
+        i.style.height = h + "%";
+        spark.appendChild(i);
+      });
+
+      const tbody = document.querySelector("#terminal-table tbody");
+      wfs
+        .filter((w) => ["SUCCEEDED", "FAILED", "CANCELLED"].includes(w.status))
+        .forEach((w) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td><a class="row-link" href="pages/workflow.html?id=' +
+            w.id +
+            '">' +
+            w.id +
+            '</a><div class="muted" style="font-size:0.75rem">' +
+            w.title +
+            "</div></td>" +
+            '<td><span class="' +
+            M.statusClass(w.status) +
+            '">' +
+            w.status +
+            "</span></td>" +
+            '<td class="mono">' +
+            (w.result_code || "—") +
+            "</td>" +
+            '<td class="mono muted">' +
+            w.phase +
+            "</td>" +
+            '<td class="mono dim">' +
+            (w.mission_id || "—") +
+            "</td>";
+          tbody.appendChild(tr);
+        });
+    })();
+  </script>
+</body>
+</html>

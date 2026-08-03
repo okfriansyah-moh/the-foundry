@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Secure approve · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="approvals" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>Task 25 / C11 strong-auth approve</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Ceremony only — no Telegram path for this action.</div>
+    </aside>
+    <main class="main">
+      <div class="ceremony" id="ceremony"></div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const id = M.qs("id") || "apr-01";
+      const a = M.approvals.find((x) => x.id === id) || M.approvals[0];
+
+      document.getElementById("ceremony").innerHTML =
+        "<h1>Secure approval</h1>" +
+        '<div class="plan-id">' + a.detail + "</div>" +
+        '<p class="muted">' + a.title + ' · <code class="mono">' + a.kind + "</code></p>" +
+        '<div class="webauthn-box" id="webauthn-box">' +
+        '<div class="icon">WA</div>' +
+        "<div><strong>WebAuthn assertion</strong></div>" +
+        '<p class="muted webauthn-status" style="margin:0.5rem 0 0;font-size:0.85rem">Touch security key or platform authenticator</p>' +
+        '<button class="btn btn-primary" style="margin-top:1rem" data-action="webauthn">Assert credential (mock)</button>' +
+        "</div>" +
+        '<div class="row" style="justify-content:flex-end">' +
+        '<a class="btn btn-ghost" href="approvals.html">Cancel</a>' +
+        '<button class="btn btn-danger" data-action="reject-plan">Reject</button>' +
+        '<button class="btn btn-primary" id="approve-submit" disabled data-action="approve-plan">Record approval</button>' +
+        "</div>" +
+        '<p class="authority-note">Mirrors POST approve with WebAuthn. This mock never calls the API. Telegram /approve is reply-only and never executes high-risk approval.</p>';
+    })();
+  </script>
+</body>
+</html>

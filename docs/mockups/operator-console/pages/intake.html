@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Intake · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="intake" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>GET /v1/intake/{id}</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Light surface — linked from Overview / Missions.</div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Intake</h1>
+        <p class="lede">Idea-intake runs and opportunity verdicts. Unattended portfolio discovery stays deferred (§Q); this is operator-visible status only.</p>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Recent intake runs</h2></div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr><th>ID</th><th>Status</th><th>Idea</th><th>Verdict</th><th>Mission</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">intake-220</td>
+                <td><span class="status status-SUCCEEDED">SUCCEEDED</span></td>
+                <td>B2B invoice follow-up assistant</td>
+                <td class="mono">OPPORTUNITY_REJECTED</td>
+                <td class="mono"><a class="row-link" href="mission.html?id=msn-01">msn-01</a></td>
+              </tr>
+              <tr>
+                <td class="mono">intake-218</td>
+                <td><span class="status status-RUNNING">RUNNING</span></td>
+                <td>Personal SaaS · checkout polish</td>
+                <td class="mono muted">—</td>
+                <td class="mono"><a class="row-link" href="mission.html?id=msn-01">msn-01</a></td>
+              </tr>
+              <tr>
+                <td class="mono">intake-210</td>
+                <td><span class="status status-WAITING">WAITING</span></td>
+                <td>Validation experiment required</td>
+                <td class="mono">OPPORTUNITY_VALIDATION_REQUIRED</td>
+                <td class="mono">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="authority-note" style="margin-top:1rem">
+        Build-nothing is a successful decision when evidence is weak (C23 · OPPORTUNITY_REJECTED). Resume: <code class="mono">foundry intake resume</code> / API — mock only here.
+      </p>
+      <p><a href="../index.html">← Overview</a> · <a href="missions.html">Missions</a></p>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+</body>
+</html>

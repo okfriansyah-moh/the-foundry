@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evidence · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="evidence" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>GET /v1/evidence/{id} · /verify</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Evidence-based completion — no self-reported done.</div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Evidence</h1>
+        <p class="lede">Evidence bundles and re-verify. Completion without verified evidence is invalid (C10).</p>
+      </div>
+
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>ev-901</h2>
+            <div class="actions"><span id="v-901" class="verify-ok mono">verified</span></div>
+          </div>
+          <div class="panel-body pad">
+            <table class="config-kv">
+              <tbody>
+                <tr><th>Workflow</th><td class="mono"><a href="workflow.html?id=wf-7a2c91">wf-7a2c91</a></td></tr>
+                <tr><th>Kind</th><td class="mono">test-report + artifact-digest</td></tr>
+                <tr><th>Digest</th><td class="mono">sha256:9f3a…c21e</td></tr>
+                <tr><th>Store</th><td class="mono">s3://foundry-evidence/…</td></tr>
+              </tbody>
+            </table>
+            <div class="row" style="margin-top:1rem">
+              <button class="btn btn-primary" data-action="verify-evidence" data-result="ok" data-target="v-901">Re-verify</button>
+              <a class="btn btn-ghost" href="workflow.html?id=wf-7a2c91">Open workflow</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>ev-774</h2>
+            <div class="actions"><span id="v-774" class="verify-fail mono">rejected</span></div>
+          </div>
+          <div class="panel-body pad">
+            <table class="config-kv">
+              <tbody>
+                <tr><th>Workflow</th><td class="mono"><a href="workflow.html?id=wf-dead42">wf-dead42</a></td></tr>
+                <tr><th>Kind</th><td class="mono">admission-fixture</td></tr>
+                <tr><th>Digest</th><td class="mono">sha256:mismatched</td></tr>
+                <tr><th>Reject</th><td class="mono">digest mismatch · self-reported claim</td></tr>
+              </tbody>
+            </table>
+            <div class="row" style="margin-top:1rem">
+              <button class="btn" data-action="verify-evidence" data-result="fail" data-target="v-774">Re-verify</button>
+              <a class="btn btn-ghost" href="workflow.html?id=wf-dead42">Open workflow</a>
+            </div>
+            <p class="authority-note">Rejected evidence cannot complete a workflow. Operator sees reason; kernel does not trust the claim.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+</body>
+</html>

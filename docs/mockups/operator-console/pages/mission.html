@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mission · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="missions" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>GET /v1/missions/{id}</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Eight loops are read-only chips — not editable authority.</div>
+    </aside>
+    <main class="main" id="main"></main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const id = M.qs("id") || M.missionsInScope()[0]?.id || "msn-01";
+      let m = M.mission(id);
+      if (!m || m.profile !== M.activeProfile) {
+        document.getElementById("main").innerHTML =
+          '<div class="page-head"><h1>Mission not in this process</h1>' +
+          '<p class="lede">Mission <code class="mono">' +
+          id +
+          "</code> belongs to another trust domain" +
+          (m ? " (" + m.profile + ")" : "") +
+          ".</p>" +
+          '<p class="authority-note">Switch deployment in the top bar (separate foundryd), or open a mission from this process.</p>' +
+          (m
+            ? '<button class="btn btn-primary" data-action="switch-deployment" data-deployment="' +
+              m.profile +
+              '">Open ' +
+              m.profile +
+              " foundryd</button> "
+            : "") +
+          '<a class="btn" href="missions.html">Missions here</a></div>';
+        return;
+      }
+      const hasMrr = m.target_mrr != null && m.net_mrr_usd != null;
+      const pct = hasMrr ? Math.min(100, Math.round((m.net_mrr_usd / m.target_mrr) * 100)) : 0;
+      const activeLoop =
+        m.reason === "budget"
+          ? "Capacity"
+          : m.reason === "security-hold"
+            ? "Security"
+            : m.result_code === "MISSION_TERMINATED_BY_POLICY"
+              ? "Security"
+              : "Delivery";
+      const progressPanel = hasMrr
+        ? '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase">Net MRR / target</div>' +
+          '<div class="mono" style="margin-top:0.35rem">$' +
+          m.net_mrr_usd.toFixed(2) +
+          " / $" +
+          m.target_mrr +
+          "</div>" +
+          '<div class="meter' +
+          (pct >= 85 ? " warn" : "") +
+          '"><span style="width:' +
+          pct +
+          '%"></span></div></div></div>'
+        : '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase">Track progress</div>' +
+          '<div class="mono" style="margin-top:0.35rem">Org 10x · no MRR target</div></div></div>';
+
+      document.getElementById("main").innerHTML =
+        '<div class="page-head">' +
+        "<h1>" +
+        m.title +
+        "</h1>" +
+        '<p class="lede mono">' +
+        m.id +
+        " · " +
+        m.profile +
+        " · this process</p></div>" +
+        '<div class="grid-4" style="margin-bottom:1rem">' +
+        '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase">Status</div>' +
+        '<div style="margin-top:0.35rem"><span class="' +
+        M.statusClass(m.status) +
+        '">' +
+        m.status +
+        "</span></div></div></div>" +
+        '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase">Reason</div>' +
+        '<div class="mono" style="margin-top:0.35rem">' +
+        (m.reason || m.result_code || "—") +
+        "</div></div></div>" +
+        '<div class="panel"><div class="panel-body pad"><div class="dim" style="font-size:0.7rem;text-transform:uppercase">Cycle</div>' +
+        '<div class="mono" style="margin-top:0.35rem;font-size:1.25rem">' +
+        m.cycle +
+        "</div></div></div>" +
+        progressPanel +
+        "</div>" +
+        '<div class="grid-2">' +
+        '<section class="panel"><div class="panel-head"><h2>Loop contract (read-only)</h2></div>' +
+        '<div class="panel-body pad"><div class="chips" style="margin-bottom:1rem">' +
+        M.loops
+          .map((l) => '<span class="chip' + (l === activeLoop ? " active-loop" : "") + '">' + l + "</span>")
+          .join("") +
+        "</div>" +
+        '<table class="config-kv"><tbody>' +
+        "<tr><th>pause_when</th><td class=\"mono\">monthly-budget-exhausted · payment-data-unavailable · unforeseen-human-gate</td></tr>" +
+        "<tr><th>terminate_when</th><td class=\"mono\">total-budget-exhausted · prohibited-market-detected · no-viable-candidate-after-max-cycles</td></tr>" +
+        "<tr><th>post_success_policy</th><td class=\"mono\">maintenance</td></tr>" +
+        "<tr><th>confirming</th><td class=\"mono\">" +
+        m.confirming +
+        "</td></tr>" +
+        "<tr><th>no_progress_cycles</th><td class=\"mono\">" +
+        m.no_progress_cycles +
+        "</td></tr>" +
+        "</tbody></table>" +
+        '<p class="authority-note">Loops describe contract fields. Kernel sequences; UI does not dispatch waves.</p>' +
+        "</div></section>" +
+        '<section class="panel"><div class="panel-head"><h2>Actions</h2></div><div class="panel-body pad stack">' +
+        '<a class="btn btn-primary" href="process.html?mission=' +
+        m.id +
+        '">Process board for this mission</a>' +
+        '<a href="workflow.html?id=' +
+        m.workflow_id +
+        '">Latest workflow ' +
+        m.workflow_id +
+        "</a>" +
+        (m.status === "WAITING"
+          ? '<a class="btn" href="approvals.html">Open gates inbox</a>' +
+            '<button class="btn" data-action="toast" data-msg="Resume signal queued (mock) — foundry mission resume" data-kind="warn">Resume (mock)</button>'
+          : "") +
+        '<a href="budgets.html">Cost / budget</a>' +
+        '<p class="authority-note">One mission → many workflows (mission_id). This console cannot show another profile’s missions without switching foundryd.</p>' +
+        "</div></section></div>";
+    })();
+  </script>
+</body>
+</html>

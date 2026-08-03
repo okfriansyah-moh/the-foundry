@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Propose config · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="config" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>propose → Approvals → admission</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Submit proposal only — no kernel write from this page.</div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Propose config change</h1>
+        <p class="lede">Edit produces a diff. Submit lands in Approvals as a config-proposal / human-approval shaped item. Admission hint is informational — plans cannot self-classify.</p>
+        <p class="authority-note">Platform ceiling is tighten-only. A proposal that loosens platform policy is rejected at admission (mock).</p>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:1rem">
+        <div>
+          <div class="diff-label">Current · config/tunables.yaml</div>
+          <textarea id="current" readonly>wave_concurrency: 2
+retry_max: 3
+# platform ceiling — tighten only
+</textarea>
+        </div>
+        <div>
+          <div class="diff-label">Proposed</div>
+          <textarea id="proposed">wave_concurrency: 3
+retry_max: 3
+# platform ceiling — tighten only
+</textarea>
+        </div>
+      </div>
+
+      <section class="panel" style="margin-bottom:1rem">
+        <div class="panel-head"><h2>Diff preview</h2>
+          <div class="actions"><span class="layer-badge">admission hint · A2</span></div>
+        </div>
+        <div class="panel-body pad">
+          <div class="diff">
+            <div>
+              <div class="diff-label">Removed</div>
+              <pre><span class="removed">- wave_concurrency: 2</span></pre>
+            </div>
+            <div>
+              <div class="diff-label">Added</div>
+              <pre><span class="added">+ wave_concurrency: 3</span></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="row" style="justify-content:flex-end">
+        <a class="btn btn-ghost" href="config.html">Cancel</a>
+        <button class="btn btn-primary" data-action="propose-config">Submit proposal</button>
+      </div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    document.getElementById("proposed").addEventListener("input", function () {
+      /* mock: static diff stays; toast on submit */
+    });
+  </script>
+</body>
+</html>

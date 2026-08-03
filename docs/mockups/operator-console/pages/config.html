@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Config · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="config" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"><span>platform → org → profile → workflow</span></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+      <a data-nav="budgets" href="budgets.html">Budgets</a>
+      <a data-nav="evidence" href="evidence.html">Evidence</a>
+      <a data-nav="profiles" href="profiles.html">Profiles</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count alert">5</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+      <div class="nav-foot">Browse + propose. Never live YAML write from browser.</div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Config</h1>
+        <p class="lede">Layered browser over <code class="mono">config/</code>. Platform is a tighten-only ceiling. Edits go through propose → admission.</p>
+        <p class="authority-note">Kernel owns side effects; UI only proposes. PEC proposes waves; UI never gains decision authority.</p>
+      </div>
+
+      <div class="config-layout">
+        <nav class="config-tree" id="tree"></nav>
+        <section class="config-detail">
+          <div class="panel-head">
+            <h2 id="detail-title">Select a file</h2>
+            <div class="actions">
+              <a class="btn btn-primary" href="config-edit.html" id="propose-link">Propose change</a>
+            </div>
+          </div>
+          <div class="panel-body pad" id="detail-body">
+            <p class="muted">Choose a config group on the left to inspect resolved values and winning layer.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const files = [
+        {
+          group: "Policy",
+          id: "platform",
+          path: "config/policy/platform.yaml",
+          rows: [
+            { key: "scm.write", value: "kernel-only", layer: "platform", ceiling: true },
+            { key: "approve.high_risk", value: "webauthn", layer: "platform", ceiling: true },
+            { key: "telegram.approve_high_risk", value: "forbidden", layer: "platform", ceiling: true },
+          ],
+        },
+        {
+          group: "Policy",
+          id: "mission-decide",
+          path: "config/mission-decide-policy.yaml",
+          rows: [
+            { key: "self_classify", value: "false", layer: "platform", ceiling: true },
+            { key: "discrepancy_raises_tier", value: "true", layer: "platform", ceiling: false },
+          ],
+        },
+        {
+          group: "Quotas / budgets",
+          id: "quotas",
+          path: "config/quotas.yaml",
+          rows: [
+            { key: "max_workflows", value: "32", layer: "org", ceiling: false },
+            { key: "max_runners", value: "8", layer: "org", ceiling: false },
+          ],
+        },
+        {
+          group: "Quotas / budgets",
+          id: "cost-defaults",
+          path: "config/cost-defaults.yaml",
+          rows: [
+            { key: "monthly_cap_usd", value: "200", layer: "profile", ceiling: false },
+            { key: "session_cap_usd", value: "25", layer: "profile", ceiling: false },
+          ],
+        },
+        {
+          group: "Tunables / routing",
+          id: "tunables",
+          path: "config/tunables.yaml",
+          rows: [
+            { key: "wave_concurrency", value: "2", layer: "profile", ceiling: false },
+            { key: "retry_max", value: "3", layer: "platform", ceiling: true },
+          ],
+        },
+        {
+          group: "Tunables / routing",
+          id: "executor-routing",
+          path: "config/executor-routing.yaml",
+          rows: [
+            { key: "default_executor", value: "claude-code", layer: "profile", ceiling: false },
+            { key: "failover", value: "api-billed", layer: "org", ceiling: false },
+          ],
+        },
+        {
+          group: "Sandbox / retention",
+          id: "sandbox",
+          path: "config/sandbox-egress-allowlist.yaml",
+          rows: [
+            { key: "default", value: "deny", layer: "platform", ceiling: true },
+            { key: "allow.llm_endpoint", value: "true", layer: "platform", ceiling: false },
+          ],
+        },
+        {
+          group: "Sandbox / retention",
+          id: "retention",
+          path: "config/retention.yaml",
+          rows: [
+            { key: "evidence_ttl_days", value: "90", layer: "org", ceiling: false },
+            { key: "prompt_class", value: "TTL", layer: "platform", ceiling: false },
+          ],
+        },
+        {
+          group: "Schemas (RO)",
+          id: "schemas",
+          path: "config/schemas/*.schema.json",
+          rows: [
+            { key: "mission", value: "mission.schema.json", layer: "platform", ceiling: true },
+            { key: "profile", value: "profile.schema.json", layer: "platform", ceiling: true },
+          ],
+          readonly: true,
+        },
+      ];
+
+      const tree = document.getElementById("tree");
+      let lastGroup = "";
+      files.forEach((f) => {
+        if (f.group !== lastGroup) {
+          const g = document.createElement("div");
+          g.className = "group";
+          g.textContent = f.group;
+          tree.appendChild(g);
+          lastGroup = f.group;
+        }
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = f.path.split("/").pop();
+        btn.dataset.id = f.id;
+        btn.addEventListener("click", () => select(f, btn));
+        tree.appendChild(btn);
+      });
+
+      function select(f, btn) {
+        tree.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("detail-title").textContent = f.path;
+        const propose = document.getElementById("propose-link");
+        if (f.readonly) {
+          propose.style.display = "none";
+        } else {
+          propose.style.display = "";
+          propose.href = "config-edit.html?file=" + encodeURIComponent(f.id);
+        }
+        const body = document.getElementById("detail-body");
+        body.innerHTML =
+          '<table class="config-kv"><thead><tr><th>Key</th><th>Effective</th><th>Winning layer</th></tr></thead><tbody>' +
+          f.rows
+            .map(
+              (r) =>
+                "<tr><td class=\"mono\">" +
+                r.key +
+                '</td><td><code>' +
+                r.value +
+                '</code></td><td><span class="layer-badge' +
+                (r.ceiling ? " ceiling" : "") +
+                '">' +
+                r.layer +
+                (r.ceiling ? " · ceiling" : "") +
+                "</span></td></tr>"
+            )
+            .join("") +
+          "</tbody></table>" +
+          (f.readonly
+            ? '<p class="muted" style="margin-top:1rem">Schemas are read-only in the console.</p>'
+            : "");
+      }
+
+      const first = tree.querySelector("button");
+      if (first) first.click();
+    })();
+  </script>
+</body>
+</html>
