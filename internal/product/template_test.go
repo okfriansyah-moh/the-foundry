@@ -3,8 +3,10 @@ package product
 import (
 	"os"
 	"path/filepath"
-	"strings"
+	"slices"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestInstantiate(t *testing.T) {
@@ -25,8 +27,18 @@ func TestInstantiate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), "profile: personal-autonomous-venture") || !strings.Contains(string(raw), "- reviewer") {
-		t.Fatalf("enabled.yaml does not contain venture defaults:\n%s", raw)
+	var enabled struct {
+		Profile string   `yaml:"profile"`
+		Agents  []string `yaml:"agents"`
+	}
+	if err := yaml.Unmarshal(raw, &enabled); err != nil {
+		t.Fatalf("parse enabled.yaml: %v\n%s", err, raw)
+	}
+	if enabled.Profile != "personal-autonomous-venture" {
+		t.Fatalf("enabled.yaml profile = %q, want personal-autonomous-venture", enabled.Profile)
+	}
+	if !slices.Contains(enabled.Agents, "reviewer") {
+		t.Fatalf("enabled.yaml agents = %v, want reviewer present", enabled.Agents)
 	}
 }
 
