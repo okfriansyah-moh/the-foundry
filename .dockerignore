@@ -1,6 +1,13 @@
 .git
 evidence/
+.ai/
+.agents/
+.claude/
+.codex/
+docs/foundry/
 *.tar
 *.tar.gz
 dist/
 bin/
+.data/
+node_modules/

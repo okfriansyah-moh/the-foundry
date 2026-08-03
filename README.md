@@ -513,7 +513,7 @@ Defaults already point `dev` at compose services. Edit `.env` only when you need
 ### 2. Build toolchain + start Postgres / Temporal
 
 ```sh
-make bootstrap   # build `dev` image + go mod download
+make bootstrap   # build lean `dev` image + go mod download
 make up          # postgres + temporal on the compose network
 make doctor      # Docker health + PG SELECT 1 + Temporal GetSystemInfo
 ```
@@ -528,6 +528,23 @@ Optional observability:
 
 ```sh
 make up PROFILE=obs   # also starts prometheus + grafana
+```
+
+#### Image size / reclaim
+
+`deploy-dev` is built lean by default (multi-stage tool binaries; Playwright Chromium OS deps **off**). After upgrading from an older ~10GB image:
+
+```sh
+WITH_PLAYWRIGHT_DEPS=0 make bootstrap   # default; lean rebuild
+docker image rm deploy-dev:latest       # drop the old fat tag if still present
+docker builder prune -f                 # clear leftover build cache
+docker images deploy-dev                # expect roughly 1.5–3GB, not ~10GB
+```
+
+Product / UI e2e that need Playwright Chromium system libraries:
+
+```sh
+WITH_PLAYWRIGHT_DEPS=1 make bootstrap
 ```
 
 ### 3. Migrate + keys + quality check

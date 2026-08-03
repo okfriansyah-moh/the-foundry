@@ -1,47 +1,12 @@
-FROM golang:1.25.7 AS base
+# Multi-stage `dev` toolchain (docs/PLAN.md Task 1).
+# Stage `tools` builds CLI binaries only; the final stage never bakes
+# /go/pkg/mod, GOTOOLCHAIN SDKs, or npm caches into the shipped image —
+# Compose mounts named volumes over module/build caches at runtime.
 
-ARG USER_UID=1000
-ARG USER_GID=1000
-
-RUN apt-get update && apt-get dist-upgrade -y && apt-get install -y --no-install-recommends \
-    make \
-    git \
-    ca-certificates \
-    curl \
-    gnupg \
-    python3 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Node.js (needed by Playwright)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get update && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Docker CLI (needed to invoke docker from inside dev, e.g. sandbox spawning in later tasks)
-RUN install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
-    > /etc/apt/sources.list.d/docker.list \
-    && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
-    && rm -rf /var/lib/apt/lists/*
-
-# PostgreSQL client tools pinned to major version 16 to match
-# deploy/docker-compose.yaml's `postgres:16` server (docs/notes/
-# m1-exit-report.md's documented client/server skew: this base image's
-# Debian trixie main repo only carries the unversioned `postgresql-client`
-# metapackage, which resolves to v17 — mismatched with the pinned v16
-# server). PGDG's own apt repo is required because trixie's main repo does
-# not carry postgresql-client-16 at all.
-RUN install -d /usr/share/postgresql-common/pgdg \
-    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
-    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
-    > /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Playwright system dependencies
-RUN npx --yes playwright@1.45.0 install-deps chromium || true
+# ---------------------------------------------------------------------------
+# tools: go install → /out/bin (discard module/toolchain caches with the stage)
+# ---------------------------------------------------------------------------
+FROM golang:1.25.7 AS tools
 
 # Go tooling (GOTOOLCHAIN=auto lets `go install` fetch a newer toolchain
 # on demand when a tool's go.mod requires one newer than the base image).
@@ -54,11 +19,71 @@ RUN npx --yes playwright@1.45.0 install-deps chromium || true
 # (go1.24) used to build golangci-lint is lower than the targeted Go
 # version (1.25.7)".
 ENV GOTOOLCHAIN=auto
-ENV GOBIN=/usr/local/bin
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest \
+ENV GOBIN=/out/bin
+RUN mkdir -p /out/bin \
+    && go install github.com/pressly/goose/v3/cmd/goose@latest \
     && GOTOOLCHAIN=go1.24.10 go install github.com/goreleaser/goreleaser@latest \
     && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
-    && go install github.com/okfriansyah-moh/ares/cmd/ars@latest
+    && go install github.com/okfriansyah-moh/ares/cmd/ars@latest \
+    && rm -rf /go/pkg/mod /root/.cache /root/go/pkg /usr/local/go/pkg/mod
+
+# ---------------------------------------------------------------------------
+# final `dev` image: apt toolchain + copied binaries (no go-install caches)
+# ---------------------------------------------------------------------------
+FROM golang:1.25.7
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+# Playwright Chromium OS deps are optional — default off to keep the image lean.
+# Product / UI e2e: WITH_PLAYWRIGHT_DEPS=1 make bootstrap
+ARG WITH_PLAYWRIGHT_DEPS=0
+
+# Base packages + Node.js (NodeSource keyring, not curl|bash) + Docker CLI.
+# python3 omitted (unused by repo scripts). Playwright deps gated below.
+RUN apt-get update && apt-get dist-upgrade -y && apt-get install -y --no-install-recommends \
+    make \
+    git \
+    ca-certificates \
+    curl \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+      | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && chmod 644 /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
+      > /etc/apt/sources.list.d/nodesource.list \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
+      > /etc/apt/sources.list.d/docker.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# PostgreSQL client tools pinned to major version 16 to match
+# deploy/docker-compose.yaml's `postgres:16` server (docs/notes/
+# m1-exit-report.md's documented client/server skew: this base image's
+# Debian trixie main repo only carries the unversioned `postgresql-client`
+# metapackage, which resolves to v17 — mismatched with the pinned v16
+# server). PGDG's own apt repo is required because trixie's main repo does
+# not carry postgresql-client-16 at all.
+RUN install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional Playwright Chromium system dependencies (Tasks 46/48 product UI).
+RUN if [ "${WITH_PLAYWRIGHT_DEPS}" = "1" ]; then \
+      npx --yes playwright@1.45.0 install-deps chromium \
+      && rm -rf /root/.npm /tmp/*; \
+    fi
+
+COPY --from=tools /out/bin/goose /out/bin/goreleaser /out/bin/golangci-lint /out/bin/ars /usr/local/bin/
 
 # Non-root user with host-matching UID/GID so bind-mounted files keep sane ownership
 RUN groupadd --gid ${USER_GID} foundry \
@@ -75,24 +100,11 @@ RUN groupadd --gid ${USER_GID} foundry \
 # every tool that looks it up, not just golangci-lint.
 ENV HOME=/home/foundry
 
-# The `go install` step above ran as root and populated /go/pkg/mod (Go's
-# module download/build cache) with root-owned content. deploy/docker-
-# compose.yaml mounts a named volume at /go/pkg/mod; the FIRST time that
-# volume is used, Docker seeds it by copying this image directory's content
-# verbatim, preserving root ownership — on a brand-new volume (always true
-# in CI, where nothing persists between runs) this leaves every directory
-# the non-root `foundry` user hasn't itself created still owned by root, so
-# any `go build`/`go test`/`go mod download` needing a NEW dependency not
-# already cached by the tool installs above (e.g. this repo's own
-# growing go.mod, not just goose/goreleaser/golangci-lint/ars's own
-# transitive deps) fails outright with "mkdir ...: permission denied".
-# Chowning here, before the volume's very first use, makes the seeded
-# content already correctly owned. GOCACHE is also repointed at the
-# non-root user's own $HOME (its default under golang:1.22 was under
-# /root, which `foundry` — a different, non-root user — can never resolve
-# to) and chowned the same way, so deploy/docker-compose.yaml's
-# gobuild-cache volume (mounted at this exact path) is a real, writable
-# build cache instead of a silently-unused mount point.
+# Module/build caches are NOT populated in this image (tools stage discards
+# them). Compose mounts named volumes at /go/pkg/mod and GOCACHE; seed empty
+# dirs owned by foundry so the first volume init is writable by the non-root
+# user (same ownership failure mode documented historically when root-owned
+# /go/pkg/mod was copied into a fresh volume).
 ENV GOCACHE=/home/foundry/.cache/go-build
 # Chowns /home/foundry/.cache itself, not just the GOCACHE leaf directory
 # below it — `mkdir -p` (still running as root here) creates every missing
@@ -103,7 +115,7 @@ ENV GOCACHE=/home/foundry/.cache/go-build
 # alongside go-build rather than under it) failing to `mkdir` its own new
 # sibling directory there — foundry could write inside the already-chowned
 # go-build leaf, but not create a new entry in its still-root-owned parent.
-RUN mkdir -p "${GOCACHE}" \
+RUN mkdir -p /go/pkg/mod "${GOCACHE}" \
     && chown -R ${USER_UID}:${USER_GID} /go /home/foundry/.cache
 
 USER foundry

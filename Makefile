@@ -4,6 +4,8 @@ RUN := $(COMPOSE) run --rm dev
 .PHONY: bootstrap up down doctor test lint fitness fitness-tenx fitness-selftest doclint skp-e2e skp-resume e2e-github e2e-bitbucket e2e-venture e2e-tenx evidence-verify projection-rebuild plan-run migrate-up migrate-down migrate-status bench-baseline bench-foundry drill-brownout backup restore drill-backup-restore m1-exit chaos soak-fairness alerts-drill redteam dr-drill soak-telegram release-dryrun upgrade-drill soak-72h soak-learning v1-proof
 
 bootstrap:
+# Lean `dev` image by default (WITH_PLAYWRIGHT_DEPS=0). For product UI e2e
+# Chromium OS deps: WITH_PLAYWRIGHT_DEPS=1 make bootstrap
 	$(COMPOSE) build dev
 	$(RUN) go mod download
 

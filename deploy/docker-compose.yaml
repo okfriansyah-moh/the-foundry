@@ -6,6 +6,9 @@ services:
       args:
         USER_UID: "${USER_UID:-1000}"
         USER_GID: "${USER_GID:-1000}"
+        # Lean default: Playwright Chromium OS deps off. Product UI e2e:
+        # WITH_PLAYWRIGHT_DEPS=1 make bootstrap
+        WITH_PLAYWRIGHT_DEPS: "${WITH_PLAYWRIGHT_DEPS:-0}"
     # internal/executor's TestRunSubprocess_TimeoutKillsProcessGroup only fails
     # inside this container: with no PID-1 init/subreaper, a SIGKILLed grandchild
     # becomes an unreaped zombie that kill(pid,0) still reports as alive.
