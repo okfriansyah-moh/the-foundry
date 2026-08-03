@@ -29,10 +29,23 @@ type layerYAML struct {
 	NotificationClasses    []string                   `yaml:"notification_classes"`
 	RiskTierControls       map[string]RiskTierControl `yaml:"risk_tier_controls"`
 	RequireSandbox         *bool                      `yaml:"require_sandbox"`
+	// Package declarations are validated and consumed by internal/packaging.
+	// They grant no policy authority and therefore do not enter LayerPolicy.
+	AgentPackages agentPackageSelection `yaml:"agent_packages"`
+	SkillPackages skillPackageSelection `yaml:"skill_packages"`
 	// OrgGovernance is the org-layer-only governance extension (Task 54). It is
 	// ignored for non-org layers (a profile/workflow that sets it is a load
 	// error via KnownFields on the layer-specific decoders below).
 	OrgGovernance *OrgGovernancePack `yaml:"org_governance"`
+}
+
+type agentPackageSelection struct {
+	Enabled []string `yaml:"enabled"`
+}
+
+type skillPackageSelection struct {
+	Enabled       []string `yaml:"enabled"`
+	DomainEnabled []string `yaml:"domain_enabled"`
 }
 
 func (l layerYAML) toLayerPolicy() LayerPolicy {

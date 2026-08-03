@@ -130,14 +130,14 @@ FOUNDRYD='docker compose -f deploy/docker-compose.yaml run --rm --service-ports 
 
 | You have…                                               | You want…                           | Track    | Start with                                                                              |
 | ------------------------------------------------------- | ----------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| A raw product idea only                                 | Research → spec → PLAN → mission    | Personal | [1. From idea](#1-build-from-an-idea--what-do-i-provide-first)                          |
-| An executable `PLAN.md` + an existing git repo          | Deliver that plan (skip ideation)   | Personal | [2. From plan + existing repo](#2-build-from-a-plan--repo-folder-already-exists)        |
-| An idea or plan, but **no** product repo yet            | Scaffold a product, then deliver    | Personal | [3. No project folder yet](#3-build-something--no-project-or-repo-folder-yet)           |
-| An existing product repo that already contains a plan   | Improve / deliver against that plan | Personal | [4. Improve an existing repo](#4-improve-an-existing-project--plan-already-in-the-repo) |
+| A raw product idea only                                 | Research → spec → PLAN → mission    | Personal | [1. From idea](#1-build-from-an-idea-what-do-i-provide-first)                          |
+| An executable `PLAN.md` + an existing git repo          | Deliver that plan (skip ideation)   | Personal | [2. From plan + existing repo](#2-build-from-a-plan-repo-folder-already-exists)        |
+| An idea or plan, but **no** product repo yet            | Scaffold a product, then deliver    | Personal | [3. No project folder yet](#3-build-something-no-project-or-repo-folder-yet)           |
+| An existing product repo that already contains a plan   | Improve / deliver against that plan | Personal | [4. Improve an existing repo](#4-improve-an-existing-project-plan-already-in-the-repo) |
 | UI mockups (image / PDF / HTML / Figma) under a product | Spec → PLAN → mission/delivery      | Personal | [5. From mockup](#5-build-from-a-mockup-under-a-project-repo)                           |
 | Telegram chat access                                    | Same intake as CLI, after confirm   | Personal | [6. From Telegram](#6-start-from-telegram-idea-or-attachment)                           |
-| An **approved** organization PLAN                       | Concurrent tasks → branch handoff   | **10x**  | [7. Organization / 10x](#7-organization--10x-handoff-from-an-approved-plan)             |
-| Org mockup (not personal deploy)                        | Labeled spec → org PLAN → 10x       | **10x**  | [8. Organization mockup](#8-organization-mockup--then-10x)                              |
+| An **approved** organization PLAN                       | Concurrent tasks → branch handoff   | **10x**  | [7. Organization / 10x](#7-organization-10x-handoff-from-an-approved-plan)             |
+| Org mockup (not personal deploy)                        | Labeled spec → org PLAN → 10x       | **10x**  | [8. Organization mockup](#8-organization-mockup-then-10x)                              |
 | Approved plan, one-shot delivery (no long mission loop) | `DeliverPlan` only                  | Personal | [9. Direct plan delivery](#9-direct-plan-delivery-no-mission-loop)                      |
 | A paused / failed intake or mission                     | Resume without repeating stages     | Either   | [10. Resume / operate](#10-resume-operate-pause-kill-raise-budget)                      |
 
@@ -286,7 +286,7 @@ $FOUNDRY mission start \
   --repo-write-target src/
 ```
 
-If you already have a PLAN for the new product, after the first push use [scenario 2](#2-build-from-a-plan--repo-folder-already-exists) (`plan submit` → `approve` → `plan run`).
+If you already have a PLAN for the new product, after the first push use [scenario 2](#2-build-from-a-plan-repo-folder-already-exists) (`plan submit` → `approve` → `plan run`).
 
 ---
 
@@ -422,7 +422,7 @@ $FOUNDRY plan run --plan-id <id>          # optional: --lane <queue-lane>
 $FOUNDRY evidence verify <bundle-id>
 ```
 
-Use a mission ([scenarios 1 / 4](#1-build-from-an-idea--what-do-i-provide-first)) when you need observe → improve → redeploy over time.
+Use a mission ([scenarios 1 / 4](#1-build-from-an-idea-what-do-i-provide-first)) when you need observe → improve → redeploy over time.
 
 ---
 

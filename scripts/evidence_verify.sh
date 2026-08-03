@@ -16,8 +16,8 @@ if [[ -d "$EVIDENCE_ROOT" ]]; then
   done < <(find "$EVIDENCE_ROOT" -name manifest.json 2>/dev/null || true)
 fi
 
-# Task evidence directories required for closed M6 tasks.
-for d in evidence/task-14{1,2,3,4,5,6,7,8,9} evidence/task-15{0,1,2} evidence/v1-final-gate; do
+# Task evidence directories required for the closed M6/M7 tasks.
+for d in evidence/task-14{1,2,3,4,5,6,7,8,9} evidence/task-15{0,1,2,3,4,5} evidence/v1-final-gate; do
   if [[ -d "$d" ]]; then
     if [[ ! -f "$d/README.md" && ! -f "$d/index.json" ]]; then
       echo "MISSING evidence marker in $d"

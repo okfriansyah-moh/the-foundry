@@ -11,6 +11,7 @@ import (
 
 	"go.temporal.io/sdk/client"
 
+	"github.com/okfriansyah-moh/the-foundry/internal/evolve"
 	"github.com/okfriansyah-moh/the-foundry/internal/mission"
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
 )
@@ -68,6 +69,9 @@ func startTelegramInbound(ctx context.Context, db *sql.DB, tc client.Client, nam
 		Chats:      chats,
 		Nonces:     notify.NewNonceRegistry(),
 		Controller: temporalWorkflowController{client: tc, namespace: namespace},
+		FreezeEvolution: func(freezeCtx context.Context, reason evolve.FreezeCondition) error {
+			return evolve.NewFreezeStore(db).Freeze(freezeCtx, evolve.FreezeScopeGlobal, reason)
+		},
 	}
 	sender := &notify.HTTPSender{Token: token}
 	botID := hashBotID(token)

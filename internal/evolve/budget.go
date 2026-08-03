@@ -60,11 +60,24 @@ type BudgetWindow struct {
 }
 
 var (
-	frozen      atomic.Bool
-	freezeState struct {
+	frozen atomic.Bool
+	// activationFreezeMu closes the in-process check-to-activation race. A
+	// promotion holds RLock from its final hot-latch check through catalog
+	// activation; Freeze/Unfreeze take Lock before changing the latch.
+	activationFreezeMu sync.RWMutex
+	freezeState        struct {
 		sync.Mutex
 		reason FreezeCondition
+		source freezeLatchSource
 	}
+)
+
+type freezeLatchSource uint8
+
+const (
+	freezeLatchNone freezeLatchSource = iota
+	freezeLatchLocal
+	freezeLatchDurableMirror
 )
 
 func (w BudgetWindow) Breaches(limits ChangeBudgetLimits) []FreezeCondition {
@@ -94,16 +107,55 @@ func (w BudgetWindow) Breaches(limits ChangeBudgetLimits) []FreezeCondition {
 }
 
 func Freeze(reason FreezeCondition) {
+	activationFreezeMu.Lock()
+	defer activationFreezeMu.Unlock()
 	frozen.Store(true)
 	freezeState.Lock()
 	freezeState.reason = reason
+	freezeState.source = freezeLatchLocal
 	freezeState.Unlock()
 }
 
+// MirrorDurableFreeze refreshes the process-local fast-path view after the
+// durable store has accepted a freeze. A direct local Freeze always wins over
+// the mirror, so legacy in-process safety callers cannot be silently thawed by
+// a durable-state refresh.
+func MirrorDurableFreeze(reason FreezeCondition) {
+	activationFreezeMu.Lock()
+	defer activationFreezeMu.Unlock()
+	freezeState.Lock()
+	defer freezeState.Unlock()
+	if freezeState.source == freezeLatchLocal {
+		return
+	}
+	frozen.Store(true)
+	freezeState.reason = reason
+	freezeState.source = freezeLatchDurableMirror
+}
+
+// clearDurableFreezeMirror clears only a stale durable mirror. The caller must
+// already hold a durable thawed promotion guard, which makes the refresh
+// atomic with respect to durable Freeze/Unfreeze operations.
+func clearDurableFreezeMirror() {
+	activationFreezeMu.Lock()
+	defer activationFreezeMu.Unlock()
+	freezeState.Lock()
+	defer freezeState.Unlock()
+	if freezeState.source != freezeLatchDurableMirror {
+		return
+	}
+	frozen.Store(false)
+	freezeState.reason = ""
+	freezeState.source = freezeLatchNone
+}
+
 func Unfreeze() {
+	activationFreezeMu.Lock()
+	defer activationFreezeMu.Unlock()
 	frozen.Store(false)
 	freezeState.Lock()
 	freezeState.reason = ""
+	freezeState.source = freezeLatchNone
 	freezeState.Unlock()
 }
 

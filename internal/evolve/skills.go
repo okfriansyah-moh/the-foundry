@@ -2,6 +2,7 @@ package evolve
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type SkillVersion struct {
 // truth L1 promotion bumps, and it always retains previous versions so any
 // promotion is reversible in one step (Rollback).
 type SkillRegistry struct {
+	mu       sync.RWMutex
 	versions map[string][]SkillVersion
 }
 
@@ -31,6 +33,9 @@ func NewSkillRegistry() *SkillRegistry {
 
 // Register seeds a skill's initial (v1) version.
 func (r *SkillRegistry) Register(v SkillVersion) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v = cloneSkillVersion(v)
 	if v.Version == 0 {
 		v.Version = 1
 	}
@@ -39,28 +44,38 @@ func (r *SkillRegistry) Register(v SkillVersion) {
 
 // Current returns the latest version of skillID.
 func (r *SkillRegistry) Current(skillID string) (SkillVersion, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	hist := r.versions[skillID]
 	if len(hist) == 0 {
 		return SkillVersion{}, false
 	}
-	return hist[len(hist)-1], true
+	return cloneSkillVersion(hist[len(hist)-1]), true
 }
 
 // History returns the full retained version list for skillID (oldest first).
 func (r *SkillRegistry) History(skillID string) []SkillVersion {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	hist := r.versions[skillID]
 	out := make([]SkillVersion, len(hist))
-	copy(out, hist)
+	for i := range hist {
+		out[i] = cloneSkillVersion(hist[i])
+	}
 	return out
 }
 
 // promote appends proposed as the next version, retaining all previous ones.
 func (r *SkillRegistry) promote(skillID string, proposed SkillVersion) SkillVersion {
-	cur, _ := r.Current(skillID)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	hist := r.versions[skillID]
+	cur := hist[len(hist)-1]
+	proposed = cloneSkillVersion(proposed)
 	proposed.SkillID = skillID
 	proposed.Version = cur.Version + 1
-	r.versions[skillID] = append(r.versions[skillID], proposed)
-	return proposed
+	r.versions[skillID] = append(hist, proposed)
+	return cloneSkillVersion(proposed)
 }
 
 // Rollback reverts skillID to its immediately-previous version by appending a
@@ -68,12 +83,40 @@ func (r *SkillRegistry) promote(skillID string, proposed SkillVersion) SkillVers
 // It is the one-command reversibility guarantee. It errors if there is no
 // previous version to roll back to.
 func (r *SkillRegistry) Rollback(skillID string) (SkillVersion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	hist := r.versions[skillID]
 	if len(hist) < 2 {
 		return SkillVersion{}, fmt.Errorf("evolve: skill %s has no previous version to roll back to", skillID)
 	}
-	prev := hist[len(hist)-2]
-	return r.promote(skillID, prev), nil
+	prev := cloneSkillVersion(hist[len(hist)-2])
+	prev.SkillID = skillID
+	prev.Version = hist[len(hist)-1].Version + 1
+	r.versions[skillID] = append(hist, prev)
+	return cloneSkillVersion(prev), nil
+}
+
+func (r *SkillRegistry) clone() *SkillRegistry {
+	copyRegistry := NewSkillRegistry()
+	if r == nil {
+		return copyRegistry
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for skillID, history := range r.versions {
+		copyHistory := make([]SkillVersion, len(history))
+		for index := range history {
+			copyHistory[index] = cloneSkillVersion(history[index])
+		}
+		copyRegistry.versions[skillID] = copyHistory
+	}
+	return copyRegistry
+}
+
+func cloneSkillVersion(version SkillVersion) SkillVersion {
+	version.Permissions = append([]string(nil), version.Permissions...)
+	version.DataClasses = append([]string(nil), version.DataClasses...)
+	return version
 }
 
 // GoldenTask is one deterministic eval task: Check returns whether a version
@@ -191,6 +234,14 @@ func (p L1Pipeline) now() time.Time {
 // Order: L1 condition gates → eval (no quality regression) → quarantine/shadow
 // → canary → drift-budget/freeze → profile (apply vs propose-only).
 func (p L1Pipeline) Evaluate(cand L1Candidate, stages L1Stages) L1Outcome {
+	return p.evaluate(cand, stages, true)
+}
+
+// evaluate runs the L1 gates with an explicit process-latch policy. Durable
+// activation callers pass false because their transaction-backed freeze guard
+// is the cross-process authority; ordinary Task 77 callers retain the hot
+// in-process latch behavior through Evaluate.
+func (p L1Pipeline) evaluate(cand L1Candidate, stages L1Stages, checkProcessFreeze bool) L1Outcome {
 	rec := PromotionRecord{
 		Tunable:       cand.Proposed.SkillID,
 		PreviousValue: float64(cand.Base.Version),
@@ -225,7 +276,7 @@ func (p L1Pipeline) Evaluate(cand L1Candidate, stages L1Stages) L1Outcome {
 	}
 
 	// (5) Drift budget / freeze: promotion may only happen inside budget.
-	if IsFrozen() {
+	if checkProcessFreeze && IsFrozen() {
 		rec.Stage = StageQuarantined
 		return L1Outcome{Record: rec}
 	}

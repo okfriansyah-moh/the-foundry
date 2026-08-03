@@ -249,9 +249,9 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 150  | INT-09   | Unified production input router: IDEA, PLAN and MOCKUP             | M6/W4      | 138,141,143,144,145,146,147,148,149                                                                                                                             | None |
 | ✅  | 151  | PRF-03   | Mandatory real personal, input-router and 10x release proofs       | M6/W5      | 123,129,142,144,145,146,147,148,149,150                                                                                                                         | None |
 | ✅  | 152  | V1-02    | Final Delivery Foundry 10/10 Evidence Gate                         | M6/W6      | 134,135,136,141,142,143,144,145,146,147,148,149,150,151                                                                                                         | None |
-| ☐   | 153  | CAP-01   | Product agent/skill catalogs and enablement                        | M7/X0      | 46,77,90,130,152                                                                                                                                                | None |
-| ☐   | 154  | CAP-02   | Agent/skill install and runtime materialization                    | M7/X1      | 153                                                                                                                                                             | None |
-| ☐   | 155  | CAP-03   | L1 skill evolution bridge to on-disk packages                      | M7/X2      | 77,154                                                                                                                                                          | None |
+| ✅  | 153  | CAP-01   | Product agent/skill catalogs and enablement                        | M7/X0      | 46,77,90,130,152                                                                                                                                                | None |
+| ✅  | 154  | CAP-02   | Agent/skill install and runtime materialization                    | M7/X1      | 153                                                                                                                                                             | None |
+| ✅  | 155  | CAP-03   | L1 skill evolution bridge to on-disk packages                      | M7/X2      | 77,154                                                                                                                                                          | None |
 
 ### D-P1 — Milestone dependencies
 
@@ -5416,7 +5416,7 @@ granting SCM/deploy authority.
 - **Evidence:** catalog digests, enable fixtures, validate transcripts archived to `evidence/task-153/`.
 - **Risk:** High · **Exec:** go-backend · **Rev:** **R3** · **Boundary:** declare/validate only; no side effects;
   does not select executors or grant capabilities.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-03 — Provider-neutral agent/skill/domain catalogs, strict fail-closed validation, venture template enablement, narrower organization declarations, and `foundry agents|skills list|validate` landed with independent R3 review. decision: explicit catalog task bindings enforce reviewer≠implementer; the single product `.foundry/skills/enabled.yaml` declares both agents and skills without granting or materializing runtime authority.
 
 ### Task 154 (CAP-02) — Agent/skill install and runtime materialization
 
@@ -5446,7 +5446,7 @@ granting SCM/deploy authority.
 - **Evidence:** before/after trees, digests, doctor transcripts archived to `evidence/task-154/`.
 - **Risk:** High · **Exec:** go-backend + integration · **Rev:** **R3** · **Boundary:** workspace materialization
   only; kernel/policy remain authority for execution and side effects.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-03 — Deterministic Claude Code agent/skill install and doctor, provider-neutral materializer seam, fail-closed workspace collision handling, descriptor-anchored path safety, hermetic e2e proof, and independent R3 review landed. decision: workspace manifests are diagnostic pins only and grant no overwrite or deletion authority; changed catalog inputs materialize into a fresh workspace rather than replacing existing files.
 
 ### Task 155 (CAP-03) — L1 skill evolution bridge to on-disk packages
 
@@ -5476,7 +5476,7 @@ granting SCM/deploy authority.
 - **Evidence:** version diffs, promotion rows, rollback proof archived to `evidence/task-155/`.
 - **Risk:** High · **Exec:** go-kernel + integration · **Rev:** **R3** · **Boundary:** L1-only; cannot grant new
   authority; org proposal-only; does not bypass C20 freeze.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-03 — Personal L1 promotion now activates immutable versioned packages with content/authority pins; organization candidates remain proposal-only; rollback retains prior versions and is available while frozen as a safety brake. Durable rolling C20 budget records, transaction-backed freeze serialization, source-aware local freeze mirroring, crash-durable catalog/package writes, strict audit recovery, opened-root identity checks, and CAP-02 install/doctor e2e are covered by the prior independent review findings, their remediation tests, repository CI-parity gates, and final independent R3/security sign-off. decision: the bridge rejects referenced skills until versioned reference snapshots exist; rollback requires a durable freeze store when its safety action itself breaches budget, so a CLI cannot leave only an ephemeral process-local freeze.
 
 ---
 

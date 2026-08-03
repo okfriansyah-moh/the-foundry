@@ -3,6 +3,7 @@ package compiler_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	compiler "github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
@@ -46,6 +47,86 @@ func TestLoadProfileLayer_RejectsUnknownKey(t *testing.T) {
 	}
 	if _, err := compiler.LoadProfileLayer(p); err == nil {
 		t.Fatal("an unmapped policy-meaning key must reject (strict schema), not be silently dropped")
+	}
+}
+
+func TestLoadProfileLayer_RejectsInvalidPackageDeclarations(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "unknown agent package field",
+			raw:  "agent_packages:\n  enabled: [planning]\n  executor_allowlist: [fake]\n",
+		},
+		{
+			name: "agent package domain enablement",
+			raw:  "agent_packages:\n  enabled: [planning]\n  domain_enabled: [commercial-readiness]\n",
+		},
+		{
+			name: "unknown nested skill package field",
+			raw:  "skill_packages:\n  enabled: [testing]\n  runtime:\n    executor: fake\n",
+		},
+		{
+			name: "duplicate package mapping",
+			raw:  "agent_packages:\n  enabled: [planning]\nagent_packages:\n  enabled: [reviewer]\n",
+		},
+		{
+			name: "duplicate nested package field",
+			raw:  "skill_packages:\n  enabled: [testing]\n  enabled: [guardrails]\n",
+		},
+		{
+			name: "nested value where package name is required",
+			raw:  "agent_packages:\n  enabled:\n    - name: planning\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "profile.yaml")
+			if err := os.WriteFile(path, []byte(tt.raw), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := compiler.LoadProfileLayer(path); err == nil {
+				t.Fatal("invalid package declaration must fail closed")
+			}
+		})
+	}
+}
+
+func TestPackageDeclarationsDoNotAlterResolvedPolicy(t *testing.T) {
+	dir := t.TempDir()
+	withoutPackages := filepath.Join(dir, "without-packages.yaml")
+	withPackages := filepath.Join(dir, "with-packages.yaml")
+	if err := os.WriteFile(withoutPackages, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(withPackages, []byte(`agent_packages:
+  enabled:
+    - repo-write
+    - production-deploy
+skill_packages:
+  enabled:
+    - executor-allowlist
+  domain_enabled:
+    - kernel-authority
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	withoutResolved, withoutPack, err := compiler.CompileFourLayer("", withoutPackages)
+	if err != nil {
+		t.Fatalf("CompileFourLayer without package declarations: %v", err)
+	}
+	withResolved, withPack, err := compiler.CompileFourLayer("", withPackages)
+	if err != nil {
+		t.Fatalf("CompileFourLayer with package declarations: %v", err)
+	}
+	if !reflect.DeepEqual(withResolved, withoutResolved) {
+		t.Fatalf("package declarations altered resolved policy:\nwith:    %+v\nwithout: %+v", withResolved, withoutResolved)
+	}
+	if !reflect.DeepEqual(withPack, withoutPack) {
+		t.Fatalf("package declarations altered org governance: with=%+v without=%+v", withPack, withoutPack)
 	}
 }
 

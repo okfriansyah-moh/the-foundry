@@ -40,6 +40,7 @@ func runPromotions(args []string) error {
 func runPromotionsUnfreeze(args []string) error {
 	fs := flag.NewFlagSet("promotions unfreeze", flag.ContinueOnError)
 	product := fs.String("product", "", "product ID to unfreeze")
+	freezeScope := fs.String("freeze-scope", "", "durable freeze scope (defaults to product; use global for skill evolution)")
 	pgDSN := fs.String("pg-dsn", pgDSNFromEnv(), "Postgres DSN")
 	actor := fs.String("actor", defaultActor(), "operator performing the unfreeze (audited)")
 	if err := fs.Parse(args); err != nil {
@@ -61,16 +62,15 @@ func runPromotionsUnfreeze(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Clear the in-process latch too, so a single-process run reflects the
-	// change immediately; the durable store below is the cross-process source
-	// of truth.
-	evolve.Unfreeze()
-
 	freezeStore := evolve.NewFreezeStore(db)
-	clearedFreeze, err := freezeStore.Unfreeze(ctx, *product)
+	resolvedFreezeScope := promotionFreezeScope(*product, *freezeScope)
+	clearedFreeze, err := freezeStore.Unfreeze(ctx, resolvedFreezeScope)
 	if err != nil {
 		return fmt.Errorf("promotions unfreeze: clear freeze: %w", err)
 	}
+	// Clear the in-process latch only after the durable store has accepted the
+	// thaw. This keeps a database failure fail-closed for local callers too.
+	evolve.Unfreeze()
 
 	res, err := db.ExecContext(ctx, `DELETE FROM improvement_leases WHERE product_id = $1`, *product)
 	if err != nil {
@@ -80,6 +80,7 @@ func runPromotionsUnfreeze(args []string) error {
 
 	payload, _ := json.Marshal(map[string]any{
 		"product":        *product,
+		"freeze_scope":   resolvedFreezeScope,
 		"lease_deleted":  leaseRows > 0,
 		"freeze_cleared": clearedFreeze,
 	})
@@ -87,9 +88,16 @@ func runPromotionsUnfreeze(args []string) error {
 		return fmt.Errorf("promotions unfreeze: write audit row: %w", err)
 	}
 
-	fmt.Printf("promotions unfreeze: product %q — lease deleted=%v, freeze cleared=%v (audited by %s)\n",
-		*product, leaseRows > 0, clearedFreeze, *actor)
+	fmt.Printf("promotions unfreeze: product %q — lease deleted=%v, freeze scope %q cleared=%v (audited by %s)\n",
+		*product, leaseRows > 0, resolvedFreezeScope, clearedFreeze, *actor)
 	return nil
+}
+
+func promotionFreezeScope(product, override string) string {
+	if override != "" {
+		return override
+	}
+	return product
 }
 
 func defaultActor() string {

@@ -150,3 +150,30 @@ func TestL1FrozenBlocksPromotion(t *testing.T) {
 		t.Fatalf("frozen budget must block promotion, got %+v", out)
 	}
 }
+
+func TestSkillRegistryDefensivelyCopiesAuthoritySlices(t *testing.T) {
+	registry := NewSkillRegistry()
+	original := baseVersion()
+	registry.Register(original)
+	original.Permissions[0] = "write"
+	original.DataClasses[0] = "secrets"
+
+	current, ok := registry.Current(original.SkillID)
+	if !ok {
+		t.Fatal("registered skill is missing")
+	}
+	if current.Permissions[0] != "read" || current.DataClasses[0] != "code" {
+		t.Fatalf("caller mutated registered authority: %+v", current)
+	}
+	current.Permissions[0] = "admin"
+	current.DataClasses[0] = "credentials"
+	history := registry.History(original.SkillID)
+	if history[0].Permissions[0] != "read" || history[0].DataClasses[0] != "code" {
+		t.Fatalf("returned current aliases registry authority: %+v", history[0])
+	}
+	history[0].Permissions[0] = "deploy"
+	again, _ := registry.Current(original.SkillID)
+	if again.Permissions[0] != "read" {
+		t.Fatalf("returned history aliases registry authority: %+v", again)
+	}
+}

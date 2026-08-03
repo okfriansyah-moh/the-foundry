@@ -1,0 +1,5 @@
+PASS personal promotion selected v2 in a fresh CAP-02 install and doctor
+PASS organization materialization retained baseline bytes
+PASS one-command rollback selected append-only v3 with baseline bytes
+PASS permission expansion and drift freeze produced no package activation
+PASS config, policy, SCM, and deploy authority trees remained unchanged

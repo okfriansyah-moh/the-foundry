@@ -48,7 +48,9 @@ func TestEnvelopeLivePath_StartBindsDigestIntoTransition(t *testing.T) {
 		BudgetEnvelope: provenance.BudgetEnvelope{MonthlyUSD: 10, WorkflowUSD: 5},
 		DataClass:      "internal",
 		Approvers:      []provenance.Approver{{Principal: "alice", Method: provenance.AuthMethodEd25519Local, At: now}},
-		ApprovedAt:     now, ExpiresAt: now.Add(time.Hour),
+		// This test exercises envelope binding, not expiry. Keep the signed
+		// fixture valid independently of the wall clock used by Store.Load.
+		ApprovedAt: now, ExpiresAt: now.AddDate(100, 0, 0),
 	}, provenance.AllowList{})
 	if err != nil {
 		t.Fatal(err)
