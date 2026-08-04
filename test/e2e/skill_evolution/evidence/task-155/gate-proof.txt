@@ -1,0 +1,2 @@
+permission_expansion=blocked stage=rejected condition=new-permission
+drift_freeze=blocked stage=quarantined

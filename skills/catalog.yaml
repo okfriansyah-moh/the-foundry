@@ -1,0 +1,51 @@
+version: 1
+skills:
+  - name: guardrails
+    description: Enforces Foundry constitution, policy, authority, and side-effect boundaries.
+    source: skills/guardrails/SKILL.md
+    references: []
+  - name: stop-slop
+    description: Prevents unverified completion claims, placeholders, and silent scope drift.
+    source: skills/stop-slop/SKILL.md
+    references: []
+  - name: principal-architect
+    description: Preserves architecture contracts and chooses the smallest compliant design.
+    source: skills/principal-architect/SKILL.md
+    references: []
+  - name: task-implementation
+    description: Implements one approved task with bounded scope and paired tests.
+    source: skills/implementation/SKILL.md
+    references: []
+  - name: foundry-planning
+    description: Produces dependency-ordered executable plans from approved requirements.
+    source: skills/planning/SKILL.md
+    references: []
+  - name: code-reviewer-correctness
+    description: Reviews behavior, failure modes, concurrency, and regressions.
+    source: skills/code-reviewer-correctness/SKILL.md
+    references: []
+  - name: code-reviewer-quality
+    description: Reviews maintainability, clarity, complexity, and scope discipline.
+    source: skills/code-reviewer-quality/SKILL.md
+    references: []
+  - name: code-reviewer-security
+    description: Reviews trust boundaries, input handling, authorization, and data exposure.
+    source: skills/code-reviewer-security/SKILL.md
+    references: []
+  - name: sonarqube-quality-gate
+    description: Interprets quality-gate results without fabricating unavailable evidence.
+    source: skills/sonarqube-quality-gate/SKILL.md
+    references: []
+  - name: testing
+    description: Selects deterministic unit, integration, end-to-end, and security checks by risk.
+    source: skills/testing/SKILL.md
+    references: []
+domain_skills:
+  - name: commercial-readiness
+    description: Checks venture value, billing, support, privacy, and launch-readiness evidence.
+    source: domain-skills/commercial-readiness/SKILL.md
+    references: []
+  - name: release-verification
+    description: Verifies a release handoff without granting merge or deployment authority.
+    source: domain-skills/release-verification/SKILL.md
+    references: []

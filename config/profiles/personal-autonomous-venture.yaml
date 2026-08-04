@@ -44,3 +44,30 @@ risk_tier_controls:
 
 # docs/PLAN.md Task 141 / C24: autonomous personal profile requires sandbox.
 require_sandbox: true
+
+# Provider-neutral package declaration (Task 153). This list grants no
+# executor, tool, SCM, or deployment authority; runtime installation is a
+# separate fail-closed operation.
+agent_packages:
+  enabled:
+    - planning
+    - pec
+    - implementation
+    - backend
+    - reviewer
+    - verification
+skill_packages:
+  enabled:
+    - guardrails
+    - stop-slop
+    - principal-architect
+    - task-implementation
+    - foundry-planning
+    - code-reviewer-correctness
+    - code-reviewer-quality
+    - code-reviewer-security
+    - sonarqube-quality-gate
+    - testing
+  domain_enabled:
+    - commercial-readiness
+    - release-verification

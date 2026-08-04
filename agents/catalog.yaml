@@ -1,0 +1,51 @@
+version: 1
+agents:
+  - name: planning
+    description: Converts approved requirements and acceptance criteria into an executable PLAN.
+    source: agents/planning.md
+    skills: [guardrails, stop-slop, foundry-planning]
+    inputs: [approved requirements, repository context, reviewed acceptance criteria]
+    outputs: [docs/PLAN.md]
+    writes_production: false
+  - name: pec
+    description: Proposes approved-plan waves and delegates bounded tasks without decision authority.
+    source: agents/pec.md
+    skills: [guardrails, stop-slop]
+    inputs: [approved docs/PLAN.md]
+    outputs: [orchestration state, task evidence]
+    writes_production: true
+  - name: implementation
+    description: Implements one bounded task and records deterministic validation results.
+    source: agents/implementation.md
+    skills: [guardrails, stop-slop, task-implementation]
+    inputs: [approved task block]
+    outputs: [scoped code, validation result]
+    writes_production: true
+  - name: backend
+    description: Implements bounded backend, API, database, concurrency, and observability tasks.
+    source: agents/backend.md
+    skills: [guardrails, stop-slop, task-implementation, testing]
+    inputs: [approved backend task, contracts]
+    outputs: [backend changes, tests]
+    writes_production: true
+  - name: reviewer
+    description: Performs independent review and never edits production code.
+    source: agents/reviewer.md
+    skills: [guardrails, stop-slop, code-reviewer-correctness, code-reviewer-quality, code-reviewer-security, sonarqube-quality-gate]
+    inputs: [diff, approved plan, acceptance evidence]
+    outputs: [docs/review-report.md]
+    writes_production: false
+  - name: verification
+    description: Selects and runs the smallest sufficient deterministic test set.
+    source: agents/verification.md
+    skills: [guardrails, stop-slop, testing]
+    inputs: [diff summary, acceptance criteria]
+    outputs: [docs/verification-report.md]
+    writes_production: false
+bindings:
+  - name: product-implementation
+    implementer: implementation
+    reviewer: reviewer
+  - name: backend-implementation
+    implementer: backend
+    reviewer: reviewer

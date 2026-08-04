@@ -61,3 +61,25 @@ org_governance:
 
 # docs/PLAN.md Task 141 / C24: organization autonomous path requires sandbox.
 require_sandbox: true
+
+# C14 package declaration: a strict subset of the personal venture set. It
+# deliberately excludes PEC and backend plus venture-only architecture,
+# quality-service, and commercial-readiness packages.
+agent_packages:
+  enabled:
+    - planning
+    - implementation
+    - reviewer
+    - verification
+skill_packages:
+  enabled:
+    - guardrails
+    - stop-slop
+    - task-implementation
+    - foundry-planning
+    - code-reviewer-correctness
+    - code-reviewer-quality
+    - code-reviewer-security
+    - testing
+  domain_enabled:
+    - release-verification

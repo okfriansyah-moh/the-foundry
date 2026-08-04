@@ -176,6 +176,10 @@ type CommandRouter struct {
 	Controller WorkflowController
 	// Veto handles /rollback <promo-id> <nonce> commands (Task 52 / VEN-13).
 	Veto VetoExecutor
+	// FreezeEvolution durably freezes autonomous skill promotion before the
+	// process-local hot-path latch is mirrored. Production must provide this
+	// callback; keeping the side effect injected preserves Constitution C4.
+	FreezeEvolution func(context.Context, evolve.FreezeCondition) error
 
 	// ResolvePlanContext and SecureSurfaceURL wire /approve to Task 25's
 	// existing C11 guard (internal/authn.TelegramApprove) rather than
@@ -214,7 +218,7 @@ func (r *CommandRouter) Handle(ctx context.Context, chatID, text string) string 
 			return "resumed", r.Controller.Resume(ctx, wf)
 		})
 	case "freeze":
-		return r.handleFreeze(args)
+		return r.handleFreeze(ctx, args)
 	case "approve":
 		return r.handleApprove(ctx, args)
 	case "rollback":
@@ -280,10 +284,15 @@ func (r *CommandRouter) handleApprove(ctx context.Context, args []string) string
 	return result.Reply
 }
 
-func (r *CommandRouter) handleFreeze(args []string) string {
+func (r *CommandRouter) handleFreeze(ctx context.Context, args []string) string {
 	if len(args) != 0 {
 		return "usage: /freeze"
 	}
-	evolve.Freeze(evolve.FreezeBudgetExceeded)
+	if r.FreezeEvolution != nil {
+		if err := r.FreezeEvolution(ctx, evolve.FreezeBudgetExceeded); err != nil {
+			return fmt.Sprintf("error: freeze evolution: %v", err)
+		}
+	}
+	evolve.MirrorDurableFreeze(evolve.FreezeBudgetExceeded)
 	return "frozen"
 }

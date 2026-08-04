@@ -2,11 +2,13 @@ package notify_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/okfriansyah-moh/the-foundry/internal/admission"
 	"github.com/okfriansyah-moh/the-foundry/internal/authn"
+	"github.com/okfriansyah-moh/the-foundry/internal/evolve"
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
 	"github.com/okfriansyah-moh/the-foundry/internal/profile"
 )
@@ -145,8 +147,28 @@ func TestCommandRouter_ApproveNeverPerformsASideEffect(t *testing.T) {
 
 func TestCommandRouter_Freeze(t *testing.T) {
 	router, _ := newTestRouter(t, &fakeController{})
+	var gotReason evolve.FreezeCondition
+	router.FreezeEvolution = func(_ context.Context, reason evolve.FreezeCondition) error {
+		gotReason = reason
+		return nil
+	}
 	reply := router.Handle(context.Background(), "chat-1", "/freeze")
 	if reply != "frozen" {
 		t.Fatalf("freeze reply=%q", reply)
+	}
+	if gotReason != evolve.FreezeBudgetExceeded {
+		t.Fatalf("freeze reason=%q, want %q", gotReason, evolve.FreezeBudgetExceeded)
+	}
+}
+
+func TestCommandRouter_FreezeFailsClosedWhenDurableFreezeFails(t *testing.T) {
+	router, _ := newTestRouter(t, &fakeController{})
+	router.FreezeEvolution = func(context.Context, evolve.FreezeCondition) error {
+		return errors.New("database unavailable")
+	}
+
+	reply := router.Handle(context.Background(), "chat-1", "/freeze")
+	if !strings.Contains(reply, "database unavailable") {
+		t.Fatalf("freeze failure reply=%q", reply)
 	}
 }

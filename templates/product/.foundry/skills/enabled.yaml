@@ -1,0 +1,23 @@
+version: 1
+profile: personal-autonomous-venture
+agents:
+  - planning
+  - pec
+  - implementation
+  - backend
+  - reviewer
+  - verification
+skills:
+  - guardrails
+  - stop-slop
+  - principal-architect
+  - task-implementation
+  - foundry-planning
+  - code-reviewer-correctness
+  - code-reviewer-quality
+  - code-reviewer-security
+  - sonarqube-quality-gate
+  - testing
+domain_skills:
+  - commercial-readiness
+  - release-verification

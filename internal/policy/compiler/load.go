@@ -29,10 +29,23 @@ type layerYAML struct {
 	NotificationClasses    []string                   `yaml:"notification_classes"`
 	RiskTierControls       map[string]RiskTierControl `yaml:"risk_tier_controls"`
 	RequireSandbox         *bool                      `yaml:"require_sandbox"`
+	// Package declarations are validated and consumed by internal/packaging.
+	// They grant no policy authority and therefore do not enter LayerPolicy.
+	AgentPackages agentPackageSelection `yaml:"agent_packages"`
+	SkillPackages skillPackageSelection `yaml:"skill_packages"`
 	// OrgGovernance is the org-layer-only governance extension (Task 54). It is
 	// ignored for non-org layers (a profile/workflow that sets it is a load
 	// error via KnownFields on the layer-specific decoders below).
 	OrgGovernance *OrgGovernancePack `yaml:"org_governance"`
+}
+
+type agentPackageSelection struct {
+	Enabled []string `yaml:"enabled"`
+}
+
+type skillPackageSelection struct {
+	Enabled       []string `yaml:"enabled"`
+	DomainEnabled []string `yaml:"domain_enabled"`
 }
 
 func (l layerYAML) toLayerPolicy() LayerPolicy {
@@ -48,8 +61,16 @@ func (l layerYAML) toLayerPolicy() LayerPolicy {
 	}
 }
 
-// decodeLayer strictly decodes raw into a layerYAML, rejecting unknown keys.
+// decodeLayer strictly decodes raw into a layerYAML, rejecting unknown keys
+// and duplicate mapping keys (fail-closed; last-key-wins is never accepted).
 func decodeLayer(raw []byte, path string) (layerYAML, error) {
+	var document yaml.Node
+	if err := yaml.Unmarshal(raw, &document); err != nil {
+		return layerYAML{}, fmt.Errorf("policy compiler: parse layer %s: %w", path, err)
+	}
+	if err := rejectDuplicateMappingKeys(&document); err != nil {
+		return layerYAML{}, fmt.Errorf("policy compiler: parse layer %s: %w", path, err)
+	}
 	var ly layerYAML
 	dec := yaml.NewDecoder(bytes.NewReader(raw))
 	dec.KnownFields(true)
@@ -57,6 +78,38 @@ func decodeLayer(raw []byte, path string) (layerYAML, error) {
 		return layerYAML{}, fmt.Errorf("policy compiler: parse layer %s: %w", path, err)
 	}
 	return ly, nil
+}
+
+// rejectDuplicateMappingKeys walks a YAML node tree and rejects any mapping
+// that repeats a key. yaml.Node keeps duplicate entries in Content (unlike
+// Decoder.Decode into a struct), so this check makes the fail-closed contract
+// explicit and version-stable — matching internal/packaging/load.go.
+func rejectDuplicateMappingKeys(node *yaml.Node) error {
+	if node == nil {
+		return nil
+	}
+	switch node.Kind {
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, child := range node.Content {
+			if err := rejectDuplicateMappingKeys(child); err != nil {
+				return err
+			}
+		}
+	case yaml.MappingNode:
+		seen := make(map[string]struct{}, len(node.Content)/2)
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			keyNode, valueNode := node.Content[i], node.Content[i+1]
+			key := keyNode.Value
+			if _, duplicate := seen[key]; duplicate {
+				return fmt.Errorf("duplicate field %q", key)
+			}
+			seen[key] = struct{}{}
+			if err := rejectDuplicateMappingKeys(valueNode); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // LoadOrgLayer loads the organization policy layer plus its OrgGovernancePack
