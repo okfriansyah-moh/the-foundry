@@ -43,9 +43,431 @@
     return "personal-autonomous-venture";
   }
 
+  /* CAP-01–04 / M8: catalogs + enablement mock as DB SoT (seeded from YAML; Tasks 156–161) */
+  const AGENT_CATALOG = [
+    {
+      name: "planning",
+      description: "SPEC/requirements → executable PLAN",
+      skills: ["guardrails", "stop-slop", "foundry-planning"],
+      writes: false,
+      sha256: "sha256:plan…01",
+      sot: "db",
+    },
+    {
+      name: "pec",
+      description: "Proposes waves only — never decides (C5)",
+      skills: ["guardrails", "stop-slop"],
+      writes: true,
+      sha256: "sha256:pec…02",
+      sot: "db",
+    },
+    {
+      name: "implementation",
+      description: "Bounded task implementer",
+      skills: ["guardrails", "stop-slop", "task-implementation"],
+      writes: true,
+      sha256: "sha256:impl…03",
+      sot: "db",
+    },
+    {
+      name: "backend",
+      description: "Backend/API/DB bounded tasks",
+      skills: ["guardrails", "stop-slop", "task-implementation", "testing"],
+      writes: true,
+      sha256: "sha256:back…04",
+      sot: "db",
+    },
+    {
+      name: "reviewer",
+      description: "Independent review — never implementer",
+      skills: [
+        "guardrails",
+        "stop-slop",
+        "code-reviewer-correctness",
+        "code-reviewer-quality",
+        "code-reviewer-security",
+        "sonarqube-quality-gate",
+      ],
+      writes: false,
+      sha256: "sha256:rev…05",
+      sot: "db",
+    },
+    {
+      name: "verification",
+      description: "Risk-based deterministic checks",
+      skills: ["guardrails", "stop-slop", "testing"],
+      writes: false,
+      sha256: "sha256:ver…06",
+      sot: "db",
+    },
+  ];
+
+  const SKILL_CATALOG = [
+    {
+      name: "guardrails",
+      kind: "skill",
+      description: "Constitution, policy, side-effect boundaries",
+      sha256: "sha256:sk…g1",
+      sot: "db",
+    },
+    {
+      name: "stop-slop",
+      kind: "skill",
+      description: "No unverified done / silent scope drift",
+      sha256: "sha256:sk…s2",
+      sot: "db",
+    },
+    {
+      name: "principal-architect",
+      kind: "skill",
+      description: "Smallest compliant architecture",
+      sha256: "sha256:sk…p3",
+      sot: "db",
+    },
+    {
+      name: "task-implementation",
+      kind: "skill",
+      description: "One approved task + paired tests",
+      sha256: "sha256:sk…t4",
+      sot: "db",
+    },
+    {
+      name: "foundry-planning",
+      kind: "skill",
+      description: "Dependency-ordered executable plans",
+      sha256: "sha256:sk…f5",
+      sot: "db",
+    },
+    {
+      name: "code-reviewer-correctness",
+      kind: "skill",
+      description: "Behavior, concurrency, regressions",
+      sha256: "sha256:sk…c6",
+      sot: "db",
+    },
+    {
+      name: "code-reviewer-quality",
+      kind: "skill",
+      description: "Maintainability and scope discipline",
+      sha256: "sha256:sk…q7",
+      sot: "db",
+    },
+    {
+      name: "code-reviewer-security",
+      kind: "skill",
+      description: "Trust boundaries and authz",
+      sha256: "sha256:sk…s8",
+      sot: "db",
+    },
+    {
+      name: "sonarqube-quality-gate",
+      kind: "skill",
+      description: "Quality-gate interpretation",
+      sha256: "sha256:sk…sq",
+      sot: "db",
+    },
+    {
+      name: "testing",
+      kind: "skill",
+      description: "Deterministic checks by risk",
+      sha256: "sha256:sk…te",
+      sot: "db",
+    },
+    {
+      name: "commercial-readiness",
+      kind: "domain",
+      description: "Venture launch-readiness evidence",
+      sha256: "sha256:sk…cr",
+      sot: "db",
+    },
+    {
+      name: "release-verification",
+      kind: "domain",
+      description: "Release handoff without merge/deploy authority",
+      sha256: "sha256:sk…rv",
+      sot: "db",
+    },
+  ];
+
+  /* M8 CFG mock tables — Postgres SoT; platform ceilings stay YAML */
+  const DB_POLICY_LAYERS = [
+    {
+      key: "scm.write",
+      value: "kernel-only",
+      layer: "platform",
+      sot: "yaml",
+      editable: false,
+      ceiling: true,
+    },
+    {
+      key: "approve.high_risk",
+      value: "webauthn",
+      layer: "platform",
+      sot: "yaml",
+      editable: false,
+      ceiling: true,
+    },
+    {
+      key: "org.max_concurrent_waves",
+      value: "4",
+      layer: "org",
+      sot: "db",
+      editable: true,
+      ceiling: false,
+    },
+    {
+      key: "profile.executor_prefer",
+      value: "claude-code",
+      layer: "profile",
+      sot: "db",
+      editable: true,
+      ceiling: false,
+    },
+  ];
+
+  const DB_QUOTAS = [
+    { key: "max_workflows", value: "32", scope: "org", sot: "db" },
+    { key: "max_runners", value: "8", scope: "org", sot: "db" },
+    { key: "max_active_missions", value: "2", scope: "profile", sot: "db" },
+    { key: "monthly_cap_usd", value: "200", scope: "profile", sot: "db" },
+  ];
+
+  const DB_MISSION_DECIDE = [
+    {
+      key: "self_classify",
+      value: "false",
+      sot: "yaml",
+      editable: false,
+      note: "C6 floor — not writable",
+    },
+    {
+      key: "discrepancy_raises_tier",
+      value: "true",
+      sot: "db",
+      editable: true,
+      note: "operator-hot",
+    },
+    {
+      key: "stale_gate_hours",
+      value: "48",
+      sot: "db",
+      editable: true,
+      note: "operator-hot",
+    },
+  ];
+
+  const DB_RATES = [
+    {
+      model: "claude-sonnet-4",
+      input_per_mtok: "3.00",
+      output_per_mtok: "15.00",
+      version: 3,
+      sot: "db",
+    },
+    {
+      model: "gpt-4.1",
+      input_per_mtok: "2.00",
+      output_per_mtok: "8.00",
+      version: 2,
+      sot: "db",
+    },
+    {
+      model: "gemini-2.5-pro",
+      input_per_mtok: "1.25",
+      output_per_mtok: "10.00",
+      version: 1,
+      sot: "db",
+    },
+  ];
+
+  const DB_TUNABLES = [
+    {
+      key: "wave_concurrency",
+      value: "2",
+      bound_min: "1",
+      bound_max: "8",
+      bounds_sot: "yaml",
+      value_sot: "db",
+    },
+    {
+      key: "retry_max",
+      value: "3",
+      bound_min: "1",
+      bound_max: "5",
+      bounds_sot: "yaml",
+      value_sot: "db",
+    },
+    {
+      key: "research_max_uses",
+      value: "12",
+      bound_min: "1",
+      bound_max: "40",
+      bounds_sot: "yaml",
+      value_sot: "db",
+    },
+  ];
+
+  const DB_OPPORTUNITY = [
+    { key: "weight.market", value: "0.28", sot: "db", editable: true },
+    { key: "weight.feasibility", value: "0.22", sot: "db", editable: true },
+    { key: "weight.risk", value: "0.18", sot: "db", editable: true },
+    { key: "weight.timing", value: "0.16", sot: "db", editable: true },
+    { key: "weight.moat", value: "0.16", sot: "db", editable: true },
+    {
+      key: "research.domains",
+      value: "config/opportunity-research-domains.yaml",
+      sot: "yaml",
+      editable: false,
+    },
+  ];
+
+  const BINDINGS = [
+    {
+      name: "product-implementation",
+      implementer: "implementation",
+      reviewer: "reviewer",
+    },
+    {
+      name: "backend-implementation",
+      implementer: "backend",
+      reviewer: "reviewer",
+    },
+  ];
+
+  const PROFILE_ENABLE = {
+    "personal-autonomous-venture": {
+      agents: [
+        "planning",
+        "pec",
+        "implementation",
+        "backend",
+        "reviewer",
+        "verification",
+      ],
+      skills: [
+        "guardrails",
+        "stop-slop",
+        "principal-architect",
+        "task-implementation",
+        "foundry-planning",
+        "code-reviewer-correctness",
+        "code-reviewer-quality",
+        "code-reviewer-security",
+        "sonarqube-quality-gate",
+        "testing",
+      ],
+      domain_skills: ["commercial-readiness", "release-verification"],
+      product_path: "api-changelog-assistant/.foundry/skills/enabled.yaml",
+      install: {
+        provider: "claude-code",
+        status: "installed",
+        doctor: "ok",
+        last_install: "2026-08-03T18:22:00Z",
+        digest: "sha256:a1b2c3d4e5f60718",
+        files: 28,
+      },
+      evolve: [
+        {
+          skill: "task-implementation",
+          version: 2,
+          previous: 1,
+          state: "active",
+          sha256: "sha256:91aa…f3",
+          promoted_at: "2026-08-03T16:10:00Z",
+        },
+        {
+          skill: "guardrails",
+          version: 1,
+          previous: null,
+          state: "active",
+          sha256: "sha256:10be…c2",
+          promoted_at: "2026-07-28T09:00:00Z",
+        },
+      ],
+      proposals: [],
+    },
+    "organization-10x": {
+      agents: ["planning", "implementation", "reviewer", "verification"],
+      skills: [
+        "guardrails",
+        "stop-slop",
+        "task-implementation",
+        "foundry-planning",
+        "code-reviewer-correctness",
+        "code-reviewer-quality",
+        "code-reviewer-security",
+        "testing",
+      ],
+      domain_skills: ["release-verification"],
+      product_path: "org-initiative/.foundry/skills/enabled.yaml",
+      install: {
+        provider: "claude-code",
+        status: "installed",
+        doctor: "warn",
+        last_install: "2026-08-02T11:04:00Z",
+        digest: "sha256:88ee9911aabbccdd",
+        files: 19,
+        doctor_note: "1 enabled file missing — reinstall required (mock)",
+      },
+      evolve: [],
+      proposals: [
+        {
+          skill: "testing",
+          proposed_version: 2,
+          state: "proposal-only",
+          reason: "Org L1 cannot auto-activate (H)",
+          created_at: "2026-08-03T12:00:00Z",
+        },
+      ],
+    },
+  };
+
   window.FoundryMock = {
     deployments: DEPLOYMENTS,
     activeProfile: resolveActiveProfile(),
+    agentCatalog: AGENT_CATALOG,
+    skillCatalog: SKILL_CATALOG,
+    bindings: BINDINGS,
+    profileEnable: PROFILE_ENABLE,
+    dbPolicyLayers: DB_POLICY_LAYERS,
+    dbQuotas: DB_QUOTAS,
+    dbMissionDecide: DB_MISSION_DECIDE,
+    dbRates: DB_RATES,
+    dbTunables: DB_TUNABLES,
+    dbOpportunity: DB_OPPORTUNITY,
+
+    packagingForActive() {
+      return (
+        PROFILE_ENABLE[this.activeProfile] ||
+        PROFILE_ENABLE["personal-autonomous-venture"]
+      );
+    },
+
+    validatePackaging() {
+      const en = this.packagingForActive();
+      const agentNames = new Set(AGENT_CATALOG.map((a) => a.name));
+      const skillNames = new Set(SKILL_CATALOG.map((s) => s.name));
+      const unknown = [];
+      en.agents.forEach((n) => {
+        if (!agentNames.has(n)) unknown.push("agent:" + n);
+      });
+      en.skills.forEach((n) => {
+        if (!skillNames.has(n)) unknown.push("skill:" + n);
+      });
+      en.domain_skills.forEach((n) => {
+        if (!skillNames.has(n)) unknown.push("domain:" + n);
+      });
+      const bindingOk = BINDINGS.every((b) => b.implementer !== b.reviewer);
+      return {
+        ok: unknown.length === 0 && bindingOk,
+        unknown,
+        bindingOk,
+        message:
+          unknown.length === 0 && bindingOk
+            ? "Validate OK — enabled ⊆ catalog; reviewer ≠ implementer"
+            : "Validate FAILED — refuse install (fail closed)",
+      };
+    },
 
     workflows: [
       {
@@ -364,7 +786,10 @@
     ],
 
     deployment() {
-      return this.deployments.find((d) => d.id === this.activeProfile) || this.deployments[0];
+      return (
+        this.deployments.find((d) => d.id === this.activeProfile) ||
+        this.deployments[0]
+      );
     },
 
     workflowsInScope() {
@@ -380,8 +805,12 @@
     },
 
     activeMissionsCount() {
-      return this.missionsInScope().filter((m) => m.status === "RUNNING" || m.status === "WAITING" || m.status === "PENDING")
-        .length;
+      return this.missionsInScope().filter(
+        (m) =>
+          m.status === "RUNNING" ||
+          m.status === "WAITING" ||
+          m.status === "PENDING",
+      ).length;
     },
 
     switchDeployment(id) {
@@ -392,7 +821,7 @@
       } catch (_) {}
       this.toast(
         "Switching trust domain → separate foundryd process (RefuseMultiProfileSingleProcess).",
-        "warn"
+        "warn",
       );
       const url = new URL(location.href);
       url.searchParams.set("deployment", id);
@@ -465,15 +894,122 @@
           const hereParts = here.pathname.split("/").filter(Boolean);
           const thereParts = u.pathname.split("/").filter(Boolean);
           let i = 0;
-          while (i < hereParts.length - 1 && i < thereParts.length && hereParts[i] === thereParts[i]) i++;
+          while (
+            i < hereParts.length - 1 &&
+            i < thereParts.length &&
+            hereParts[i] === thereParts[i]
+          )
+            i++;
           const up = hereParts.length - 1 - i;
-          rel = (up > 0 ? "../".repeat(up) : "") + thereParts.slice(i).join("/");
+          rel =
+            (up > 0 ? "../".repeat(up) : "") + thereParts.slice(i).join("/");
         }
         return rel + u.search + (u.hash || "");
       } catch (_) {
         const join = href.indexOf("?") >= 0 ? "&" : "?";
-        return href + join + "deployment=" + encodeURIComponent(this.activeProfile);
+        return (
+          href + join + "deployment=" + encodeURIComponent(this.activeProfile)
+        );
       }
+    },
+
+    ensurePackagingNav() {
+      const href = this.path("packaging.html");
+      const page = document.body.dataset.page || "";
+      const packagingPages = [
+        "packaging",
+        "packaging-catalog",
+        "packaging-enable",
+        "packaging-install",
+        "packaging-evolve",
+      ];
+      const isActive = packagingPages.indexOf(page) >= 0;
+
+      document.querySelectorAll(".sidebar").forEach((side) => {
+        if (side.querySelector('[data-nav="packaging"]')) return;
+        const label = document.createElement("div");
+        label.className = "nav-label";
+        label.textContent = "Product packages";
+        const link = document.createElement("a");
+        link.className = "nav-item" + (isActive ? " active" : "");
+        link.setAttribute("data-nav", "packaging");
+        link.href = href;
+        link.textContent = "Packaging";
+        const foot = side.querySelector(".nav-foot");
+        if (foot) {
+          side.insertBefore(label, foot);
+          side.insertBefore(link, foot);
+        } else {
+          side.appendChild(label);
+          side.appendChild(link);
+        }
+      });
+
+      document.querySelectorAll(".mobile-nav").forEach((nav) => {
+        if (nav.querySelector('[data-nav="packaging"]')) return;
+        const link = document.createElement("a");
+        link.setAttribute("data-nav", "packaging");
+        link.href = href;
+        link.textContent = "Packaging";
+        if (isActive) link.classList.add("active");
+        nav.appendChild(link);
+      });
+    },
+
+    ensureConfigSubnav() {
+      const page = document.body.dataset.page || "";
+      const configPages = [
+        "config",
+        "config-quotas",
+        "config-rates",
+        "config-mission-opp",
+      ];
+      if (configPages.indexOf(page) < 0) return;
+      const main = document.querySelector("main.main");
+      if (!main || main.querySelector(".config-subnav")) return;
+      const head = main.querySelector(".page-head");
+      const nav = document.createElement("nav");
+      nav.className = "config-subnav pack-subnav";
+      nav.setAttribute("aria-label", "Config sections");
+      const items = [
+        { page: "config", href: "config.html", label: "Layers" },
+        { page: "config-quotas", href: "config-quotas.html", label: "Quotas" },
+        {
+          page: "config-rates",
+          href: "config-rates.html",
+          label: "Rates · Models",
+        },
+        {
+          page: "config-mission-opp",
+          href: "config-mission-opp.html",
+          label: "Mission · Opp",
+        },
+      ];
+      items.forEach((it) => {
+        const a = document.createElement("a");
+        a.href = this.path(it.href);
+        a.textContent = it.label;
+        if (it.page === page) a.classList.add("active");
+        nav.appendChild(a);
+      });
+      if (head && head.nextSibling) {
+        main.insertBefore(nav, head.nextSibling);
+      } else if (head) {
+        head.after(nav);
+      } else {
+        main.insertBefore(nav, main.firstChild);
+      }
+    },
+
+    proposeTableChange(kind) {
+      this.toast(
+        (kind || "Config") +
+          " change proposed → Approvals (mock). No live DB write.",
+        "warn",
+      );
+      setTimeout(() => {
+        location.href = this.withDeployment(this.path("approvals.html"));
+      }, 900);
     },
 
     mountChrome() {
@@ -506,7 +1042,7 @@
                 d.short +
                 " · " +
                 d.id +
-                "</option>"
+                "</option>",
             )
             .join("") +
           "</select>" +
@@ -524,10 +1060,14 @@
       }
 
       const n = this.approvalsInScope().length;
-      document.querySelectorAll(".nav-item .count, .nav-item[data-nav='approvals'] .count").forEach((el) => {
-        el.textContent = String(n);
-        el.classList.toggle("alert", n > 0);
-      });
+      document
+        .querySelectorAll(
+          ".nav-item .count, .nav-item[data-nav='approvals'] .count",
+        )
+        .forEach((el) => {
+          el.textContent = String(n);
+          el.classList.toggle("alert", n > 0);
+        });
       /* also mobile if plain text */
       document.querySelectorAll('a[data-nav="approvals"]').forEach((a) => {
         let c = a.querySelector(".count");
@@ -543,9 +1083,18 @@
           "</strong>. One profile per foundryd. Other profiles = other process.";
       });
 
+      this.ensurePackagingNav();
+      this.ensureConfigSubnav();
+
       document.querySelectorAll("a[href]").forEach((a) => {
         const href = a.getAttribute("href");
-        if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:")) return;
+        if (
+          !href ||
+          href.startsWith("#") ||
+          href.startsWith("http") ||
+          href.startsWith("mailto:")
+        )
+          return;
         if (href.includes("deployment=")) return;
         if (!/\.html/.test(href)) return;
         a.setAttribute("href", this.withDeployment(href));
@@ -555,12 +1104,16 @@
 
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const key = a.getAttribute("data-nav");
-    const page = document.body.dataset.page;
+    const page = document.body.dataset.page || "";
     if (key === page) a.classList.add("active");
+    if (key === "config" && page.indexOf("config") === 0)
+      a.classList.add("active");
   });
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => FoundryMock.mountChrome());
+    document.addEventListener("DOMContentLoaded", () =>
+      FoundryMock.mountChrome(),
+    );
   } else {
     FoundryMock.mountChrome();
   }
@@ -571,25 +1124,36 @@
     const action = btn.getAttribute("data-action");
     if (action === "toast") {
       e.preventDefault();
-      FoundryMock.toast(btn.getAttribute("data-msg") || "Done (mock)", btn.getAttribute("data-kind") || "ok");
+      FoundryMock.toast(
+        btn.getAttribute("data-msg") || "Done (mock)",
+        btn.getAttribute("data-kind") || "ok",
+      );
     }
     if (action === "propose-config") {
       e.preventDefault();
-      FoundryMock.toast("Proposal submitted → Approvals (mock). Kernel not contacted.", "warn");
-      setTimeout(() => {
-        location.href = FoundryMock.withDeployment(FoundryMock.path("approvals.html"));
-      }, 900);
+      FoundryMock.proposeTableChange(btn.getAttribute("data-kind") || "Config");
+    }
+    if (action === "propose-catalog") {
+      e.preventDefault();
+      FoundryMock.proposeTableChange("Catalog");
+    }
+    if (action === "propose-enable-toggles") {
+      e.preventDefault();
+      FoundryMock.proposeTableChange("Enablement");
     }
     if (action === "raise-budget") {
       e.preventDefault();
-      FoundryMock.toast("Budget raise request queued for human review (mock).", "warn");
+      FoundryMock.toast(
+        "Budget raise request queued for human review (mock).",
+        "warn",
+      );
     }
     if (action === "verify-evidence") {
       e.preventDefault();
       const ok = btn.getAttribute("data-result") === "ok";
       FoundryMock.toast(
         ok ? "Evidence verify: OK (mock)" : "Evidence verify: REJECTED (mock)",
-        ok ? "ok" : "warn"
+        ok ? "ok" : "warn",
       );
       const target = document.getElementById(btn.getAttribute("data-target"));
       if (target) {
@@ -603,28 +1167,110 @@
       const submit = document.getElementById("approve-submit");
       if (box) {
         box.classList.add("done");
-        box.querySelector(".webauthn-status").textContent = "Credential asserted (mock)";
+        box.querySelector(".webauthn-status").textContent =
+          "Credential asserted (mock)";
       }
       if (submit) submit.disabled = false;
       FoundryMock.toast("WebAuthn ceremony complete (mock)", "ok");
     }
     if (action === "approve-plan") {
       e.preventDefault();
-      FoundryMock.toast("Approval recorded via secure surface (mock). Telegram was not used.", "ok");
+      FoundryMock.toast(
+        "Approval recorded via secure surface (mock). Telegram was not used.",
+        "ok",
+      );
       setTimeout(() => {
-        location.href = FoundryMock.withDeployment(FoundryMock.path("approvals.html"));
+        location.href = FoundryMock.withDeployment(
+          FoundryMock.path("approvals.html"),
+        );
       }, 1000);
     }
     if (action === "reject-plan") {
       e.preventDefault();
       FoundryMock.toast("Rejection recorded (mock).", "warn");
       setTimeout(() => {
-        location.href = FoundryMock.withDeployment(FoundryMock.path("approvals.html"));
+        location.href = FoundryMock.withDeployment(
+          FoundryMock.path("approvals.html"),
+        );
       }, 800);
     }
     if (action === "switch-deployment") {
       e.preventDefault();
       FoundryMock.switchDeployment(btn.getAttribute("data-deployment"));
+    }
+    if (action === "packaging-validate") {
+      e.preventDefault();
+      const r = FoundryMock.validatePackaging();
+      FoundryMock.toast(r.message + " (mock)", r.ok ? "ok" : "warn");
+      const el = document.getElementById("validate-result");
+      if (el) {
+        el.textContent = r.message;
+        el.className = r.ok ? "verify-ok mono" : "verify-fail mono";
+      }
+    }
+    if (action === "packaging-install") {
+      e.preventDefault();
+      const r = FoundryMock.validatePackaging();
+      if (!r.ok) {
+        FoundryMock.toast(
+          "Install refused — validate failed (fail closed)",
+          "warn",
+        );
+        return;
+      }
+      FoundryMock.toast(
+        "Materialized enabled packages → claude-code workspace (mock). Allowlist unchanged.",
+        "ok",
+      );
+      const st = document.getElementById("install-status");
+      if (st) {
+        st.textContent = "installed";
+        st.className = "verify-ok mono";
+      }
+    }
+    if (action === "packaging-doctor") {
+      e.preventDefault();
+      const en = FoundryMock.packagingForActive();
+      const ok = en.install.doctor === "ok";
+      FoundryMock.toast(
+        ok
+          ? "Doctor OK — pins + files present (mock)"
+          : "Doctor WARN — " + (en.install.doctor_note || "mismatch"),
+        ok ? "ok" : "warn",
+      );
+    }
+    if (action === "packaging-promote") {
+      e.preventDefault();
+      if (FoundryMock.activeProfile === "organization-10x") {
+        FoundryMock.toast(
+          "Org path: proposal-only — no auto-activate (mock)",
+          "warn",
+        );
+        return;
+      }
+      FoundryMock.toast(
+        "L1 promote → on-disk version retained previous (mock)",
+        "ok",
+      );
+    }
+    if (action === "packaging-rollback") {
+      e.preventDefault();
+      FoundryMock.toast(
+        "Rollback to previous skill version (mock). History retained.",
+        "ok",
+      );
+    }
+    if (action === "packaging-propose-enable") {
+      e.preventDefault();
+      FoundryMock.toast(
+        "Enablement change proposed → Approvals (mock). No live YAML write.",
+        "warn",
+      );
+      setTimeout(() => {
+        location.href = FoundryMock.withDeployment(
+          FoundryMock.path("approvals.html"),
+        );
+      }, 900);
     }
   });
 })();

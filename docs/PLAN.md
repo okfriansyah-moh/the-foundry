@@ -1,6 +1,6 @@
 # PLAN.md — Delivery Foundry Implementation Plan
 
-**Plan version:** 2.2 (AI-ready, sequentially numbered) · **Date:** 2026-08-03 · **Tasks:** Task 1 → Task 155 (M5 appended 2026-07-28; blockers resolved 2026-07-29; M5 DAG/wave/critical-path recomputed from `Depends` 2026-07-29 — see §V.3; M6 authoritative runtime closure and V1 proof appended 2026-08-01 — see §W; M7 product agent/skill packaging appended 2026-08-03 — see §X) · **Start at: Task 1.**
+**Plan version:** 2.2 (AI-ready, sequentially numbered) · **Date:** 2026-08-05 · **Tasks:** Task 1 → Task 161 (M5 appended 2026-07-28; blockers resolved 2026-07-29; M5 DAG/wave/critical-path recomputed from `Depends` 2026-07-29 — see §V.3; M6 authoritative runtime closure and V1 proof appended 2026-08-01 — see §W; M7 product agent/skill packaging appended 2026-08-03 — see §X; M8 operator-hot config SoT in Postgres appended 2026-08-05 — see §Y) · **Start at: Task 1.**
 **Source of truth:** Delivery Foundry V12 documentation set (`docs/foundry/delivery_foundry.md` + `docs/foundry/docs/**`, vendored into the repo by Task 2).
 **Planning discipline:** GitHub Spec Kit (constitution gates, dependency-ordered tasks, `[P]` parallel markers, checkpoints) layered on top of the V12 architecture — never replacing it.
 
@@ -93,7 +93,7 @@ This reuses the product's own A0/A1/A2/H admission-tier logic (`docs/foundry/doc
 
 ## D. Master Task Index (the checklist your agent updates)
 
-Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=Foundation, A=Venture, B=10x, M2=Hardening, M3=Evolution, M4=Provider breadth, M1R=M1 remediation, M5=Runtime Convergence &amp; Real-World Proof (§V), M6=Authoritative Runtime Closure &amp; V1 Proof (§W), M7=Product Capability Packaging (§X). **Dependencies are authoritative; numbers are names.**
+Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=Foundation, A=Venture, B=10x, M2=Hardening, M3=Evolution, M4=Provider breadth, M1R=M1 remediation, M5=Runtime Convergence &amp; Real-World Proof (§V), M6=Authoritative Runtime Closure &amp; V1 Proof (§W), M7=Product Capability Packaging (§X), M8=Operator-hot Config SoT (§Y). **Dependencies are authoritative; numbers are names.**
 
 | ✔   | Task | Alias    | Title                                                              | Phase/Wave | Depends                                                                                                                                                         | [P]  |
 | --- | ---- | -------- | ------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
@@ -252,6 +252,12 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 153  | CAP-01   | Product agent/skill catalogs and enablement                        | M7/X0      | 46,77,90,130,152                                                                                                                                                | None |
 | ✅  | 154  | CAP-02   | Agent/skill install and runtime materialization                    | M7/X1      | 153                                                                                                                                                             | None |
 | ✅  | 155  | CAP-03   | L1 skill evolution bridge to on-disk packages                      | M7/X2      | 77,154                                                                                                                                                          | None |
+| ☐   | 156  | CFG-01   | Profile/org policy layer SoT in Postgres                           | M8/Y0      | 22,152                                                                                                                                                          | None |
+| ☐   | 157  | CFG-02   | Quotas and mission-decide knobs in DB                              | M8/Y1      | 156                                                                                                                                                             | None |
+| ☐   | 158  | CFG-03   | Executor model rates and models in DB                              | M8/Y1      | 120,156                                                                                                                                                         | None |
+| ☐   | 159  | CFG-04   | L0 tunable effective-value read-path from promotions               | M8/Y1      | 74,156                                                                                                                                                          | None |
+| ☐   | 160  | CFG-05   | Opportunity scoring config versions in DB                          | M8/Y2      | 100,156                                                                                                                                                         | None |
+| ☐   | 161  | CAP-04   | Packaging catalogs and enablement in Postgres                      | M8/Y3      | 153,154,155,156                                                                                                                                                 | None |
 
 ### D-P1 — Milestone dependencies
 
@@ -268,6 +274,7 @@ flowchart TD
     M1R --> M5[M5 Tasks 100-140<br/>Runtime Convergence and Real-World Proof]
     M5 --> M6[M6 Tasks 141-152<br/>Authoritative Runtime Closure and V1 Proof]
     M6 --> M7[M7 Tasks 153-155<br/>Product Capability Packaging]
+    M7 --> M8[M8 Tasks 156-161<br/>Operator-hot Config SoT]
     A -.parallel, independent gates.- B
 ```
 
@@ -981,7 +988,7 @@ reviewer-independence.md` requires — **this task remains pending that real gat
 - **Outputs:** backup/restore scripts; drill script; exit report; tag.
 - **Acceptance:** M1 exit checklist all green: `make e2e-github`, WebAuthn gate e2e, notify soak, `projection rebuild`, audit chain verify (writer from 0008 + `foundry audit verify`), brownout drill.
 - **Validation:** `make m1-exit` (meta-target chaining the above).
-- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ✅ 2026-07-25 — Docker/Postgres/Temporal all live and reachable this session (unlike Tasks 2/4/8/12–33's repeated blocker). Built `scripts/backup.sh`/`scripts/restore.sh` (pg_dump custom format + evidence tar, checksummed manifest; restore verifies file-integrity checksums BEFORE touching any database, restores into a scratch DB, and checks row counts + `foundry audit verify` against the backup-time manifest — not `pg_restore`'s bare exit code, which this session found is _not_ trustworthy alone here: this dev image's client tools are Postgres 17.10 against a pinned 16.14 server, so `pg_restore` reports one ignored `SET transaction_timeout` error and a nonzero exit even when every table/row restores correctly, verified directly via `\dt`+row counts). Built `test/drill/backup_restore_e2e.sh` (`make drill-backup-restore`): run a real plan through a real `foundryd`+Temporal worker against an isolated `foundry_drill` database → poll (deterministically) until RUNNING → backup mid-flight → let the workflow reach SUCCEEDED (proves a live backup doesn't disrupt a running workflow) → second backup → **real `DROP DATABASE foundry_drill`** → restore both backups into fresh scratch DBs → the final-backup restore shows `status: SUCCEEDED`/`temporal_status: Completed` via `foundry status --fresh` against the same still-running Temporal (proving Temporal's own execution record survives the app-DB destroy/restore untouched) and the mid-flight restore reproduces its exact backup-time row count (proving the live snapshot wasn't torn) — run live twice, both green, cleanup trap confirmed leaving zero scratch/drill databases behind. decision (qa-testing anti-flakiness): "workflow continues" is proven via these two non-timing-dependent properties rather than racing a live mid-activity outage against `internal/kernel/workflow.go`'s tight retry budget (3 attempts, ~1s/2s backoff) — reliably landing a real dropdb+restore inside that window would be a flaky test per `.ai/skills/qa-testing/SKILL.md`, and retuning kernel retry policy is go-kernel authority outside this task's Exec role anyway. Built `internal/provenance.VerifyAuditChain` + `foundry audit verify` (the card's own Acceptance names this command; it didn't exist before — only the Task 20/24 writer did) — **found and fixed a real bug** while building its gated live tests: `AppendAuditRow` hashed the caller's pre-insert payload bytes, but Postgres's `jsonb` column re-serializes JSON on write (`{"n":1}` → `{"n": 1}`), so re-hashing bytes read back at verify time could never match — every row would report tampered even when untouched; fixed by canonicalizing via `SELECT $1::jsonb` before hashing (see `internal/provenance/audit.go`). `go test ./internal/provenance/... -race` green (29 tests) against a real Postgres, including 4 new gated tests (empty chain OK, untampered chain verifies, payload-tamper detected at the right seq, deleted-row broken-link detected at the right seq). Filled in the previously-stubbed `projection-rebuild` Make target (`test/projection_rebuild_e2e.sh`) — **found and fixed** a second real bug in that script (unrelated to `internal/projection` itself): it applied migrations via raw `psql -f`, which runs each goose-annotated file's Up _and_ Down sections back-to-back, undoing its own `CREATE TABLE`s; fixed to use `cmd/foundry migrate up` (the form `test/projection_rollout_e2e.sh`/Task 38 already used and documented, but this older Task-14 sibling script had never been run live before to surface the mismatch). **Re-ran live in this session** (not merely cited): `make e2e-github` (PASS), WebAuthn step-up e2e (PASS), notify soak (PASSED, 5000 events zero P0 drops), brownout drill (PASSED) — all independently reproduce Tasks 25/27/30/33's own Status-line claims. **`make projection-rebuild` — genuine, reproducible FAIL, reported not hidden**: the checksum-reproducibility half of Task 14's Acceptance passes live (drop→rebuild→identical checksum, verified), but the out-of-order/duplicate-seq idempotency-guard half fails live — `internal/projection`'s `upsertProjectionSQL` guards purely on seq monotonicity (`WHERE ...last_seq < EXCLUDED.last_seq`), so a stale transition re-appended at a later seq regresses the projected phase, contradicting that SQL's own doc comment. Full repro/root-cause/recommendation in `docs/notes/m1-exit-report.md`; not fixed here (design decision belonging to go-backend/Task 14's owner, this task's Exec role is integration, and this task touched zero lines of `internal/projection`). Consequently **`make m1-exit` itself currently fails** at the `projection-rebuild` step (confirmed: `make[1]: *** [projection-rebuild] Error 1`) — recorded honestly per Constitution C10 rather than declared green; every other chained step (e2e-github, WebAuthn, soak, audit verify, brownout, backup-restore drill) is independently green. **Self-caused-and-repaired incident, disclosed in full**: this task's _first_ (pre-fix) run of the buggy `psql -f` form of `test/projection_rebuild_e2e.sh` really dropped `workflow_transitions`/`leases`/`receipts`/`workflow_status_projection`/`projection_offsets`/`projection_checksum()` from the shared, live `foundry` database (losing Task 38's ~40 seeded `workflow_transitions` rows; `approved_plans`/`audit_log` were already 0 rows per this task's own backup manifest, so nothing lost there); repaired live in the same session via the migrations' own idempotent `CREATE TABLE IF NOT EXISTS`/`CREATE OR REPLACE FUNCTION` DDL, confirmed fully restored (`\dt` + `SELECT projection_checksum()`), and all validation in this Status line ran after that repair. Working tree note: a second, concurrent agent session was confirmed actively developing Task 40 (`internal/mission`, migration `00012_missions.sql`) in this same tree against this same Postgres throughout this task — `internal/mission/*`, `00012_missions.sql`, and `cmd/foundry/mission.go` were read-only for this task the entire time, per explicit instruction. **Tag `v0.2.0-foundation` deliberately DEFERRED, not created** — this session's working tree has 130+ uncommitted files across Tasks 3–38 plus the concurrent Task 40 work; nothing is committed yet, so tagging now would bind the tag to an arbitrary `HEAD` that does not represent the M1-complete state. Deferred to whichever session/decision commits this work (smallest-reversible choice, no-gaps rule) — not an oversight. Full walkthrough of all 7 exit-checklist rows, every fix, and the incident report: `docs/notes/m1-exit-report.md`.
+- **Risk:** Med · **Exec:** integration · **Rev:** R2 · **Status:** ✅ 2026-07-25 — Docker/Postgres/Temporal all live and reachable this session (unlike Tasks 2/4/8/12–33's repeated blocker). Built `scripts/backup.sh`/`scripts/restore.sh` (pg*dump custom format + evidence tar, checksummed manifest; restore verifies file-integrity checksums BEFORE touching any database, restores into a scratch DB, and checks row counts + `foundry audit verify` against the backup-time manifest — not `pg_restore`'s bare exit code, which this session found is \_not* trustworthy alone here: this dev image's client tools are Postgres 17.10 against a pinned 16.14 server, so `pg_restore` reports one ignored `SET transaction_timeout` error and a nonzero exit even when every table/row restores correctly, verified directly via `\dt`+row counts). Built `test/drill/backup_restore_e2e.sh` (`make drill-backup-restore`): run a real plan through a real `foundryd`+Temporal worker against an isolated `foundry_drill` database → poll (deterministically) until RUNNING → backup mid-flight → let the workflow reach SUCCEEDED (proves a live backup doesn't disrupt a running workflow) → second backup → **real `DROP DATABASE foundry_drill`** → restore both backups into fresh scratch DBs → the final-backup restore shows `status: SUCCEEDED`/`temporal_status: Completed` via `foundry status --fresh` against the same still-running Temporal (proving Temporal's own execution record survives the app-DB destroy/restore untouched) and the mid-flight restore reproduces its exact backup-time row count (proving the live snapshot wasn't torn) — run live twice, both green, cleanup trap confirmed leaving zero scratch/drill databases behind. decision (qa-testing anti-flakiness): "workflow continues" is proven via these two non-timing-dependent properties rather than racing a live mid-activity outage against `internal/kernel/workflow.go`'s tight retry budget (3 attempts, ~1s/2s backoff) — reliably landing a real dropdb+restore inside that window would be a flaky test per `.ai/skills/qa-testing/SKILL.md`, and retuning kernel retry policy is go-kernel authority outside this task's Exec role anyway. Built `internal/provenance.VerifyAuditChain` + `foundry audit verify` (the card's own Acceptance names this command; it didn't exist before — only the Task 20/24 writer did) — **found and fixed a real bug** while building its gated live tests: `AppendAuditRow` hashed the caller's pre-insert payload bytes, but Postgres's `jsonb` column re-serializes JSON on write (`{"n":1}` → `{"n": 1}`), so re-hashing bytes read back at verify time could never match — every row would report tampered even when untouched; fixed by canonicalizing via `SELECT $1::jsonb` before hashing (see `internal/provenance/audit.go`). `go test ./internal/provenance/... -race` green (29 tests) against a real Postgres, including 4 new gated tests (empty chain OK, untampered chain verifies, payload-tamper detected at the right seq, deleted-row broken-link detected at the right seq). Filled in the previously-stubbed `projection-rebuild` Make target (`test/projection_rebuild_e2e.sh`) — **found and fixed** a second real bug in that script (unrelated to `internal/projection` itself): it applied migrations via raw `psql -f`, which runs each goose-annotated file's Up _and_ Down sections back-to-back, undoing its own `CREATE TABLE`s; fixed to use `cmd/foundry migrate up` (the form `test/projection_rollout_e2e.sh`/Task 38 already used and documented, but this older Task-14 sibling script had never been run live before to surface the mismatch). **Re-ran live in this session** (not merely cited): `make e2e-github` (PASS), WebAuthn step-up e2e (PASS), notify soak (PASSED, 5000 events zero P0 drops), brownout drill (PASSED) — all independently reproduce Tasks 25/27/30/33's own Status-line claims. **`make projection-rebuild` — genuine, reproducible FAIL, reported not hidden**: the checksum-reproducibility half of Task 14's Acceptance passes live (drop→rebuild→identical checksum, verified), but the out-of-order/duplicate-seq idempotency-guard half fails live — `internal/projection`'s `upsertProjectionSQL` guards purely on seq monotonicity (`WHERE ...last_seq < EXCLUDED.last_seq`), so a stale transition re-appended at a later seq regresses the projected phase, contradicting that SQL's own doc comment. Full repro/root-cause/recommendation in `docs/notes/m1-exit-report.md`; not fixed here (design decision belonging to go-backend/Task 14's owner, this task's Exec role is integration, and this task touched zero lines of `internal/projection`). Consequently **`make m1-exit` itself currently fails** at the `projection-rebuild` step (confirmed: `make[1]: *** [projection-rebuild] Error 1`) — recorded honestly per Constitution C10 rather than declared green; every other chained step (e2e-github, WebAuthn, soak, audit verify, brownout, backup-restore drill) is independently green. **Self-caused-and-repaired incident, disclosed in full**: this task's _first_ (pre-fix) run of the buggy `psql -f` form of `test/projection_rebuild_e2e.sh` really dropped `workflow_transitions`/`leases`/`receipts`/`workflow_status_projection`/`projection_offsets`/`projection_checksum()` from the shared, live `foundry` database (losing Task 38's ~40 seeded `workflow_transitions` rows; `approved_plans`/`audit_log` were already 0 rows per this task's own backup manifest, so nothing lost there); repaired live in the same session via the migrations' own idempotent `CREATE TABLE IF NOT EXISTS`/`CREATE OR REPLACE FUNCTION` DDL, confirmed fully restored (`\dt` + `SELECT projection_checksum()`), and all validation in this Status line ran after that repair. Working tree note: a second, concurrent agent session was confirmed actively developing Task 40 (`internal/mission`, migration `00012_missions.sql`) in this same tree against this same Postgres throughout this task — `internal/mission/*`, `00012_missions.sql`, and `cmd/foundry/mission.go` were read-only for this task the entire time, per explicit instruction. **Tag `v0.2.0-foundation` deliberately DEFERRED, not created** — this session's working tree has 130+ uncommitted files across Tasks 3–38 plus the concurrent Task 40 work; nothing is committed yet, so tagging now would bind the tag to an arbitrary `HEAD` that does not represent the M1-complete state. Deferred to whichever session/decision commits this work (smallest-reversible choice, no-gaps rule) — not an oversight. Full walkthrough of all 7 exit-checklist rows, every fix, and the incident report: `docs/notes/m1-exit-report.md`.
   **Correctness-fix follow-up (2026-07-26, go-backend): `make m1-exit` now genuinely passes.** This task's own finding above (out-of-order/duplicate-seq idempotency guard regressing `phase`) was fixed by go-backend per this finding's own recommendation (a) — guard `upsertProjectionSQL`/`upsertProjectionShadowSQL` on the semantically-ordered `(occurred_at, last_seq)` tuple instead of `last_seq` alone; migration `internal/db/migrations/00013_projection_occurred_at.sql` adds the backing column. Full root-cause/decision recorded on Task 14's and Task 38's Status-line addenda above. Re-ran, live, in this follow-up session (Docker/Postgres/Temporal all reachable): `bash test/projection_rebuild_e2e.sh` — this exact script, with its exact original fixture (stale wf-a redelivery at the highest seq) — now passes: `projection_rebuild_e2e: OK (checksum ...)`, wf-a correctly projects `executing`, not the stale `acquiring-worktree`. `go test ./internal/projection/... -race` green (12 tests, including new `TestProjector_StaleContentAtNewHigherSeq_RealPostgres` reproducing this exact bug and `TestProjector_Idempotency_RealPostgres`/`TestRollout_RealPostgres_LiveLoadLosesZeroUpdates` unaffected). `bash test/projection_rollout_e2e.sh` (Task 38) still green, zero updates lost. Repo-wide `go build ./...` clean; `go test ./...` green except the same pre-existing, unrelated, already-documented `internal/executor.TestRunSubprocess_TimeoutKillsProcessGroup` failure (Task 37/38/40's own Status lines; untouched package, not this fix's concern); `make fitness` green (all steps a–g). **`make m1-exit` run end-to-end, exit code 0**: `make e2e-github` PASS, WebAuthn step-up e2e PASS, notify soak PASSED (5000 events, 0 P0 drops), `make projection-rebuild` now PASS (previously the sole failing step), `foundry audit verify` PASS (0 rows), `make drill-brownout` PASSED, `make drill-backup-restore` OK (backup→destroy→restore→workflow continues, Temporal execution record + restored Postgres both confirm SUCCEEDED). M1 exit checklist is now all-green for real, not self-reported around a known failure. Tag `v0.2.0-foundation` remains deliberately deferred (unchanged reasoning: nothing in this working tree is committed yet) — that decision belongs to whichever session commits this work, not to this fix.
 
 ---
@@ -5237,7 +5244,7 @@ every Acceptance item are evidenced.
   adjudication; personal and 10x acceleration evaluation; final matrix/index/report/verdict and exact gap recording.
 - **Out of scope:** production implementation; fixing a failed bar; threshold changes; evidence fabrication;
   excluding inconvenient cases without predeclared rules; synthetic cases; upward rounding; rewriting Task 136;
-  self-review. Remediation becomes Task 156+.
+  self-review. Remediation becomes Task 162+.
 - **Steps:** (1) Run topology/card/status/output-overlap checks before loading credentials. (2) Verify Task 151's
   protected jobs were non-skipped and all manifests/raw references/audit chains resolve. (3) independently replay or
   inspect all thirty evidence bars and record command/artifact/reviewer per row. (4) evaluate ≥3 comparable control
@@ -5273,8 +5280,8 @@ every Acceptance item are evidenced.
   `evidence/v1-final-gate/`.
 - **Risk:** High · **Exec:** security-review · **Rev:** R4 · **Boundary:** adjudication only; no implementation,
   threshold change, evidence fabrication or self-review. Any failed bar preserves the prior measured area score and
-  requires Task 156+.
-- **Status:** ✅ 2026-08-02 — Adjudicated **BLOCKED / INSUFFICIENT_DATA**. Task 136 historical PARTIAL unchanged. Verdict: docs/notes/v1-final-evidence-gate.md. No bar waived; live bars blocked on credentials. M6 exit (PASS) not met — remediation is Task 156+.
+  requires Task 162+.
+- **Status:** ✅ 2026-08-02 — Adjudicated **BLOCKED / INSUFFICIENT_DATA**. Task 136 historical PARTIAL unchanged. Verdict: docs/notes/v1-final-evidence-gate.md. No bar waived; live bars blocked on credentials. M6 exit (PASS) not met — remediation is Task 162+.
 
 ### W.2 — M6 exit and rollback contract
 
@@ -5480,6 +5487,118 @@ granting SCM/deploy authority.
 
 ---
 
+## Y. Milestone M8 — Operator-hot Config SoT in Postgres (Tasks 156–161)
+
+**Purpose.** Move operator-configurable knobs from YAML-as-SoT to **Postgres as SoT**, applied only via propose → Approvals → kernel apply. Security ceilings, topology, and rare-change manifests stay YAML. Agent/skill **catalogs and enablement** are included in the DB SoT (owner decision 2026-08-05), with fail-closed validate and content pins because DB-authored catalogs raise supply-chain risk vs FS+PR.
+
+**Stay YAML (not these cards):** `config/policy/platform.yaml` + rego; sandbox/validation/signal allowlists; `executor-capabilities`; routing preference _lists_ (weights via L0 values); `queue-priority`; opportunity research domains/markers; tunables **bounds**; retention class defs; effect-mapping / spec-defaults / synthetic floors / benchmark-targets; deploy/CI/openapi/`.ai`/fixtures.
+
+**Postgres SoT (these cards):** profile/org LayerPolicy; quotas; mission-decide knobs; model rates + models; opportunity scoring weights (+ research numeric caps); L0 tunable _values_; agent/skill catalog rows; packaging enablement (enabled ⊆ catalog).
+
+**Authority:** UI/table edit never writes live config. Path is always propose → Approvals → admission/kernel apply into Postgres. No ungated browser write.
+
+**Non-goals:** operator production web UI productization (§Q still defers the shipped UI; mockups under `docs/mockups/` are non-normative); migrating platform ceilings into DB; OpenHands/9Router management plane; marketplace; L2–L4 / org-wide auto-promote; fifth image / second compose file.
+
+**Exit:** Task 161 ✅ with seed+read paths for catalogs/enablement from Postgres, install reading DB SoT, and CFG-01…05 effective reads proven under propose→apply — without loosening platform YAML ceilings or widening `executor_allowlist` on install.
+
+### Task 156 (CFG-01) — Profile/org policy layer SoT in Postgres
+
+- **Goal:** Persist profile and org LayerPolicy overlays in Postgres as the operator-hot SoT, seeded from existing profile YAML, while platform policy + rego remain YAML tighten-only ceilings.
+- **Rationale:** Operators need auditable raise/tighten of org/profile layers without editing repo YAML. Platform ceilings must stay file-pinned so a DB row cannot loosen C4/C11/C24 floors.
+- **Depends:** 22, 152 · **Governing docs:** C4, C11, C14, C24; `docs/foundry/docs/architecture/authority-model.md`; policy compiler (Task 22).
+- **Scope:** migration(s) for versioned profile/org layer policy rows; seed from current profile YAML; read path that compiles effective policy as platform(YAML) ∩ org(DB) ∩ profile(DB) with tighten-only vs platform; propose→Approvals→apply write path (kernel-owned apply); CLI/API read of effective + winning layer; unit tests for loosen-platform rejection.
+- **Out of scope:** editing platform.yaml/rego via DB; quotas (157); rates/models (158); tunables values (159); opportunity weights (160); packaging catalogs (161); operator UI product.
+- **Steps:** (1) Schema for layer policy versions + digest. (2) Seed importer from profile YAML. (3) Effective-read compiler path. (4) Apply activity only after approved proposal. (5) Negative: proposal that loosens platform ceiling fails admission. (6) Tests + evidence.
+- **Outputs:** migrations; `internal/**` policy-layer store + effective reader; seed tool/fixture; tests; `evidence/task-156/`.
+- **Interfaces/DB:** new tables for org/profile layer policy; platform remains files; no scm/write.
+- **Acceptance:** (1) seed matches prior YAML effective for fixtures; (2) platform still YAML SoT; (3) apply requires approval; (4) loosen-platform rejected; (5) audit row per apply; (6) no live ungated write API.
+- **Validation:** scoped `go test`; `make test lint fitness doclint`.
+- **Evidence:** seed digests, admission reject transcript, apply audit archived to `evidence/task-156/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** kernel applies only; UI proposes; platform ceilings immutable via this path.
+- **Status:** ☐ Not started
+
+### Task 157 (CFG-02) — Quotas and mission-decide knobs in DB
+
+- **Goal:** Move operator-hot quota and mission-decide numeric/boolean knobs into Postgres with audited raise/tighten; keep self-classify=false and other platform floors enforced.
+- **Rationale:** Quota and decide-policy knobs change with operations; file edits are the wrong SoT for day-2 ops once Approvals exist.
+- **Depends:** 156 · **Governing docs:** C4, C6; mission observe/decide (Task 50); quotas (Task 65).
+- **Scope:** tables for quotas + mission-decide knobs; seed from `config/quotas.yaml` / `config/mission-decide-policy.yaml` operator-hot keys; effective read used by kernel/mission; propose→apply; refuse proposals that set `self_classify=true` or otherwise violate C6 floors documented as platform-owned.
+- **Out of scope:** sandbox allowlists; queue-priority topology; platform policy files; packaging (161).
+- **Steps:** (1) Split hot knobs vs stay-YAML keys in docs note. (2) Migrate+seed. (3) Wire readers. (4) Approval apply. (5) Tests for floor violations.
+- **Outputs:** migrations; store/readers; seed; tests; `evidence/task-157/`.
+- **Interfaces/DB:** quota + mission-decide tables; YAML retained only for non-hot keys if any.
+- **Acceptance:** (1) hot knobs read from DB; (2) raise/tighten audited; (3) C6 floor keys not writable to true/loosen; (4) propose→apply only.
+- **Validation:** scoped `go test`; `make test lint fitness doclint`.
+- **Evidence:** before/after knobs + reject cases in `evidence/task-157/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
+- **Status:** ☐ Not started
+
+### Task 158 (CFG-03) — Executor model rates and models in DB
+
+- **Goal:** Version model rate cards and eligible model rows in Postgres as SoT for cost reconciliation, seeded from current rate/model config.
+- **Rationale:** Rates change without code; versioned DB rows give audit + rollback vs editing YAML in-tree.
+- **Depends:** 120, 156 · **Governing docs:** C4; cost ledger / reconciliation (Task 120).
+- **Scope:** versioned rates + models tables; seed; effective rate lookup used by cost path; propose→apply new version; previous versions retained; tests for digest-bound reads.
+- **Out of scope:** executor-capabilities allowlist YAML; routing preference lists; sandbox egress.
+- **Steps:** (1) Schema+versioning. (2) Seed. (3) Cost reader cutover. (4) Apply new version. (5) Reconciliation fixture update.
+- **Outputs:** migrations; rates/models store; seed; tests; `evidence/task-158/`.
+- **Interfaces/DB:** rates/models tables; capabilities stay YAML.
+- **Acceptance:** (1) cost path uses DB rates; (2) versions immutable once applied; (3) propose→apply; (4) capabilities YAML untouched.
+- **Validation:** scoped `go test` incl. cost fixtures; `make test lint fitness doclint`.
+- **Evidence:** rate version digests in `evidence/task-158/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
+- **Status:** ☐ Not started
+
+### Task 159 (CFG-04) — L0 tunable effective-value read-path from promotions
+
+- **Goal:** Serve L0 tunable _effective values_ from promotions/DB while **bounds** remain YAML; operators propose value changes within bounds via Approvals.
+- **Rationale:** Task 74 already evolves tunables; operators need a clear SoT for current values without editing bound definitions.
+- **Depends:** 74, 156 · **Governing docs:** C20; evolve tunables pipeline.
+- **Scope:** effective-value read path (promotions → runtime); bounds stay in tunables YAML; reject out-of-bounds proposals; propose→apply for value updates that do not expand bounds; tests.
+- **Out of scope:** changing bound definitions via DB; L1–L4 skill promotion; routing preference list authorship.
+- **Steps:** (1) Document bounds-vs-values split. (2) Reader prefers promoted/DB value within YAML bounds. (3) Apply path. (4) Out-of-bounds reject tests.
+- **Outputs:** reader/store touchpoints; tests; docs note; `evidence/task-159/`.
+- **Interfaces/DB:** reuse/extend evolve promotions or dedicated values table; bounds files unchanged as SoT for limits.
+- **Acceptance:** (1) effective values from DB/promotions; (2) bounds YAML authoritative for limits; (3) out-of-bounds rejected; (4) propose→apply.
+- **Validation:** `go test ./internal/evolve/...` (+ related); `make test lint fitness doclint`.
+- **Evidence:** bound reject + apply transcripts in `evidence/task-159/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
+- **Status:** ☐ Not started
+
+### Task 160 (CFG-05) — Opportunity scoring config versions in DB
+
+- **Goal:** Version opportunity scoring weights (and research _numeric_ caps) in Postgres; domains/markers stay YAML; org path proposal-only where already required.
+- **Rationale:** Scoring weights are operator-hot and digest-bound; domains/markers are policy topology and must not be casually edited.
+- **Depends:** 100, 156 · **Governing docs:** C4; opportunity evaluation tasks (100+).
+- **Scope:** versioned scoring config table; seed from current weights; digest-bound reads; propose→apply; org proposal-only if profile requires; domains/markers remain YAML.
+- **Out of scope:** unattended portfolio discovery cron (§Q); changing research domain allowlists via DB.
+- **Steps:** (1) Schema+seed. (2) Cutover scorer read. (3) Apply versions. (4) Org proposal-only test. (5) Domains still file-only proof.
+- **Outputs:** migrations; store; seed; tests; `evidence/task-160/`.
+- **Interfaces/DB:** scoring config versions; research domain YAML unchanged.
+- **Acceptance:** (1) weights from DB versions; (2) domains YAML-only; (3) digest-bound; (4) propose→apply; (5) org proposal-only preserved.
+- **Validation:** scoped opportunity tests; `make test lint fitness doclint`.
+- **Evidence:** weight version digests in `evidence/task-160/`.
+- **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
+- **Status:** ☐ Not started
+
+### Task 161 (CAP-04) — Packaging catalogs and enablement in Postgres
+
+- **Goal:** Make agent/skill **catalog rows** and **packaging enablement** Postgres SoT (seed from CAP-01 YAML/FS); install/doctor (CAP-02) and L1 bridge (CAP-03) read DB; all mutations via propose→Approvals→apply with content pins and fail-closed validate.
+- **Rationale:** Owner override (2026-08-05): catalogs are operator-configurable in DB, not FS-only. Higher supply-chain risk than FS+PR requires propose→Approvals, sha256/content pins, reviewer≠implementer, and no `executor_allowlist` widen on install.
+- **Depends:** 153, 154, 155, 156 · **Governing docs:** C4, C5, C14, C24; ADR-001; authority-model §5.4; CAP-01–03.
+- **Scope:** tables for agent/skill catalog metadata + body or path+sha256; enablement per profile/product; seed from `agents/catalog.yaml` / `skills/catalog.yaml` + enable lists; validate enabled ⊆ catalog + reviewer≠implementer; cutover list/validate/install/doctor/L1 promote inputs to DB reads; propose add/edit catalog + propose enablement toggles; negative tests: ungated write absent, allowlist unchanged, invalid binding rejected.
+- **Out of scope:** OpenHands/9Router adapters; marketplace; org-wide auto-promote; L2–L4; migrating platform policy to DB; productizing operator UI.
+- **Steps:** (1) Schema + seed from FS catalogs/enable. (2) Packaging readers prefer DB. (3) Propose/apply for catalog upsert + enablement. (4) CAP-02/03 paths consume DB. (5) Supply-chain negatives + evidence. (6) Fitness note: DB catalog ≠ executor allowlist.
+- **Outputs:** migrations; packaging DB store; seed; updated CAP-01/02/03 call sites; tests/e2e; `evidence/task-161/`.
+- **Interfaces/DB:** catalog + enablement tables; FS YAML may remain import/export seed only after cutover.
+- **Acceptance:** (1) install reads DB catalog∩enable; (2) seed deterministic; (3) propose→apply only; (4) validate fail-closed; (5) reviewer≠implementer; (6) no allowlist widen; (7) content pins enforced; (8) ADR-001 unchanged.
+- **Validation:** packaging + evolve tests; `bash test/e2e/product_packaging/run.sh` (updated); `make test lint fitness doclint`.
+- **Evidence:** seed digests, propose/apply audit, doctor after DB install in `evidence/task-161/`.
+- **Risk:** High · **Exec:** go-kernel + go-backend + integration · **Rev:** **R3** · **Boundary:** catalogs grant no SCM/deploy authority; kernel still owns side effects; UI proposes only.
+- **Status:** ☐ Not started
+
+---
+
 ## K. Execution waves (global)
 
 ### D-P6 — Execution waves
@@ -5507,6 +5626,7 @@ flowchart TD
     M1RW --> M5W[M5: Tasks 100-140<br/>authoritative Kahn layers in §V.3]
     M5W --> M6W[M6: Tasks 141-152<br/>authoritative Kahn layers in §W.3]
     M6W --> M7W[M7: Tasks 153-155<br/>Product Capability Packaging §X]
+    M7W --> M8W[M8: Tasks 156-161<br/>Operator-hot Config SoT §Y]
 ```
 
 ## L. Critical path
@@ -5564,11 +5684,13 @@ L2–L4 auto-promotion (human-gated standing rule) · org-wide skill promotion �
 
 **M7 thin packaging (Tasks 153–155) is not deferred:** Foundry-owned agent/skill catalogs, product `.foundry/skills/enabled.yaml`, install/materialization into the default executor runtime, and the bounded personal L1→disk bridge are tasked in §X. Org-wide skill auto-promotion, L2–L4 auto-promotion, Backstage-style catalog UI, and the full plugin marketplace remain deferred in this section.
 
+**M8 operator-hot config SoT (Tasks 156–161) is not deferred:** profile/org LayerPolicy, quotas, mission-decide knobs, model rates/models, L0 tunable values, opportunity scoring weights, and packaging catalogs+enablement move to Postgres under propose→Approvals→apply (§Y). Platform policy/rego, sandbox/validation allowlists, executor-capabilities, queue topology, research domains/markers, and tunables **bounds** stay YAML. A non-normative operator console mockup may illustrate tables; the shipped operator web UI remains deferred below.
+
 **Noted from the loop-engineering comparison against Claude Code's own loop taxonomy (`claude.com/blog/getting-started-with-loops`) — deliberately deferred until after Task 83, not dropped:**
 
 - **Cost-tiered model routing as its own explicit practice** — route mundane/repetitive loop steps to smaller/faster models, reserve the most capable model for judgment calls (the blog names this explicitly for proactive loops). Foundry's routing infrastructure (`docs/foundry/docs/providers/provider-execution-classes.md`, routing weights referenced in Task 74) already supports this; it just isn't yet _specified_ as its own enforced tiering rule. Natural home: extend Task 30 (Foundation) or Task 79 (EVO-06 provider breadth), once real usage data exists to tier against.
 - **Plain PLAN.md → PR path** — the simplest general-purpose workflow (no venture specifics, no 10x-branch specifics; `docs/foundry/docs/workflows/direct-plan.md`'s N17.1), sitting below both Track A and Track B in complexity. Everything underneath it already exists once the Foundation ships (worktree, build, verify, evidence, push — Tasks 1–39); only the PR-opening step is missing. Natural home: a small extension to Task 27 (FND-08, GitHub SCM adapter) rather than a new numbered task.
-- **Operator web UI** — a browser dashboard for missions, plans, and approval history, instead of CLI + Telegram alone. Deliberately deferred, not missing: Task 36 already makes the REST API the source of truth (`api/openapi.yaml`), with the CLI as just one client of it — a future UI is another client of that _same_ API, touching none of the kernel/authority code. Low-risk bolt-on, safe to add whenever the CLI+Telegram combination stops being enough. Depends only on Task 36 existing.
+- **Operator web UI** — a browser dashboard for missions, plans, and approval history, instead of CLI + Telegram alone. Deliberately deferred, not missing: Task 36 already makes the REST API the source of truth (`api/openapi.yaml`), with the CLI as just one client of it — a future UI is another client of that _same_ API, touching none of the kernel/authority code. Low-risk bolt-on, safe to add whenever the CLI+Telegram combination stops being enough. Depends only on Task 36 existing. Non-normative mockups under `docs/mockups/operator-console/` (including M8 YAML-vs-DB table editors) are design artifacts only and do not ship the UI.
 
 Rationale for deferring all three: none of them block Tasks 1–83, and adding any now risks the exact accretion pattern the original V11→V12 review flagged — new capability bolted on before the foundation it depends on is proven. Revisit once the Shared Kernel Proof (Task 19 exit) and Foundation (Task 39 exit) are real, not hypothetical.
 

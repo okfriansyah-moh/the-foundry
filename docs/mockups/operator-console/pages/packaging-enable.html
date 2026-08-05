@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enablement · Packaging · Delivery Foundry</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="packaging-enable" data-root="..">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark">Delivery Foundry</span>
+          <span class="brand-sub">Operator</span>
+        </a>
+        <span class="badge-mock">Mockup</span>
+        <div class="topbar-meta"></div>
+      </header>
+      <nav class="mobile-nav">
+        <a data-nav="overview" href="../index.html">Overview</a>
+        <a data-nav="process" href="process.html">Process</a>
+        <a data-nav="approvals" href="approvals.html">Approvals</a>
+        <a data-nav="missions" href="missions.html">Missions</a>
+        <a data-nav="config" href="config.html">Config</a>
+      </nav>
+      <aside class="sidebar">
+        <div class="nav-label">Control plane</div>
+        <a class="nav-item" data-nav="overview" href="../index.html"
+          >Overview</a
+        >
+        <a class="nav-item" data-nav="process" href="process.html">Process</a>
+        <a class="nav-item" data-nav="approvals" href="approvals.html"
+          >Approvals <span class="count">0</span></a
+        >
+        <a class="nav-item" data-nav="missions" href="missions.html"
+          >Missions</a
+        >
+        <div class="nav-label">Governance</div>
+        <a class="nav-item" data-nav="config" href="config.html">Config</a>
+        <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+        <a class="nav-item" data-nav="evidence" href="evidence.html"
+          >Evidence</a
+        >
+        <a class="nav-item" data-nav="profiles" href="profiles.html"
+          >Profiles</a
+        >
+        <div class="nav-foot"></div>
+      </aside>
+      <main class="main">
+        <div class="page-head">
+          <h1>Enablement</h1>
+          <p class="lede">
+            Per-process toggles against the DB catalog (CAP-04). Enabled must
+            stay ⊆ catalog. Propose → Approvals — no live write. Org 10x is a
+            stricter subset.
+          </p>
+          <p class="authority-note">
+            Switch deployment in the top bar to compare Venture vs Org 10x.
+          </p>
+        </div>
+
+        <nav class="pack-subnav" aria-label="Packaging sections">
+          <a href="packaging.html">Overview</a>
+          <a href="packaging-catalog.html">Catalog</a>
+          <a class="active" href="packaging-enable.html">Enablement</a>
+          <a href="packaging-install.html">Install</a>
+          <a href="packaging-evolve.html">L1 evolve</a>
+        </nav>
+
+        <div class="panel-head" style="margin-bottom: 0.75rem">
+          <h2 id="enable-title">Enabled for this process</h2>
+          <div class="actions">
+            <button
+              type="button"
+              class="btn btn-primary"
+              data-action="propose-enable-toggles"
+              id="propose-enable"
+              disabled
+            >
+              Propose enablement
+            </button>
+            <button
+              type="button"
+              class="btn btn-ghost"
+              data-action="packaging-validate"
+            >
+              Validate
+            </button>
+          </div>
+        </div>
+        <p class="mono" id="validate-result" style="margin-bottom: 1rem">—</p>
+
+        <div class="grid-2">
+          <section class="panel">
+            <div class="panel-head"><h2>Agents</h2></div>
+            <div class="panel-body pad toggle-list" id="agents-enabled"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Skills</h2></div>
+            <div class="panel-body pad toggle-list" id="skills-enabled"></div>
+          </section>
+        </div>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head"><h2>Domain skills</h2></div>
+          <div class="panel-body pad toggle-list" id="domain-enabled"></div>
+        </section>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head"><h2>Projected enable set</h2></div>
+          <div class="panel-body pad">
+            <pre
+              class="code-block"
+              id="yaml-preview"
+              aria-label="enablement projection"
+            ></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/app.js"></script>
+    <script>
+      (function () {
+        const M = FoundryMock;
+        const en = M.packagingForActive();
+        const enabledAgents = new Set(en.agents);
+        const enabledSkills = new Set(en.skills);
+        const enabledDomain = new Set(en.domain_skills);
+        const propose = document.getElementById("propose-enable");
+
+        document.getElementById("enable-title").textContent =
+          "Enabled · " + M.deployment().short;
+
+        function toggleRow(name, checked, group) {
+          const id = group + "-" + name;
+          return (
+            '<label class="toggle-row" for="' +
+            id +
+            '">' +
+            '<input type="checkbox" id="' +
+            id +
+            '" data-group="' +
+            group +
+            '" data-name="' +
+            name +
+            '"' +
+            (checked ? " checked" : "") +
+            " />" +
+            '<span class="mono">' +
+            name +
+            "</span>" +
+            "</label>"
+          );
+        }
+
+        document.getElementById("agents-enabled").innerHTML = M.agentCatalog
+          .map(function (a) {
+            return toggleRow(a.name, enabledAgents.has(a.name), "agents");
+          })
+          .join("");
+
+        const skills = M.skillCatalog.filter(function (s) {
+          return s.kind === "skill";
+        });
+        const domains = M.skillCatalog.filter(function (s) {
+          return s.kind === "domain";
+        });
+
+        document.getElementById("skills-enabled").innerHTML = skills
+          .map(function (s) {
+            return toggleRow(s.name, enabledSkills.has(s.name), "skills");
+          })
+          .join("");
+        document.getElementById("domain-enabled").innerHTML = domains
+          .map(function (s) {
+            return toggleRow(s.name, enabledDomain.has(s.name), "domain");
+          })
+          .join("");
+
+        function collect(group) {
+          return Array.prototype.slice
+            .call(
+              document.querySelectorAll(
+                'input[data-group="' + group + '"]:checked',
+              ),
+            )
+            .map(function (el) {
+              return el.getAttribute("data-name");
+            });
+        }
+
+        function refreshPreview() {
+          const agents = collect("agents");
+          const sk = collect("skills");
+          const dom = collect("domain");
+          document.getElementById("yaml-preview").textContent =
+            "# projected enablement for " +
+            M.activeProfile +
+            " (DB SoT; not live write)\n" +
+            "agents:\n" +
+            agents
+              .map(function (a) {
+                return "  - " + a;
+              })
+              .join("\n") +
+            "\n" +
+            "skills:\n" +
+            sk
+              .map(function (a) {
+                return "  - " + a;
+              })
+              .join("\n") +
+            "\n" +
+            "domain_skills:\n" +
+            dom
+              .map(function (a) {
+                return "  - " + a;
+              })
+              .join("\n") +
+            "\n";
+        }
+
+        document.querySelectorAll(".toggle-list").forEach(function (el) {
+          el.addEventListener("change", function () {
+            propose.disabled = false;
+            refreshPreview();
+          });
+        });
+
+        refreshPreview();
+
+        const r = M.validatePackaging();
+        const vr = document.getElementById("validate-result");
+        vr.textContent = r.message;
+        vr.className = r.ok ? "verify-ok mono" : "verify-fail mono";
+      })();
+    </script>
+  </body>
+</html>

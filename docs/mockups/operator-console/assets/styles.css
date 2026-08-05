@@ -45,7 +45,8 @@
   --nav-w: 232px;
   --top-h: 56px;
   --ease: 200ms ease-out;
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-sm:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
   --space: 8px;
 }
@@ -294,7 +295,10 @@ a:hover {
   font-size: 0.9375rem;
   border-left: 3px solid transparent;
   cursor: pointer;
-  transition: background var(--ease), color var(--ease), border-color var(--ease);
+  transition:
+    background var(--ease),
+    color var(--ease),
+    border-color var(--ease);
 }
 .nav-item:hover {
   background: var(--color-surface-2);
@@ -413,7 +417,10 @@ a:hover {
   color: inherit;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: border-color var(--ease), box-shadow var(--ease), transform var(--ease);
+  transition:
+    border-color var(--ease),
+    box-shadow var(--ease),
+    transform var(--ease);
 }
 .attention-item:hover {
   border-color: var(--color-border-strong);
@@ -699,7 +706,9 @@ table.data a.row-link:hover {
   color: inherit;
   text-decoration: none;
   cursor: pointer;
-  transition: border-color var(--ease), box-shadow var(--ease);
+  transition:
+    border-color var(--ease),
+    box-shadow var(--ease);
 }
 .wf-card:hover {
   border-color: var(--color-accent);
@@ -784,7 +793,10 @@ textarea {
   color: var(--color-foreground);
   cursor: pointer;
   text-decoration: none;
-  transition: background var(--ease), border-color var(--ease), box-shadow var(--ease);
+  transition:
+    background var(--ease),
+    border-color var(--ease),
+    box-shadow var(--ease);
 }
 .btn:hover {
   background: var(--color-surface-2);
@@ -975,7 +987,9 @@ textarea {
   min-height: 40px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--ease), color var(--ease);
+  transition:
+    background var(--ease),
+    color var(--ease);
 }
 .config-tree button:hover,
 .config-tree button.active {
@@ -1248,4 +1262,206 @@ textarea {
   border-color: #7dd3fc;
   background: var(--color-accent-soft);
   font-weight: 600;
+}
+
+/* —— Packaging (CAP-01–03) —— */
+.pack-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1.25rem;
+  padding: 0.35rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.pack-subnav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-muted-fg);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--ease),
+    color var(--ease);
+}
+.pack-subnav a:hover {
+  background: var(--color-surface-2);
+  color: var(--color-foreground);
+  text-decoration: none;
+}
+.pack-subnav a.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.pack-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--color-muted-fg);
+  font-size: 0.9rem;
+}
+.pack-steps li + li {
+  margin-top: 0.65rem;
+}
+.pack-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+.pack-actions .btn {
+  justify-content: center;
+  cursor: pointer;
+}
+.pack-dont {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--color-muted-fg);
+  font-size: 0.9rem;
+}
+.pack-dont li + li {
+  margin-top: 0.4rem;
+}
+.kv {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+}
+.kv > div {
+  display: grid;
+  gap: 0.2rem;
+}
+.kv dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-dim);
+}
+.kv dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.code-block {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  color: var(--color-foreground);
+  white-space: pre;
+}
+.chip-bad {
+  background: #fef2f2;
+  color: var(--color-destructive);
+  border: 1px solid #fecaca;
+}
+.chip-ok {
+  background: #f0fdf4;
+  color: var(--status-succeeded);
+  border: 1px solid #bbf7d0;
+}
+.chip-warn {
+  background: #fffbeb;
+  color: var(--status-waiting);
+  border: 1px solid #fde68a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-subnav a {
+    transition: none;
+  }
+}
+
+/* —— M8 config / packaging table editors —— */
+.sot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+.sot-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.sot-yaml {
+  background: var(--color-surface-2);
+  color: var(--color-muted-fg);
+  border: 1px solid var(--color-border);
+}
+.sot-db {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid #7dd3fc;
+}
+.editor-table .cell-input,
+.editor-table .cell-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font: inherit;
+  font-size: 0.875rem;
+}
+.editor-table .cell-input.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+}
+.editor-table .cell-input:focus,
+.editor-table .cell-select:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.editor-table tr.row-readonly {
+  background: var(--color-surface-2);
+}
+.toggle-list {
+  display: grid;
+  gap: 0.35rem;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.toggle-row:hover {
+  background: var(--color-surface-2);
+}
+.toggle-row input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.config-subnav {
+  margin-top: 0;
 }

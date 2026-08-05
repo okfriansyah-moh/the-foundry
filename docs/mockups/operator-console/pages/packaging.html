@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Packaging · Delivery Foundry</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="packaging" data-root="..">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark">Delivery Foundry</span>
+          <span class="brand-sub">Operator</span>
+        </a>
+        <span class="badge-mock">Mockup</span>
+        <div class="topbar-meta"></div>
+      </header>
+      <nav class="mobile-nav">
+        <a data-nav="overview" href="../index.html">Overview</a>
+        <a data-nav="process" href="process.html">Process</a>
+        <a data-nav="approvals" href="approvals.html">Approvals</a>
+        <a data-nav="missions" href="missions.html">Missions</a>
+        <a data-nav="config" href="config.html">Config</a>
+        <a data-nav="evidence" href="evidence.html">Evidence</a>
+      </nav>
+      <aside class="sidebar">
+        <div class="nav-label">Control plane</div>
+        <a class="nav-item" data-nav="overview" href="../index.html"
+          >Overview</a
+        >
+        <a class="nav-item" data-nav="process" href="process.html">Process</a>
+        <a class="nav-item" data-nav="approvals" href="approvals.html"
+          >Approvals <span class="count">0</span></a
+        >
+        <a class="nav-item" data-nav="missions" href="missions.html"
+          >Missions</a
+        >
+        <div class="nav-label">Governance</div>
+        <a class="nav-item" data-nav="config" href="config.html">Config</a>
+        <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+        <a class="nav-item" data-nav="evidence" href="evidence.html"
+          >Evidence</a
+        >
+        <a class="nav-item" data-nav="profiles" href="profiles.html"
+          >Profiles</a
+        >
+        <a class="nav-item" data-nav="intake" href="intake.html">Intake</a>
+        <div class="nav-foot"></div>
+      </aside>
+      <main class="main">
+        <div class="page-head">
+          <h1>Packaging</h1>
+          <p class="lede">
+            Foundry-owned agents and skills for this trust domain (Tasks
+            153–155, 161). Catalogs + enablement are Postgres SoT after CAP-04
+            (seeded from YAML); runtimes only receive materialized copies.
+            OpenHands / 9Router are not the management plane.
+          </p>
+          <p class="authority-note">
+            Enablement declares only — it grants no executor, SCM, or deploy
+            authority. Install cannot widen
+            <code class="mono">executor_allowlist</code>. Catalog edits go
+            through propose → Approvals.
+          </p>
+        </div>
+
+        <nav class="pack-subnav" aria-label="Packaging sections">
+          <a class="active" href="packaging.html">Overview</a>
+          <a href="packaging-catalog.html">Catalog</a>
+          <a href="packaging-enable.html">Enablement</a>
+          <a href="packaging-install.html">Install</a>
+          <a href="packaging-evolve.html">L1 evolve</a>
+        </nav>
+
+        <div class="attention" id="pack-metrics"></div>
+
+        <div class="grid-2" style="margin-top: 1rem">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>CAP pipeline</h2>
+            </div>
+            <div class="panel-body pad">
+              <ol class="pack-steps">
+                <li>
+                  <strong>153 Catalog + enable</strong> — platform catalogs;
+                  product
+                  <code class="mono">.foundry/skills/enabled.yaml</code>;
+                  validate (no materialize).
+                </li>
+                <li>
+                  <strong>154 Install</strong> — materialize enabled ∩ catalog
+                  into <code class="mono">claude-code</code>; doctor; fail
+                  closed.
+                </li>
+                <li>
+                  <strong>155 L1 → disk</strong> — personal promote/rollback;
+                  org proposal-only.
+                </li>
+              </ol>
+              <p class="muted" style="margin-top: 1rem; font-size: 0.85rem">
+                Skills are optional enrichment — IDEA / MOCKUP / PLAN entry
+                still works without product skills.
+              </p>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Validate (CAP-01)</h2>
+              <div class="actions">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  data-action="packaging-validate"
+                >
+                  Run validate
+                </button>
+              </div>
+            </div>
+            <div class="panel-body pad">
+              <p class="mono" id="validate-result">Not run</p>
+              <p class="muted" style="margin-top: 0.75rem; font-size: 0.85rem">
+                Checks: enabled ⊆ catalog · reviewer ≠ implementer · unknown
+                packages refuse install.
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head">
+            <h2>This product workspace</h2>
+            <div class="actions">
+              <a class="btn btn-ghost" href="packaging-enable.html"
+                >Edit enablement</a
+              >
+              <a class="btn btn-ghost" href="packaging-install.html"
+                >Install / doctor</a
+              >
+            </div>
+          </div>
+          <div class="panel-body pad" id="workspace-summary"></div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/app.js"></script>
+    <script>
+      (function () {
+        const M = FoundryMock;
+        const en = M.packagingForActive();
+        const dep = M.deployment();
+        const v = M.validatePackaging();
+
+        document.getElementById("pack-metrics").innerHTML =
+          '<div class="attention-item ' +
+          (v.ok ? "" : "danger") +
+          '">' +
+          '<div class="label">Validate</div><div class="value">' +
+          (v.ok ? "OK" : "FAIL") +
+          "</div>" +
+          '<div class="hint">enabled ⊆ catalog</div></div>' +
+          '<div class="attention-item">' +
+          '<div class="label">Agents enabled</div><div class="value">' +
+          en.agents.length +
+          "</div>" +
+          '<div class="hint">' +
+          dep.short +
+          " profile</div></div>" +
+          '<div class="attention-item">' +
+          '<div class="label">Skills + domain</div><div class="value">' +
+          (en.skills.length + en.domain_skills.length) +
+          "</div>" +
+          '<div class="hint">product local</div></div>' +
+          '<a class="attention-item ' +
+          (en.install.doctor === "ok" ? "" : "warn") +
+          '" href="packaging-install.html">' +
+          '<div class="label">Doctor</div><div class="value">' +
+          en.install.doctor.toUpperCase() +
+          "</div>" +
+          '<div class="hint">' +
+          en.install.provider +
+          "</div></a>";
+
+        document.getElementById("workspace-summary").innerHTML =
+          '<dl class="kv">' +
+          '<div><dt>Product enable file</dt><dd class="mono">' +
+          en.product_path +
+          "</dd></div>" +
+          '<div><dt>Profile enable lists</dt><dd class="mono">config/profiles/' +
+          M.activeProfile +
+          ".yaml</dd></div>" +
+          '<div><dt>Runtime target</dt><dd><span class="chip">' +
+          en.install.provider +
+          '</span> · status <span id="install-status" class="mono">' +
+          en.install.status +
+          "</span></dd></div>" +
+          '<div><dt>Materialization digest</dt><dd class="mono">' +
+          en.install.digest +
+          "</dd></div>" +
+          "</dl>";
+      })();
+    </script>
+  </body>
+</html>

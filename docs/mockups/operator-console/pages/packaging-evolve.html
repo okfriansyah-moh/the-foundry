@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L1 evolve · Packaging · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="packaging-evolve" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>L1 skill evolution</h1>
+        <p class="lede">Bridge Task 77 L1 promotions to versioned on-disk packages and catalog pins (CAP-03). Personal: auto-activate inside drift budget. Organization: proposal-only (H).</p>
+        <p class="authority-note">L2–L4 and org-wide skill auto-promotion stay deferred (§Q). Permission-expanding candidates fail the L1 gate.</p>
+      </div>
+
+      <nav class="pack-subnav" aria-label="Packaging sections">
+        <a href="packaging.html">Overview</a>
+        <a href="packaging-catalog.html">Catalog</a>
+        <a href="packaging-enable.html">Enablement</a>
+        <a href="packaging-install.html">Install</a>
+        <a class="active" href="packaging-evolve.html">L1 evolve</a>
+      </nav>
+
+      <div class="attention" id="evolve-banner"></div>
+
+      <section class="panel" style="margin-top:1rem">
+        <div class="panel-head">
+          <h2>Active versions</h2>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" data-action="packaging-promote">Promote (L1)</button>
+            <button type="button" class="btn btn-ghost" data-action="packaging-rollback">Rollback</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="evolve-table">
+            <thead>
+              <tr><th>Skill</th><th>Version</th><th>Previous</th><th>State</th><th>Content pin</th><th>Promoted</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="panel-body pad" id="evolve-empty" hidden>
+          <p class="muted">No active L1→disk promotions in this process. Org profiles typically show proposals instead.</p>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:1rem" id="proposals-panel" hidden>
+        <div class="panel-head"><h2>Org proposals (no auto-activate)</h2></div>
+        <div class="table-wrap">
+          <table class="data" id="proposals-table">
+            <thead>
+              <tr><th>Skill</th><th>Proposed</th><th>State</th><th>Reason</th><th>Created</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const en = M.packagingForActive();
+      const isOrg = M.activeProfile === "organization-10x";
+
+      document.getElementById("evolve-banner").innerHTML =
+        '<div class="attention-item ' + (isOrg ? "warn" : "") + '">' +
+        '<div class="label">Profile mode</div><div class="value" style="font-size:1.1rem">' +
+        (isOrg ? "Proposal-only" : "Personal L1") +
+        '</div><div class="hint">' + M.deployment().short + "</div></div>" +
+        '<div class="attention-item">' +
+        '<div class="label">Active versions</div><div class="value">' + en.evolve.length + '</div>' +
+        '<div class="hint">on-disk packages</div></div>' +
+        '<div class="attention-item">' +
+        '<div class="label">Pending proposals</div><div class="value">' + en.proposals.length + '</div>' +
+        '<div class="hint">org H path</div></div>' +
+        '<div class="attention-item">' +
+        '<div class="label">Drift</div><div class="value" style="font-size:1.1rem">C20</div>' +
+        '<div class="hint">freeze blocks promote</div></div>';
+
+      const tb = document.querySelector("#evolve-table tbody");
+      if (!en.evolve.length) {
+        document.getElementById("evolve-empty").hidden = false;
+      } else {
+        en.evolve.forEach((row) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="mono">' + row.skill + "</td>" +
+            "<td class=\"mono\">v" + row.version + "</td>" +
+            "<td class=\"mono\">" + (row.previous == null ? "—" : "v" + row.previous) + "</td>" +
+            "<td><span class=\"chip chip-ok\">" + row.state + "</span></td>" +
+            '<td class="mono">' + row.sha256 + "</td>" +
+            "<td>" + row.promoted_at.slice(0, 10) + "</td>";
+          tb.appendChild(tr);
+        });
+      }
+
+      if (en.proposals.length) {
+        document.getElementById("proposals-panel").hidden = false;
+        const pt = document.querySelector("#proposals-table tbody");
+        en.proposals.forEach((p) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="mono">' + p.skill + "</td>" +
+            "<td class=\"mono\">v" + p.proposed_version + "</td>" +
+            '<td><span class="chip chip-warn">' + p.state + "</span></td>" +
+            "<td>" + p.reason + "</td>" +
+            "<td>" + p.created_at.slice(0, 10) + "</td>";
+          pt.appendChild(tr);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

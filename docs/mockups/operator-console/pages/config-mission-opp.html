@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mission · Opportunity · Config · Delivery Foundry</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="config-mission-opp" data-root="..">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark">Delivery Foundry</span>
+          <span class="brand-sub">Operator</span>
+        </a>
+        <span class="badge-mock">Mockup</span>
+        <div class="topbar-meta"></div>
+      </header>
+      <nav class="mobile-nav">
+        <a data-nav="overview" href="../index.html">Overview</a>
+        <a data-nav="process" href="process.html">Process</a>
+        <a data-nav="approvals" href="approvals.html">Approvals</a>
+        <a data-nav="missions" href="missions.html">Missions</a>
+        <a data-nav="config" href="config.html">Config</a>
+      </nav>
+      <aside class="sidebar">
+        <div class="nav-label">Control plane</div>
+        <a class="nav-item" data-nav="overview" href="../index.html"
+          >Overview</a
+        >
+        <a class="nav-item" data-nav="process" href="process.html">Process</a>
+        <a class="nav-item" data-nav="approvals" href="approvals.html"
+          >Approvals <span class="count">0</span></a
+        >
+        <a class="nav-item" data-nav="missions" href="missions.html"
+          >Missions</a
+        >
+        <div class="nav-label">Governance</div>
+        <a class="nav-item" data-nav="config" href="config.html">Config</a>
+        <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+        <a class="nav-item" data-nav="evidence" href="evidence.html"
+          >Evidence</a
+        >
+        <a class="nav-item" data-nav="profiles" href="profiles.html"
+          >Profiles</a
+        >
+        <div class="nav-foot"></div>
+      </aside>
+      <main class="main">
+        <div class="page-head">
+          <h1>Mission · Opportunity</h1>
+          <p class="lede">
+            Mission-decide knobs and opportunity scoring weights in Postgres
+            (CFG-02 / CFG-05). L0 tunable <em>values</em> are DB;
+            <em>bounds</em> stay YAML (CFG-04). Domains stay YAML.
+          </p>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Mission-decide</h2>
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-config"
+                data-kind="Mission-decide"
+                id="propose-mission"
+                disabled
+              >
+                Propose mission knobs
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="mission-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>SoT</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head">
+            <h2>L0 tunable values</h2>
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-config"
+                data-kind="L0 tunables"
+                id="propose-tunables"
+                disabled
+              >
+                Propose tunable values
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="tunables-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>Bounds (YAML)</th>
+                  <th>Value SoT</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head">
+            <h2>Opportunity scoring</h2>
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-config"
+                data-kind="Opportunity weights"
+                id="propose-opp"
+                disabled
+              >
+                Propose scoring version
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="opp-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>SoT</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="panel-body pad">
+            <p class="muted" style="margin: 0; font-size: 0.85rem">
+              Org path remains proposal-only where profile requires it. Research
+              domains/markers are not editable here.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/app.js"></script>
+    <script>
+      (function () {
+        const M = FoundryMock;
+
+        function wireDirty(tbody, button) {
+          tbody.addEventListener("input", function () {
+            button.disabled = false;
+          });
+        }
+
+        const mt = document.querySelector("#mission-table tbody");
+        const mb = document.getElementById("propose-mission");
+        M.dbMissionDecide.forEach(function (row) {
+          const tr = document.createElement("tr");
+          tr.className = row.editable ? "" : "row-readonly";
+          const cell = row.editable
+            ? '<input class="cell-input" type="text" value="' +
+              row.value +
+              '" aria-label="' +
+              row.key +
+              '" />'
+            : "<code>" + row.value + "</code>";
+          tr.innerHTML =
+            '<td class="mono">' +
+            row.key +
+            "</td>" +
+            "<td>" +
+            cell +
+            "</td>" +
+            '<td><span class="sot-pill ' +
+            (row.sot === "db" ? "sot-db" : "sot-yaml") +
+            '">' +
+            row.sot +
+            "</span></td>" +
+            '<td class="muted">' +
+            row.note +
+            "</td>";
+          mt.appendChild(tr);
+        });
+        wireDirty(mt, mb);
+
+        const tt = document.querySelector("#tunables-table tbody");
+        const tb = document.getElementById("propose-tunables");
+        M.dbTunables.forEach(function (row) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="mono">' +
+            row.key +
+            "</td>" +
+            '<td><input class="cell-input" type="text" inputmode="numeric" value="' +
+            row.value +
+            '" aria-label="' +
+            row.key +
+            ' value" /></td>' +
+            '<td class="mono muted">[' +
+            row.bound_min +
+            " … " +
+            row.bound_max +
+            "]</td>" +
+            '<td><span class="sot-pill sot-db">' +
+            row.value_sot +
+            "</span></td>";
+          tt.appendChild(tr);
+        });
+        wireDirty(tt, tb);
+
+        const ot = document.querySelector("#opp-table tbody");
+        const ob = document.getElementById("propose-opp");
+        M.dbOpportunity.forEach(function (row) {
+          const tr = document.createElement("tr");
+          tr.className = row.editable ? "" : "row-readonly";
+          const cell = row.editable
+            ? '<input class="cell-input" type="text" inputmode="decimal" value="' +
+              row.value +
+              '" aria-label="' +
+              row.key +
+              '" />'
+            : "<code>" + row.value + "</code>";
+          tr.innerHTML =
+            '<td class="mono">' +
+            row.key +
+            "</td>" +
+            "<td>" +
+            cell +
+            "</td>" +
+            '<td><span class="sot-pill ' +
+            (row.sot === "db" ? "sot-db" : "sot-yaml") +
+            '">' +
+            row.sot +
+            "</span></td>";
+          ot.appendChild(tr);
+        });
+        wireDirty(ot, ob);
+      })();
+    </script>
+  </body>
+</html>

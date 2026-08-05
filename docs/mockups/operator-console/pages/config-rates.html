@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rates · Models · Config · Delivery Foundry</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="config-rates" data-root="..">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark">Delivery Foundry</span>
+          <span class="brand-sub">Operator</span>
+        </a>
+        <span class="badge-mock">Mockup</span>
+        <div class="topbar-meta"></div>
+      </header>
+      <nav class="mobile-nav">
+        <a data-nav="overview" href="../index.html">Overview</a>
+        <a data-nav="process" href="process.html">Process</a>
+        <a data-nav="approvals" href="approvals.html">Approvals</a>
+        <a data-nav="missions" href="missions.html">Missions</a>
+        <a data-nav="config" href="config.html">Config</a>
+      </nav>
+      <aside class="sidebar">
+        <div class="nav-label">Control plane</div>
+        <a class="nav-item" data-nav="overview" href="../index.html"
+          >Overview</a
+        >
+        <a class="nav-item" data-nav="process" href="process.html">Process</a>
+        <a class="nav-item" data-nav="approvals" href="approvals.html"
+          >Approvals <span class="count">0</span></a
+        >
+        <a class="nav-item" data-nav="missions" href="missions.html"
+          >Missions</a
+        >
+        <div class="nav-label">Governance</div>
+        <a class="nav-item" data-nav="config" href="config.html">Config</a>
+        <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+        <a class="nav-item" data-nav="evidence" href="evidence.html"
+          >Evidence</a
+        >
+        <a class="nav-item" data-nav="profiles" href="profiles.html"
+          >Profiles</a
+        >
+        <div class="nav-foot"></div>
+      </aside>
+      <main class="main">
+        <div class="page-head">
+          <h1>Rates · Models</h1>
+          <p class="lede">
+            Versioned model rate cards in Postgres (CFG-03). Applied versions
+            are immutable; propose a new version rather than mutating history.
+          </p>
+          <p class="authority-note">
+            <code class="mono">executor-capabilities</code> stay YAML — this
+            table is cost rates only.
+          </p>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Rate card (current version set)</h2>
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-config"
+                data-kind="Rates"
+                id="propose-rates"
+                disabled
+              >
+                Propose new rate version
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="rates-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Input $/MTok</th>
+                  <th>Output $/MTok</th>
+                  <th>Version</th>
+                  <th>SoT</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/app.js"></script>
+    <script>
+      (function () {
+        const M = FoundryMock;
+        const tb = document.querySelector("#rates-table tbody");
+        const btn = document.getElementById("propose-rates");
+        M.dbRates.forEach(function (row, idx) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="mono">' +
+            row.model +
+            "</td>" +
+            '<td><input class="cell-input" type="text" inputmode="decimal" data-field="input" data-idx="' +
+            idx +
+            '" value="' +
+            row.input_per_mtok +
+            '" aria-label="' +
+            row.model +
+            ' input rate" /></td>' +
+            '<td><input class="cell-input" type="text" inputmode="decimal" data-field="output" data-idx="' +
+            idx +
+            '" value="' +
+            row.output_per_mtok +
+            '" aria-label="' +
+            row.model +
+            ' output rate" /></td>' +
+            '<td class="mono">v' +
+            row.version +
+            "</td>" +
+            '<td><span class="sot-pill sot-db">' +
+            row.sot +
+            "</span></td>";
+          tb.appendChild(tr);
+        });
+        tb.addEventListener("input", function () {
+          btn.disabled = false;
+        });
+      })();
+    </script>
+  </body>
+</html>

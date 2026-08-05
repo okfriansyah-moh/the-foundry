@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Install · Packaging · Delivery Foundry</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body data-page="packaging-install" data-root="..">
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html">
+        <span class="brand-mark">Delivery Foundry</span>
+        <span class="brand-sub">Operator</span>
+      </a>
+      <span class="badge-mock">Mockup</span>
+      <div class="topbar-meta"></div>
+    </header>
+    <nav class="mobile-nav">
+      <a data-nav="overview" href="../index.html">Overview</a>
+      <a data-nav="process" href="process.html">Process</a>
+      <a data-nav="approvals" href="approvals.html">Approvals</a>
+      <a data-nav="missions" href="missions.html">Missions</a>
+      <a data-nav="config" href="config.html">Config</a>
+    </nav>
+    <aside class="sidebar">
+      <div class="nav-label">Control plane</div>
+      <a class="nav-item" data-nav="overview" href="../index.html">Overview</a>
+      <a class="nav-item" data-nav="process" href="process.html">Process</a>
+      <a class="nav-item" data-nav="approvals" href="approvals.html">Approvals <span class="count">0</span></a>
+      <a class="nav-item" data-nav="missions" href="missions.html">Missions</a>
+      <div class="nav-label">Governance</div>
+      <a class="nav-item" data-nav="config" href="config.html">Config</a>
+      <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+      <a class="nav-item" data-nav="evidence" href="evidence.html">Evidence</a>
+      <a class="nav-item" data-nav="profiles" href="profiles.html">Profiles</a>
+      <div class="nav-foot"></div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <h1>Install &amp; doctor</h1>
+        <p class="lede">Materialize enabled packages into the selected executor workspace (CAP-02). Default adapter: <code class="mono">claude-code</code>. Seam exists for other providers; OpenHands / 9Router are not required.</p>
+        <p class="authority-note">Install writes workspace files only. It must not mutate <code class="mono">executor_allowlist</code>, call <code class="mono">scm/write</code>, or deploy.</p>
+      </div>
+
+      <nav class="pack-subnav" aria-label="Packaging sections">
+        <a href="packaging.html">Overview</a>
+        <a href="packaging-catalog.html">Catalog</a>
+        <a href="packaging-enable.html">Enablement</a>
+        <a class="active" href="packaging-install.html">Install</a>
+        <a href="packaging-evolve.html">L1 evolve</a>
+      </nav>
+
+      <div class="attention" id="install-metrics"></div>
+
+      <div class="grid-2" style="margin-top:1rem">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Actions</h2>
+          </div>
+          <div class="panel-body pad pack-actions">
+            <button type="button" class="btn btn-ghost" data-action="packaging-validate">1 · Validate</button>
+            <button type="button" class="btn btn-primary" data-action="packaging-install">2 · Install (claude-code)</button>
+            <button type="button" class="btn btn-ghost" data-action="packaging-doctor">3 · Doctor</button>
+            <p class="muted" style="margin-top:1rem;font-size:0.85rem">Reinstall is deterministic (byte-stable). Changed catalog inputs materialize into a fresh workspace rather than overwriting blindly.</p>
+            <p class="mono" id="validate-result" style="margin-top:0.75rem">—</p>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Materialization pin</h2></div>
+          <div class="panel-body pad" id="install-detail"></div>
+        </section>
+      </div>
+
+      <section class="panel" style="margin-top:1rem">
+        <div class="panel-head"><h2>What install is not</h2></div>
+        <div class="panel-body pad">
+          <ul class="pack-dont">
+            <li>Not a Skills marketplace / Augflow hub</li>
+            <li>Not executor selection (that remains <code class="mono">ExecutorSelector</code> + allowlist)</li>
+            <li>Not org-wide auto-promotion (§Q deferred)</li>
+            <li>Not OpenHands or 9Router as the management plane (ADR-001)</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="../assets/app.js"></script>
+  <script>
+    (function () {
+      const M = FoundryMock;
+      const en = M.packagingForActive();
+      const inst = en.install;
+      const doctorClass = inst.doctor === "ok" ? "" : "warn";
+
+      document.getElementById("install-metrics").innerHTML =
+        '<div class="attention-item">' +
+        '<div class="label">Provider</div><div class="value" style="font-size:1.25rem">' + inst.provider + '</div>' +
+        '<div class="hint">materializer target</div></div>' +
+        '<div class="attention-item">' +
+        '<div class="label">Status</div><div class="value"><span id="install-status" class="mono">' + inst.status + '</span></div>' +
+        '<div class="hint">' + inst.files + ' files</div></div>' +
+        '<div class="attention-item ' + doctorClass + '">' +
+        '<div class="label">Doctor</div><div class="value">' + inst.doctor.toUpperCase() + '</div>' +
+        '<div class="hint">' + (inst.doctor_note || "pins match") + '</div></div>' +
+        '<div class="attention-item">' +
+        '<div class="label">Last install</div><div class="value" style="font-size:1rem">' + inst.last_install.slice(0, 10) + '</div>' +
+        '<div class="hint mono">' + inst.digest.slice(0, 18) + "…</div></div>';
+
+      document.getElementById("install-detail").innerHTML =
+        '<dl class="kv">' +
+        '<div><dt>Digest</dt><dd class="mono">' + inst.digest + '</dd></div>' +
+        '<div><dt>Enabled agents</dt><dd>' + en.agents.length + '</dd></div>' +
+        '<div><dt>Enabled skills</dt><dd>' + (en.skills.length + en.domain_skills.length) + '</dd></div>' +
+        '<div><dt>CLI equivalents</dt><dd class="mono">foundry agents|skills install|doctor</dd></div>' +
+        '</dl>';
+    })();
+  </script>
+</body>
+</html>

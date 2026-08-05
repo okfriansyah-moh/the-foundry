@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quotas · Config · Delivery Foundry</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="config-quotas" data-root="..">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark">Delivery Foundry</span>
+          <span class="brand-sub">Operator</span>
+        </a>
+        <span class="badge-mock">Mockup</span>
+        <div class="topbar-meta"></div>
+      </header>
+      <nav class="mobile-nav">
+        <a data-nav="overview" href="../index.html">Overview</a>
+        <a data-nav="process" href="process.html">Process</a>
+        <a data-nav="approvals" href="approvals.html">Approvals</a>
+        <a data-nav="missions" href="missions.html">Missions</a>
+        <a data-nav="config" href="config.html">Config</a>
+      </nav>
+      <aside class="sidebar">
+        <div class="nav-label">Control plane</div>
+        <a class="nav-item" data-nav="overview" href="../index.html"
+          >Overview</a
+        >
+        <a class="nav-item" data-nav="process" href="process.html">Process</a>
+        <a class="nav-item" data-nav="approvals" href="approvals.html"
+          >Approvals <span class="count">0</span></a
+        >
+        <a class="nav-item" data-nav="missions" href="missions.html"
+          >Missions</a
+        >
+        <div class="nav-label">Governance</div>
+        <a class="nav-item" data-nav="config" href="config.html">Config</a>
+        <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+        <a class="nav-item" data-nav="evidence" href="evidence.html"
+          >Evidence</a
+        >
+        <a class="nav-item" data-nav="profiles" href="profiles.html"
+          >Profiles</a
+        >
+        <div class="nav-foot"></div>
+      </aside>
+      <main class="main">
+        <div class="page-head">
+          <h1>Quotas</h1>
+          <p class="lede">
+            Operator-hot quota knobs in Postgres (CFG-02). Raise or tighten via
+            propose → Approvals — UI does not write DB.
+          </p>
+          <p class="authority-note">
+            Process <code class="mono">max_active_missions</code> mirrors this
+            foundryd’s profile row.
+          </p>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Quota table</h2>
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-config"
+                data-kind="Quotas"
+                id="propose-quotas"
+                disabled
+              >
+                Propose quota change
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="quotas-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>Scope</th>
+                  <th>SoT</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/app.js"></script>
+    <script>
+      (function () {
+        const M = FoundryMock;
+        const dep = M.deployment();
+        const rows = M.dbQuotas.map(function (r) {
+          if (r.key === "max_active_missions")
+            return Object.assign({}, r, {
+              value: String(dep.max_active_missions),
+            });
+          if (r.key === "monthly_cap_usd")
+            return Object.assign({}, r, { value: String(dep.monthly_cap_usd) });
+          return r;
+        });
+        const tb = document.querySelector("#quotas-table tbody");
+        const btn = document.getElementById("propose-quotas");
+        rows.forEach(function (row, idx) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="mono">' +
+            row.key +
+            "</td>" +
+            '<td><input class="cell-input" type="text" inputmode="numeric" data-idx="' +
+            idx +
+            '" value="' +
+            row.value +
+            '" aria-label="' +
+            row.key +
+            '" /></td>' +
+            "<td>" +
+            row.scope +
+            "</td>" +
+            '<td><span class="sot-pill sot-db">' +
+            row.sot +
+            "</span></td>";
+          tb.appendChild(tr);
+        });
+        tb.addEventListener("input", function () {
+          btn.disabled = false;
+        });
+      })();
+    </script>
+  </body>
+</html>

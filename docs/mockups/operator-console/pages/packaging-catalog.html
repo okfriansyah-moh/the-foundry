@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Catalog · Packaging · Delivery Foundry</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="packaging-catalog" data-root="..">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark">Delivery Foundry</span>
+          <span class="brand-sub">Operator</span>
+        </a>
+        <span class="badge-mock">Mockup</span>
+        <div class="topbar-meta"></div>
+      </header>
+      <nav class="mobile-nav">
+        <a data-nav="overview" href="../index.html">Overview</a>
+        <a data-nav="process" href="process.html">Process</a>
+        <a data-nav="approvals" href="approvals.html">Approvals</a>
+        <a data-nav="missions" href="missions.html">Missions</a>
+        <a data-nav="config" href="config.html">Config</a>
+      </nav>
+      <aside class="sidebar">
+        <div class="nav-label">Control plane</div>
+        <a class="nav-item" data-nav="overview" href="../index.html"
+          >Overview</a
+        >
+        <a class="nav-item" data-nav="process" href="process.html">Process</a>
+        <a class="nav-item" data-nav="approvals" href="approvals.html"
+          >Approvals <span class="count">0</span></a
+        >
+        <a class="nav-item" data-nav="missions" href="missions.html"
+          >Missions</a
+        >
+        <div class="nav-label">Governance</div>
+        <a class="nav-item" data-nav="config" href="config.html">Config</a>
+        <a class="nav-item" data-nav="budgets" href="budgets.html">Budgets</a>
+        <a class="nav-item" data-nav="evidence" href="evidence.html"
+          >Evidence</a
+        >
+        <a class="nav-item" data-nav="profiles" href="profiles.html"
+          >Profiles</a
+        >
+        <div class="nav-foot"></div>
+      </aside>
+      <main class="main">
+        <div class="page-head">
+          <h1>Catalog (Postgres SoT)</h1>
+          <p class="lede">
+            Agent and skill catalog rows live in DB after CAP-04 (Task 161),
+            seeded from YAML. Add/edit via propose → Approvals → apply. Content
+            pins + fail-closed validate; install never widens
+            <code class="mono">executor_allowlist</code>.
+          </p>
+          <p class="authority-note">
+            Higher supply-chain risk than FS+PR — every mutation is gated.
+            Reviewer ≠ implementer on bindings.
+          </p>
+        </div>
+
+        <nav class="pack-subnav" aria-label="Packaging sections">
+          <a href="packaging.html">Overview</a>
+          <a class="active" href="packaging-catalog.html">Catalog</a>
+          <a href="packaging-enable.html">Enablement</a>
+          <a href="packaging-install.html">Install</a>
+          <a href="packaging-evolve.html">L1 evolve</a>
+        </nav>
+
+        <div class="sot-legend" role="note">
+          <span class="sot-pill sot-db">Postgres · catalog SoT</span>
+          <span class="sot-pill sot-yaml">YAML · seed / import only</span>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Agents</h2>
+            <div class="actions">
+              <button type="button" class="btn btn-ghost" id="add-agent">
+                Add row
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-catalog"
+                id="propose-agents"
+                disabled
+              >
+                Propose catalog changes
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="agents-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Skills</th>
+                  <th>Writes</th>
+                  <th>sha256</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head"><h2>Task bindings</h2></div>
+          <div class="panel-body pad">
+            <p class="muted" style="margin-bottom: 0.75rem; font-size: 0.85rem">
+              Reviewer must never equal implementer for the same binding.
+            </p>
+            <div class="table-wrap">
+              <table class="data" id="bindings-table">
+                <thead>
+                  <tr>
+                    <th>Binding</th>
+                    <th>Implementer</th>
+                    <th>Reviewer</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="panel-head">
+            <h2>Skills &amp; domain skills</h2>
+            <div class="actions">
+              <button type="button" class="btn btn-ghost" id="add-skill">
+                Add row
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-action="propose-catalog"
+                id="propose-skills"
+                disabled
+              >
+                Propose skill catalog
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data editor-table" id="skills-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Kind</th>
+                  <th>Description</th>
+                  <th>sha256</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/app.js"></script>
+    <script>
+      (function () {
+        const M = FoundryMock;
+        const at = document.querySelector("#agents-table tbody");
+        const st = document.querySelector("#skills-table tbody");
+        const proposeA = document.getElementById("propose-agents");
+        const proposeS = document.getElementById("propose-skills");
+
+        function markDirty() {
+          proposeA.disabled = false;
+          proposeS.disabled = false;
+        }
+
+        function agentRow(a) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td><input class="cell-input mono" type="text" value="' +
+            a.name +
+            '" aria-label="Agent name" /></td>' +
+            '<td><input class="cell-input" type="text" value="' +
+            a.description +
+            '" aria-label="Agent role" /></td>' +
+            '<td><input class="cell-input" type="text" value="' +
+            a.skills.join(", ") +
+            '" aria-label="Skills" /></td>' +
+            '<td><select class="cell-select" aria-label="Writes prod">' +
+            '<option value="no"' +
+            (!a.writes ? " selected" : "") +
+            ">no</option>" +
+            '<option value="yes"' +
+            (a.writes ? " selected" : "") +
+            ">yes</option></select></td>" +
+            '<td class="mono muted">' +
+            (a.sha256 || "—") +
+            "</td>";
+          return tr;
+        }
+
+        function skillRow(s) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td><input class="cell-input mono" type="text" value="' +
+            s.name +
+            '" aria-label="Skill name" /></td>' +
+            '<td><select class="cell-select" aria-label="Kind">' +
+            '<option value="skill"' +
+            (s.kind === "skill" ? " selected" : "") +
+            ">skill</option>" +
+            '<option value="domain"' +
+            (s.kind === "domain" ? " selected" : "") +
+            ">domain</option></select></td>" +
+            '<td><input class="cell-input" type="text" value="' +
+            s.description +
+            '" aria-label="Description" /></td>' +
+            '<td class="mono muted">' +
+            (s.sha256 || "—") +
+            "</td>";
+          return tr;
+        }
+
+        M.agentCatalog.forEach(function (a) {
+          at.appendChild(agentRow(a));
+        });
+        M.skillCatalog.forEach(function (s) {
+          st.appendChild(skillRow(s));
+        });
+
+        const bt = document.querySelector("#bindings-table tbody");
+        M.bindings.forEach(function (b) {
+          const tr = document.createElement("tr");
+          const ok = b.implementer !== b.reviewer;
+          tr.innerHTML =
+            '<td class="mono">' +
+            b.name +
+            "</td>" +
+            '<td class="mono">' +
+            b.implementer +
+            "</td>" +
+            '<td class="mono">' +
+            b.reviewer +
+            (ok ? "" : ' <span class="verify-fail">INVALID</span>') +
+            "</td>";
+          bt.appendChild(tr);
+        });
+
+        at.addEventListener("input", markDirty);
+        at.addEventListener("change", markDirty);
+        st.addEventListener("input", markDirty);
+        st.addEventListener("change", markDirty);
+
+        document
+          .getElementById("add-agent")
+          .addEventListener("click", function () {
+            at.appendChild(
+              agentRow({
+                name: "",
+                description: "",
+                skills: [],
+                writes: false,
+                sha256: "pending pin",
+              }),
+            );
+            markDirty();
+          });
+        document
+          .getElementById("add-skill")
+          .addEventListener("click", function () {
+            st.appendChild(
+              skillRow({
+                name: "",
+                kind: "skill",
+                description: "",
+                sha256: "pending pin",
+              }),
+            );
+            markDirty();
+          });
+      })();
+    </script>
+  </body>
+</html>
