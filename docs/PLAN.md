@@ -252,12 +252,12 @@ Legend: `[P]` = parallel-safe within its wave once Depends are ✅. M0=SKP, M1=F
 | ✅  | 153  | CAP-01   | Product agent/skill catalogs and enablement                        | M7/X0      | 46,77,90,130,152                                                                                                                                                | None |
 | ✅  | 154  | CAP-02   | Agent/skill install and runtime materialization                    | M7/X1      | 153                                                                                                                                                             | None |
 | ✅  | 155  | CAP-03   | L1 skill evolution bridge to on-disk packages                      | M7/X2      | 77,154                                                                                                                                                          | None |
-| ☐   | 156  | CFG-01   | Profile/org policy layer SoT in Postgres                           | M8/Y0      | 22,152                                                                                                                                                          | None |
-| ☐   | 157  | CFG-02   | Quotas and mission-decide knobs in DB                              | M8/Y1      | 156                                                                                                                                                             | None |
-| ☐   | 158  | CFG-03   | Executor model rates and models in DB                              | M8/Y1      | 120,156                                                                                                                                                         | None |
-| ☐   | 159  | CFG-04   | L0 tunable effective-value read-path from promotions               | M8/Y1      | 74,156                                                                                                                                                          | None |
-| ☐   | 160  | CFG-05   | Opportunity scoring config versions in DB                          | M8/Y2      | 100,156                                                                                                                                                         | None |
-| ☐   | 161  | CAP-04   | Packaging catalogs and enablement in Postgres                      | M8/Y3      | 153,154,155,156                                                                                                                                                 | None |
+| ✅  | 156  | CFG-01   | Profile/org policy layer SoT in Postgres                           | M8/Y0      | 22,152                                                                                                                                                          | None |
+| ✅  | 157  | CFG-02   | Quotas and mission-decide knobs in DB                              | M8/Y1      | 156                                                                                                                                                             | None |
+| ✅  | 158  | CFG-03   | Executor model rates and models in DB                              | M8/Y1      | 120,156                                                                                                                                                         | None |
+| ✅  | 159  | CFG-04   | L0 tunable effective-value read-path from promotions               | M8/Y1      | 74,156                                                                                                                                                          | None |
+| ✅  | 160  | CFG-05   | Opportunity scoring config versions in DB                          | M8/Y2      | 100,156                                                                                                                                                         | None |
+| ✅  | 161  | CAP-04   | Packaging catalogs and enablement in Postgres                      | M8/Y3      | 153,154,155,156                                                                                                                                                 | None |
 
 ### D-P1 — Milestone dependencies
 
@@ -5515,7 +5515,7 @@ granting SCM/deploy authority.
 - **Validation:** scoped `go test`; `make test lint fitness doclint`.
 - **Evidence:** seed digests, admission reject transcript, apply audit archived to `evidence/task-156/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3** · **Boundary:** kernel applies only; UI proposes; platform ceilings immutable via this path.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-07
 
 ### Task 157 (CFG-02) — Quotas and mission-decide knobs in DB
 
@@ -5531,7 +5531,7 @@ granting SCM/deploy authority.
 - **Validation:** scoped `go test`; `make test lint fitness doclint`.
 - **Evidence:** before/after knobs + reject cases in `evidence/task-157/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-07
 
 ### Task 158 (CFG-03) — Executor model rates and models in DB
 
@@ -5547,7 +5547,7 @@ granting SCM/deploy authority.
 - **Validation:** scoped `go test` incl. cost fixtures; `make test lint fitness doclint`.
 - **Evidence:** rate version digests in `evidence/task-158/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-07
 
 ### Task 159 (CFG-04) — L0 tunable effective-value read-path from promotions
 
@@ -5563,7 +5563,7 @@ granting SCM/deploy authority.
 - **Validation:** `go test ./internal/evolve/...` (+ related); `make test lint fitness doclint`.
 - **Evidence:** bound reject + apply transcripts in `evidence/task-159/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-07
 
 ### Task 160 (CFG-05) — Opportunity scoring config versions in DB
 
@@ -5579,7 +5579,7 @@ granting SCM/deploy authority.
 - **Validation:** scoped opportunity tests; `make test lint fitness doclint`.
 - **Evidence:** weight version digests in `evidence/task-160/`.
 - **Risk:** High · **Exec:** go-kernel · **Rev:** **R3**.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-07
 
 ### Task 161 (CAP-04) — Packaging catalogs and enablement in Postgres
 
@@ -5595,7 +5595,7 @@ granting SCM/deploy authority.
 - **Validation:** packaging + evolve tests; `bash test/e2e/product_packaging/run.sh` (updated); `make test lint fitness doclint`.
 - **Evidence:** seed digests, propose/apply audit, doctor after DB install in `evidence/task-161/`.
 - **Risk:** High · **Exec:** go-kernel + go-backend + integration · **Rev:** **R3** · **Boundary:** catalogs grant no SCM/deploy authority; kernel still owns side effects; UI proposes only.
-- **Status:** ☐ Not started
+- **Status:** ✅ 2026-08-07
 
 ---
 

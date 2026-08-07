@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -21,6 +22,11 @@ type ModelPolicy struct {
 	Models map[string]map[string]string `yaml:"models"`
 }
 
+var (
+	runtimeModelPolicyMu sync.RWMutex
+	runtimeModelPolicy   *ModelPolicy
+)
+
 // LoadModelPolicy reads and strictly validates a model-policy YAML file. A
 // MISSING file is non-fatal (returns an empty policy and nil error — per-class
 // routing is simply disabled). A present-but-invalid file (malformed YAML or
@@ -35,11 +41,40 @@ func LoadModelPolicy(path string) (ModelPolicy, error) {
 		}
 		return ModelPolicy{}, fmt.Errorf("apiexec: read model policy %s: %w", path, err)
 	}
+	return ParseModelPolicyYAML(raw, path)
+}
+
+// SetRuntimeModelPolicy installs a process-local policy override for adapters.
+// It is used by foundryd startup after loading operator configuration from DB.
+func SetRuntimeModelPolicy(policy ModelPolicy) {
+	runtimeModelPolicyMu.Lock()
+	defer runtimeModelPolicyMu.Unlock()
+	p := policy
+	runtimeModelPolicy = &p
+}
+
+// LoadModelPolicyWithRuntimeFallback returns the runtime override when set,
+// otherwise it loads from path.
+func LoadModelPolicyWithRuntimeFallback(path string) (ModelPolicy, error) {
+	runtimeModelPolicyMu.RLock()
+	p := runtimeModelPolicy
+	runtimeModelPolicyMu.RUnlock()
+	if p != nil {
+		return *p, nil
+	}
+	return LoadModelPolicy(path)
+}
+
+// ParseModelPolicyYAML decodes a model policy from YAML bytes.
+func ParseModelPolicyYAML(raw []byte, source string) (ModelPolicy, error) {
+	if source == "" {
+		source = "<memory>"
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(raw))
 	dec.KnownFields(true)
 	var p ModelPolicy
 	if err := dec.Decode(&p); err != nil {
-		return ModelPolicy{}, fmt.Errorf("apiexec: parse model policy %s: %w", path, err)
+		return ModelPolicy{}, fmt.Errorf("apiexec: parse model policy %s: %w", source, err)
 	}
 	return p, nil
 }

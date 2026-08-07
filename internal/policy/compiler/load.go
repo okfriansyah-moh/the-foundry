@@ -122,7 +122,15 @@ func LoadOrgLayer(path string) (LayerPolicy, OrgGovernancePack, error) {
 	if err != nil {
 		return LayerPolicy{}, OrgGovernancePack{}, fmt.Errorf("policy compiler: read org layer %s: %w", path, err)
 	}
-	ly, err := decodeLayer(raw, path)
+	return ParseOrgLayerYAML(raw, path)
+}
+
+// ParseOrgLayerYAML strictly parses one org-layer YAML payload.
+func ParseOrgLayerYAML(raw []byte, source string) (LayerPolicy, OrgGovernancePack, error) {
+	if source == "" {
+		source = "<memory>"
+	}
+	ly, err := decodeLayer(raw, source)
 	if err != nil {
 		return LayerPolicy{}, OrgGovernancePack{}, err
 	}
@@ -131,7 +139,7 @@ func LoadOrgLayer(path string) (LayerPolicy, OrgGovernancePack, error) {
 		pack = *ly.OrgGovernance
 	}
 	if err := ValidateOrgGovernancePack(pack); err != nil {
-		return LayerPolicy{}, OrgGovernancePack{}, fmt.Errorf("policy compiler: org layer %s: %w", path, err)
+		return LayerPolicy{}, OrgGovernancePack{}, fmt.Errorf("policy compiler: org layer %s: %w", source, err)
 	}
 	return ly.toLayerPolicy(), pack, nil
 }
@@ -144,12 +152,20 @@ func LoadProfileLayer(path string) (LayerPolicy, error) {
 	if err != nil {
 		return LayerPolicy{}, fmt.Errorf("policy compiler: read profile layer %s: %w", path, err)
 	}
-	ly, err := decodeLayer(raw, path)
+	return ParseProfileLayerYAML(raw, path)
+}
+
+// ParseProfileLayerYAML strictly parses one profile-layer YAML payload.
+func ParseProfileLayerYAML(raw []byte, source string) (LayerPolicy, error) {
+	if source == "" {
+		source = "<memory>"
+	}
+	ly, err := decodeLayer(raw, source)
 	if err != nil {
 		return LayerPolicy{}, err
 	}
 	if ly.OrgGovernance != nil {
-		return LayerPolicy{}, fmt.Errorf("policy compiler: profile layer %s must not declare org_governance (org-layer-only)", path)
+		return LayerPolicy{}, fmt.Errorf("policy compiler: profile layer %s must not declare org_governance (org-layer-only)", source)
 	}
 	return ly.toLayerPolicy(), nil
 }

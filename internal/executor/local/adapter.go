@@ -32,7 +32,7 @@ const (
 // a present-but-invalid file panics at construction (fail-closed on
 // misconfiguration). A per-class ModelPolicy hit overrides ModelEnv.
 func New() *apiexec.Adapter {
-	policy, err := apiexec.LoadModelPolicy(modelPolicyPath())
+	policy, err := apiexec.LoadModelPolicyWithRuntimeFallback(modelPolicyPath())
 	if err != nil {
 		panic(fmt.Sprintf("local: invalid model policy: %v", err))
 	}
