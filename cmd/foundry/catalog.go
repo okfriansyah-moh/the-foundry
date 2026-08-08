@@ -13,6 +13,7 @@ import (
 	agentruntime "github.com/okfriansyah-moh/the-foundry/adapters/agent-runtime"
 	"github.com/okfriansyah-moh/the-foundry/adapters/agent-runtime/claudecode"
 	"github.com/okfriansyah-moh/the-foundry/internal/evolve"
+	"github.com/okfriansyah-moh/the-foundry/internal/operatorcfg"
 	"github.com/okfriansyah-moh/the-foundry/internal/packaging"
 )
 
@@ -31,7 +32,7 @@ func runSkillRollback(args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("skills rollback", flag.ContinueOnError)
 	root := fs.String("root", ".", "Foundry catalog root")
 	skillID := fs.String("skill", "", "cataloged skill to roll back")
-	pgDSN := fs.String("pg-dsn", pgDSNFromEnv(), "Postgres DSN for durable freeze propagation (used if the rollback budget is breached)")
+	pgDSN := fs.String("pg-dsn", "", "Postgres DSN for DB-backed config + durable freeze propagation")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -48,6 +49,7 @@ func runSkillRollback(args []string, stdout io.Writer) error {
 		}
 		defer func() { _ = db.Close() }()
 		bridge.DurableFreeze = evolve.NewFreezeStore(db)
+		bridge.ConfigSource = dbPackageConfigSource{store: operatorcfg.NewStore(db)}
 	}
 	record, err := bridge.Rollback(context.Background(), *skillID)
 	if err != nil {
@@ -59,7 +61,7 @@ func runSkillRollback(args []string, stdout io.Writer) error {
 
 func runPackageCatalog(kind string, args []string, stdout io.Writer) error {
 	if len(args) == 0 || !packageSubcommand(args[0]) {
-		return fmt.Errorf("%s: usage: foundry %s <list|validate|install|doctor> [-root path] [-enabled path] [-workspace path] [-provider claude-code]", kind, kind)
+		return fmt.Errorf("%s: usage: foundry %s <list|validate|install|doctor> [-root path] [-enabled path] [-workspace path] [-provider claude-code] [-pg-dsn dsn]", kind, kind)
 	}
 	fs := flag.NewFlagSet(kind+" "+args[0], flag.ContinueOnError)
 	root := fs.String("root", ".", "Foundry catalog root")
@@ -68,6 +70,7 @@ func runPackageCatalog(kind string, args []string, stdout io.Writer) error {
 	organizationProfile := fs.String("organization-profile", "", "organization profile config")
 	workspace := fs.String("workspace", ".", "product workspace to materialize")
 	provider := fs.String("provider", "claude-code", "agent runtime provider")
+	pgDSN := fs.String("pg-dsn", "", "Postgres DSN for DB-backed packaging config SoT")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -75,7 +78,7 @@ func runPackageCatalog(kind string, args []string, stdout io.Writer) error {
 		return fmt.Errorf("%s %s: unexpected arguments: %v", kind, args[0], fs.Args())
 	}
 	paths := resolveCatalogPaths(*root, *enabledPath, *personalProfile, *organizationProfile)
-	catalogs, enabled, err := loadAndValidateCatalogs(paths)
+	catalogs, enabled, err := loadAndValidateCatalogs(context.Background(), paths, *pgDSN)
 	if err != nil {
 		return fmt.Errorf("%s %s: %w", kind, args[0], err)
 	}
@@ -150,7 +153,42 @@ func resolveCatalogPaths(root, enabled, personal, organization string) catalogPa
 	return catalogPaths{root: root, enabled: enabled, personalProfile: personal, organizationProfile: organization}
 }
 
-func loadAndValidateCatalogs(paths catalogPaths) (packaging.Catalogs, packaging.Enablement, error) {
+func loadAndValidateCatalogs(ctx context.Context, paths catalogPaths, pgDSN string) (packaging.Catalogs, packaging.Enablement, error) {
+	if pgDSN != "" {
+		db, err := sql.Open("pgx", pgDSN)
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, fmt.Errorf("open postgres: %w", err)
+		}
+		defer func() { _ = db.Close() }()
+		store := operatorcfg.NewStore(db)
+		catalogs, err := store.LoadCatalogs(ctx)
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, fmt.Errorf("load catalogs from db: %w", err)
+		}
+		enabled, err := store.LoadEnablement(ctx, "personal-autonomous-venture")
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, fmt.Errorf("load enablement from db: %w", err)
+		}
+		personal, err := store.LoadProfileEnablement(ctx, "personal-autonomous-venture")
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, fmt.Errorf("load personal profile packages from db: %w", err)
+		}
+		organization, err := store.LoadProfileEnablement(ctx, "organization-10x")
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, fmt.Errorf("load organization profile packages from db: %w", err)
+		}
+		if err := packaging.ValidateCatalogs(paths.root, catalogs); err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, err
+		}
+		if err := packaging.ValidateEnablement(catalogs, enabled); err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, err
+		}
+		if err := packaging.ValidateProfiles(catalogs, personal, organization); err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, err
+		}
+		return catalogs, enabled, nil
+	}
+
 	catalogs, err := packaging.LoadCatalogs(paths.root)
 	if err != nil {
 		return packaging.Catalogs{}, packaging.Enablement{}, err
@@ -217,4 +255,28 @@ type catalogRow struct {
 	name        string
 	kind        string
 	description string
+}
+
+type dbPackageConfigSource struct {
+	store *operatorcfg.Store
+}
+
+func (s dbPackageConfigSource) Load(ctx context.Context) (packaging.Catalogs, packaging.Enablement, packaging.ProfileEnablement, packaging.ProfileEnablement, error) {
+	catalogs, err := s.store.LoadCatalogs(ctx)
+	if err != nil {
+		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, err
+	}
+	enabled, err := s.store.LoadEnablement(ctx, "personal-autonomous-venture")
+	if err != nil {
+		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, err
+	}
+	personal, err := s.store.LoadProfileEnablement(ctx, "personal-autonomous-venture")
+	if err != nil {
+		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, err
+	}
+	organization, err := s.store.LoadProfileEnablement(ctx, "organization-10x")
+	if err != nil {
+		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, err
+	}
+	return catalogs, enabled, personal, organization, nil
 }

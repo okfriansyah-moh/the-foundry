@@ -66,12 +66,20 @@ func LoadConfig(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("opportunity: read config %s: %w", path, err)
 	}
+	return ParseConfigYAML(raw, path)
+}
+
+// ParseConfigYAML decodes opportunity scoring config from YAML bytes.
+func ParseConfigYAML(raw []byte, source string) (Config, error) {
+	if strings.TrimSpace(source) == "" {
+		source = "<memory>"
+	}
 	var c Config
 	if err := yaml.Unmarshal(raw, &c); err != nil {
-		return Config{}, fmt.Errorf("opportunity: decode config %s: %w", path, err)
+		return Config{}, fmt.Errorf("opportunity: decode config %s: %w", source, err)
 	}
 	if err := c.validate(); err != nil {
-		return Config{}, fmt.Errorf("opportunity: config %s: %w", path, err)
+		return Config{}, fmt.Errorf("opportunity: config %s: %w", source, err)
 	}
 	return c, nil
 }

@@ -36,9 +36,17 @@ func LoadDecidePolicy(path string) (DecidePolicy, error) {
 	if err != nil {
 		return DecidePolicy{}, fmt.Errorf("mission observe: read policy: %w", err)
 	}
+	return ParseDecidePolicyYAML(raw, path)
+}
+
+// ParseDecidePolicyYAML strictly decodes mission decide policy YAML payload bytes.
+func ParseDecidePolicyYAML(raw []byte, source string) (DecidePolicy, error) {
+	if source == "" {
+		source = "<memory>"
+	}
 	var p DecidePolicy
 	if err := yaml.Unmarshal(raw, &p); err != nil {
-		return DecidePolicy{}, fmt.Errorf("mission observe: decode policy: %w", err)
+		return DecidePolicy{}, fmt.Errorf("mission observe: decode policy %s: %w", source, err)
 	}
 	return p, nil
 }

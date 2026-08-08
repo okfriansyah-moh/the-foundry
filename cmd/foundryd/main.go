@@ -32,6 +32,7 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/billing"
 	"github.com/okfriansyah-moh/the-foundry/internal/deploy"
 	"github.com/okfriansyah-moh/the-foundry/internal/evidence"
+	"github.com/okfriansyah-moh/the-foundry/internal/executor/apiexec"
 	"github.com/okfriansyah-moh/the-foundry/internal/executor/capability"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/claudecode"
 	_ "github.com/okfriansyah-moh/the-foundry/internal/executor/copilot"
@@ -49,9 +50,9 @@ import (
 	"github.com/okfriansyah-moh/the-foundry/internal/mission"
 	"github.com/okfriansyah-moh/the-foundry/internal/notify"
 	"github.com/okfriansyah-moh/the-foundry/internal/observe"
+	"github.com/okfriansyah-moh/the-foundry/internal/operatorcfg"
 	"github.com/okfriansyah-moh/the-foundry/internal/opportunity"
 	"github.com/okfriansyah-moh/the-foundry/internal/opportunity/signals"
-	"github.com/okfriansyah-moh/the-foundry/internal/policy/compiler"
 	"github.com/okfriansyah-moh/the-foundry/internal/policy/pdp"
 	"github.com/okfriansyah-moh/the-foundry/internal/profile"
 	"github.com/okfriansyah-moh/the-foundry/internal/provenance"
@@ -171,6 +172,27 @@ func run() error {
 		return fmt.Errorf("open postgres: %w", err)
 	}
 	defer func() { _ = db.Close() }()
+	cfgStore := operatorcfg.NewStore(db)
+	if err := cfgStore.EnsureSeeded(bgCtx, operatorcfg.SeedPaths{
+		PolicyOrganizationPath: envOr("FOUNDRY_ORG_POLICY", "config/profiles/organization-10x.yaml"),
+		PolicyPersonalPath:     envOr("FOUNDRY_PROFILE_POLICY", "config/profiles/personal-autonomous-venture.yaml"),
+		QuotasPath:             envOr("FOUNDRY_QUOTAS", "config/quotas.yaml"),
+		MissionDecidePath:      envOr("FOUNDRY_MISSION_DECIDE_POLICY", "config/mission-decide-policy.yaml"),
+		ModelRatesPath:         envOr("FOUNDRY_MODEL_RATES", "config/executor-model-rates.yaml"),
+		ModelPolicyPath:        envOr("FOUNDRY_EXECUTOR_MODELS", "config/executor-models.yaml"),
+		OpportunityPath:        envOr("FOUNDRY_OPPORTUNITY_THRESHOLDS", "config/opportunity-thresholds.yaml"),
+		AgentCatalogPath:       "agents/catalog.yaml",
+		SkillCatalogPath:       "skills/catalog.yaml",
+		EnablePersonalPath:     "templates/product/.foundry/skills/enabled.yaml",
+		EnableOrganizationPath: "templates/product/.foundry/skills/enabled.yaml",
+	}); err != nil {
+		return fmt.Errorf("seed operator config store: %w", err)
+	}
+	modelPolicy, err := cfgStore.LoadModelPolicy(bgCtx)
+	if err != nil {
+		return fmt.Errorf("load model policy from db: %w", err)
+	}
+	apiexec.SetRuntimeModelPolicy(modelPolicy)
 
 	rawStore, err := provenance.OpenPGRawStore(pgDSN)
 	if err != nil {
@@ -212,9 +234,17 @@ func run() error {
 	// docs/PLAN.md Task 146 (OPP-06): wire StoreRealSignalVerifier + signal
 	// store/allowlist into OpportunityGate. Absence of allowlist config is a
 	// hard startup error (named refusal), never DenyRealSignal-then-bypass.
-	oppConfig, err := opportunity.LoadConfig(envOr("FOUNDRY_OPPORTUNITY_THRESHOLDS", "config/opportunity-thresholds.yaml"))
+	oppConfig, err := cfgStore.LoadOpportunityConfig(bgCtx)
 	if err != nil {
-		return fmt.Errorf("load opportunity thresholds: %w", err)
+		return fmt.Errorf("load opportunity thresholds from db: %w", err)
+	}
+	if _, err := cfgStore.LoadMissionDecidePolicy(bgCtx); err != nil {
+		return fmt.Errorf("load mission-decide policy from db: %w", err)
+	}
+	if values, err := cfgStore.LoadTunableValues(bgCtx); err != nil {
+		return fmt.Errorf("load tunable values from db: %w", err)
+	} else {
+		log.Printf("foundryd: loaded %d operator tunable values", len(values))
 	}
 	signalAllowlist, err := signals.LoadAllowlist(envOr("FOUNDRY_VALIDATION_SIGNAL_ALLOWLIST", "config/validation-signal-allowlist.yaml"))
 	if err != nil {
@@ -308,7 +338,7 @@ func run() error {
 	// Task 120 (COST-02): load the per-model rate table so completed tasks
 	// incur a real, reconcilable cost (unknown when a model has no rate, never
 	// a fabricated default).
-	if rates, rerr := cost.LoadRateTable(envOr("FOUNDRY_MODEL_RATES", "config/executor-model-rates.yaml")); rerr != nil {
+	if rates, rerr := cfgStore.LoadModelRates(bgCtx); rerr != nil {
 		log.Printf("foundryd: model rate table unavailable (costs recorded as unknown): %v", rerr)
 	} else {
 		activities.ModelRates = rates
@@ -329,7 +359,7 @@ func run() error {
 	if flyToken := os.Getenv("FLY_API_TOKEN"); flyToken != "" {
 		activities.DeployAdapter = deploy.FlyAdapter{Token: flyToken}
 	}
-	if deployQuotas, qerr := deploy.LoadQuotas(envOr("FOUNDRY_QUOTAS", "config/quotas.yaml")); qerr != nil {
+	if deployQuotas, qerr := cfgStore.LoadQuotas(bgCtx); qerr != nil {
 		log.Printf("foundryd: deploy quota enforcer unavailable: %v", qerr)
 	} else {
 		activities.DeployQuota = deploy.NewQuotaEnforcer(deployQuotas)
@@ -357,7 +387,7 @@ func run() error {
 	// docs/PLAN.md Task 36 (FND-17): foundryd's HTTP API, served
 	// alongside the Temporal worker for this process's lifetime, bound
 	// to bgCtx the same way the metrics server above is.
-	apiServer, err := buildAPIServer(bgCtx, db, temporalHostPort, pgDSN, rawStore, approverKeys, evidenceStore)
+	apiServer, err := buildAPIServer(bgCtx, db, temporalHostPort, pgDSN, rawStore, approverKeys, evidenceStore, cfgStore)
 	if err != nil {
 		return fmt.Errorf("build api server: %w", err)
 	}
@@ -480,7 +510,7 @@ func run() error {
 	// reversible choice is one "default" portfolio bounded by the personal
 	// quota, recorded here rather than inventing a broader profile-enumeration
 	// scheme.
-	if err := ensurePortfolioSupervisor(bgCtx, c, portfolioStore, deliveryLaneQueue(queueCfg)); err != nil {
+	if err := ensurePortfolioSupervisor(bgCtx, c, portfolioStore, deliveryLaneQueue(queueCfg), cfgStore); err != nil {
 		log.Printf("foundryd: portfolio supervisor not started (portfolio supervision disabled this run): %v", err)
 	}
 	defer func() {
@@ -570,10 +600,10 @@ func deliveryLaneQueue(cfg observe.QueueConfig) string {
 // ALLOW_DUPLICATE_FAILED_ONLY reuse means a restart re-adopts the already
 // running supervisor rather than starting a second one that could race the cap
 // (docs/PLAN.md Task 121).
-func ensurePortfolioSupervisor(ctx context.Context, c client.Client, store *mission.PortfolioStore, missionQueue string) error {
-	quotas, err := deploy.LoadQuotas(envOr("FOUNDRY_QUOTAS", "config/quotas.yaml"))
+func ensurePortfolioSupervisor(ctx context.Context, c client.Client, store *mission.PortfolioStore, missionQueue string, cfgStore *operatorcfg.Store) error {
+	quotas, err := cfgStore.LoadQuotas(ctx)
 	if err != nil {
-		return fmt.Errorf("load quotas: %w", err)
+		return fmt.Errorf("load quotas from db: %w", err)
 	}
 	cap := 0
 	if q, ok := quotas["personal"]; ok {
@@ -624,18 +654,10 @@ func ensurePortfolioSupervisor(ctx context.Context, c client.Client, store *miss
 //     Task 114 (INT-06) makes registered passkeys, in-flight challenges and
 //     signature counters survive a foundryd restart, preserving clone detection
 //     across it.
-func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN string, rawStore *provenance.PGRawStore, approverKeys *provenance.KeyPair, evidenceStore evidence.Store) (*api.Server, error) {
-	// Task 116 (SEC-02): compile all four policy layers for the profile in
-	// force, not platform-only. The org layer (and its kernel-only push rule)
-	// and the profile layer are loaded from their real sources; a configured
-	// path that fails to load is a hard error, never a silent platform-only
-	// fallback. Empty env → that layer is skipped (an empty layer tightens
-	// nothing), the smallest reversible default.
-	orgLayerPath := os.Getenv("FOUNDRY_ORG_POLICY")
-	profileLayerPath := os.Getenv("FOUNDRY_PROFILE_POLICY")
-	resolved, _, err := compiler.CompileFourLayer(orgLayerPath, profileLayerPath)
+func buildAPIServer(ctx context.Context, db *sql.DB, temporalHostPort, pgDSN string, rawStore *provenance.PGRawStore, approverKeys *provenance.KeyPair, evidenceStore evidence.Store, cfgStore *operatorcfg.Store) (*api.Server, error) {
+	resolved, _, err := cfgStore.LoadEffectivePolicy(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("compile four-layer policy: %w", err)
+		return nil, fmt.Errorf("compile four-layer policy from db: %w", err)
 	}
 	bundleDir := envOr("FOUNDRY_POLICY_BUNDLE_DIR", "config/policy/rego")
 	bundleDigest, err := pdp.BundleDigest(bundleDir)

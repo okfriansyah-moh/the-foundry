@@ -39,6 +39,18 @@ func LoadCatalogsFromRoot(root *os.Root) (Catalogs, error) {
 	return catalogs, nil
 }
 
+// ParseCatalogsYAML decodes agent and skill catalog documents from bytes.
+func ParseCatalogsYAML(agentRaw, skillRaw []byte) (Catalogs, error) {
+	var catalogs Catalogs
+	if err := decodeYAMLBytes(AgentCatalogPath, agentRaw, &catalogs.Agents); err != nil {
+		return Catalogs{}, fmt.Errorf("packaging: load agent catalog: %w", err)
+	}
+	if err := decodeYAMLBytes(SkillCatalogPath, skillRaw, &catalogs.Skills); err != nil {
+		return Catalogs{}, fmt.Errorf("packaging: load skill catalog: %w", err)
+	}
+	return catalogs, nil
+}
+
 // LoadEnablement strictly loads a product-local enabled.yaml.
 func LoadEnablement(path string) (Enablement, error) {
 	root, relative, err := openParentRoot(path)
@@ -55,16 +67,24 @@ func LoadEnablementFromRoot(root *os.Root, relative string) (Enablement, error) 
 	return loadEnablementFromRoot(root, relative, nil)
 }
 
-func loadEnablementFromRoot(root *os.Root, relative string, hook canonicalReadHook) (Enablement, error) {
+// ParseEnablementYAML decodes one enablement document from bytes.
+func ParseEnablementYAML(raw []byte, source string) (Enablement, error) {
+	if source == "" {
+		source = "enabled.yaml"
+	}
 	var enabled Enablement
+	if err := decodeYAMLBytes(source, raw, &enabled); err != nil {
+		return Enablement{}, fmt.Errorf("packaging: load enablement: %w", err)
+	}
+	return enabled, nil
+}
+
+func loadEnablementFromRoot(root *os.Root, relative string, hook canonicalReadHook) (Enablement, error) {
 	raw, _, err := readCanonicalFileInfoFromRoot(root, relative, hook)
 	if err != nil {
 		return Enablement{}, fmt.Errorf("packaging: load enablement: %w", err)
 	}
-	if err := decodeYAMLBytes(relative, raw, &enabled); err != nil {
-		return Enablement{}, fmt.Errorf("packaging: load enablement: %w", err)
-	}
-	return enabled, nil
+	return ParseEnablementYAML(raw, relative)
 }
 
 // LoadProfileEnablement loads package declarations from a profile config while
@@ -84,17 +104,17 @@ func LoadProfileEnablementFromRoot(root *os.Root, relative string) (ProfileEnabl
 	return loadProfileEnablementFromRoot(root, relative, nil)
 }
 
-func loadProfileEnablementFromRoot(root *os.Root, relative string, hook canonicalReadHook) (ProfileEnablement, error) {
-	raw, _, err := readCanonicalFileInfoFromRoot(root, relative, hook)
-	if err != nil {
-		return ProfileEnablement{}, fmt.Errorf("packaging: read profile %s: %w", relative, err)
+// ParseProfileEnablementYAML decodes package declarations from one profile YAML payload.
+func ParseProfileEnablementYAML(raw []byte, source string) (ProfileEnablement, error) {
+	if source == "" {
+		source = "profile.yaml"
 	}
 	var document yaml.Node
 	if err := yaml.Unmarshal(raw, &document); err != nil {
-		return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: %w", relative, err)
+		return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: %w", source, err)
 	}
 	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
-		return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: top level must be a mapping", relative)
+		return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: top level must be a mapping", source)
 	}
 	var profile ProfileEnablement
 	mapping := document.Content[0]
@@ -104,23 +124,31 @@ func loadProfileEnablementFromRoot(root *os.Root, relative string, hook canonica
 		switch key {
 		case "agent_packages":
 			if _, duplicate := seenPackageFields[key]; duplicate {
-				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: duplicate field %q", relative, key)
+				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: duplicate field %q", source, key)
 			}
 			seenPackageFields[key] = struct{}{}
 			if err := decodePackageSelection(value, false, &profile.AgentPackages); err != nil {
-				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s agent_packages: %w", relative, err)
+				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s agent_packages: %w", source, err)
 			}
 		case "skill_packages":
 			if _, duplicate := seenPackageFields[key]; duplicate {
-				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: duplicate field %q", relative, key)
+				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s: duplicate field %q", source, key)
 			}
 			seenPackageFields[key] = struct{}{}
 			if err := decodePackageSelection(value, true, &profile.SkillPackages); err != nil {
-				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s skill_packages: %w", relative, err)
+				return ProfileEnablement{}, fmt.Errorf("packaging: parse profile %s skill_packages: %w", source, err)
 			}
 		}
 	}
 	return profile, nil
+}
+
+func loadProfileEnablementFromRoot(root *os.Root, relative string, hook canonicalReadHook) (ProfileEnablement, error) {
+	raw, _, err := readCanonicalFileInfoFromRoot(root, relative, hook)
+	if err != nil {
+		return ProfileEnablement{}, fmt.Errorf("packaging: read profile %s: %w", relative, err)
+	}
+	return ParseProfileEnablementYAML(raw, relative)
 }
 
 func decodePackageSelection(node *yaml.Node, allowDomain bool, dst any) error {

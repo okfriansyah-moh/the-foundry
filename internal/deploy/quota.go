@@ -43,9 +43,17 @@ func LoadQuotas(path string) (map[string]ProfileQuota, error) {
 	if err != nil {
 		return nil, fmt.Errorf("deploy: read quotas %s: %w", path, err)
 	}
+	return ParseQuotasYAML(raw, path)
+}
+
+// ParseQuotasYAML strictly decodes quotas YAML payload bytes.
+func ParseQuotasYAML(raw []byte, source string) (map[string]ProfileQuota, error) {
+	if source == "" {
+		source = "<memory>"
+	}
 	var file QuotaFile
 	if err := yaml.Unmarshal(raw, &file); err != nil {
-		return nil, fmt.Errorf("deploy: parse quotas %s: %w", path, err)
+		return nil, fmt.Errorf("deploy: parse quotas %s: %w", source, err)
 	}
 	return file.Profiles, nil
 }

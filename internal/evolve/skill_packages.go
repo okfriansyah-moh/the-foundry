@@ -72,8 +72,15 @@ type SkillPackageBridge struct {
 	Root          string
 	Pipeline      L1Pipeline
 	DurableFreeze DurableFreezeGate
+	ConfigSource  PackageConfigSource
 	now           func() time.Time
 	beforeStep    func(string) error
+}
+
+// PackageConfigSource provides DB-backed packaging config payloads used by
+// CAP-04 cutover. When nil, the bridge reads filesystem sources.
+type PackageConfigSource interface {
+	Load(context.Context) (packaging.Catalogs, packaging.Enablement, packaging.ProfileEnablement, packaging.ProfileEnablement, error)
 }
 
 // SkillPackageRecord is a bounded, append-only audit row. Prompt contents are
@@ -141,7 +148,7 @@ func (b *SkillPackageBridge) Promote(ctx context.Context, cand L1Candidate, stag
 		return L1Outcome{}, fmt.Errorf("evolve: candidate base is not the current registry version")
 	}
 
-	catalogs, enabled, personal, organization, skillIndex, originalCatalog, err := loadValidatedEvolutionRepository(root, cand.Base.SkillID)
+	catalogs, enabled, personal, organization, skillIndex, originalCatalog, err := loadValidatedEvolutionRepository(ctx, root, cand.Base.SkillID, b.ConfigSource)
 	if err != nil {
 		return L1Outcome{}, err
 	}
@@ -359,7 +366,7 @@ func (b *SkillPackageBridge) Rollback(ctx context.Context, skillID string) (resu
 	if err := reconcilePreparedRecords(root, b.record); err != nil {
 		return SkillPackageRecord{}, err
 	}
-	catalogs, enabled, personal, organization, index, originalCatalog, err := loadValidatedEvolutionRepository(root, skillID)
+	catalogs, enabled, personal, organization, index, originalCatalog, err := loadValidatedEvolutionRepository(ctx, root, skillID, b.ConfigSource)
 	if err != nil {
 		return SkillPackageRecord{}, err
 	}
@@ -603,22 +610,36 @@ func lockEvolution(root *os.Root) (func(), error) {
 	}, nil
 }
 
-func loadValidatedEvolutionRepository(root *os.Root, skillID string) (packaging.Catalogs, packaging.Enablement, packaging.ProfileEnablement, packaging.ProfileEnablement, int, []byte, error) {
-	catalogs, err := packaging.LoadCatalogsFromRoot(root)
-	if err != nil {
-		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, fmt.Errorf("evolve: load catalogs: %w", err)
-	}
-	enabled, err := packaging.LoadEnablementFromRoot(root, "templates/product/.foundry/skills/enabled.yaml")
-	if err != nil {
-		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err
-	}
-	personal, err := packaging.LoadProfileEnablementFromRoot(root, "config/profiles/personal-autonomous-venture.yaml")
-	if err != nil {
-		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err
-	}
-	organization, err := packaging.LoadProfileEnablementFromRoot(root, "config/profiles/organization-10x.yaml")
-	if err != nil {
-		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err
+func loadValidatedEvolutionRepository(ctx context.Context, root *os.Root, skillID string, source PackageConfigSource) (packaging.Catalogs, packaging.Enablement, packaging.ProfileEnablement, packaging.ProfileEnablement, int, []byte, error) {
+	var (
+		catalogs     packaging.Catalogs
+		enabled      packaging.Enablement
+		personal     packaging.ProfileEnablement
+		organization packaging.ProfileEnablement
+		err          error
+	)
+	if source != nil {
+		catalogs, enabled, personal, organization, err = source.Load(ctx)
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, fmt.Errorf("evolve: load config source: %w", err)
+		}
+	} else {
+		catalogs, err = packaging.LoadCatalogsFromRoot(root)
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, fmt.Errorf("evolve: load catalogs: %w", err)
+		}
+		enabled, err = packaging.LoadEnablementFromRoot(root, "templates/product/.foundry/skills/enabled.yaml")
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err
+		}
+		personal, err = packaging.LoadProfileEnablementFromRoot(root, "config/profiles/personal-autonomous-venture.yaml")
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err
+		}
+		organization, err = packaging.LoadProfileEnablementFromRoot(root, "config/profiles/organization-10x.yaml")
+		if err != nil {
+			return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err
+		}
 	}
 	if err := validateEvolutionRepository(root, catalogs, enabled, personal, organization); err != nil {
 		return packaging.Catalogs{}, packaging.Enablement{}, packaging.ProfileEnablement{}, packaging.ProfileEnablement{}, -1, nil, err

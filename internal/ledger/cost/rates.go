@@ -32,9 +32,17 @@ func LoadRateTable(path string) (RateTable, error) {
 	if err != nil {
 		return RateTable{}, fmt.Errorf("cost: read rate table %s: %w", path, err)
 	}
+	return ParseRateTableYAML(raw, path)
+}
+
+// ParseRateTableYAML decodes a rate table from YAML bytes.
+func ParseRateTableYAML(raw []byte, source string) (RateTable, error) {
+	if source == "" {
+		source = "<memory>"
+	}
 	var rt RateTable
 	if err := yaml.Unmarshal(raw, &rt); err != nil {
-		return RateTable{}, fmt.Errorf("cost: parse rate table %s: %w", path, err)
+		return RateTable{}, fmt.Errorf("cost: parse rate table %s: %w", source, err)
 	}
 	rt.index()
 	return rt, nil

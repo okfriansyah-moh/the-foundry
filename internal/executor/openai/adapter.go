@@ -36,7 +36,7 @@ const (
 // Precedence: a per-class ModelPolicy hit overrides the blunt ModelEnv
 // (FOUNDRY_OPENAI_MODEL) override when both are set.
 func New() *apiexec.Adapter {
-	policy, err := apiexec.LoadModelPolicy(modelPolicyPath())
+	policy, err := apiexec.LoadModelPolicyWithRuntimeFallback(modelPolicyPath())
 	if err != nil {
 		panic(fmt.Sprintf("openai: invalid model policy: %v", err))
 	}
