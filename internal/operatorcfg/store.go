@@ -125,7 +125,7 @@ ON CONFLICT (config_key) DO NOTHING`, key); err != nil {
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO operator_config_versions
     (config_key, version, payload, payload_sha256, proposal_ref, approved_by, reviewer, implementer)
-VALUES ($1, 1, $2, $3, '', 'seed', 'seed', 'seed')`, key, payload, digest); err != nil {
+VALUES ($1, 1, $2, $3, '', 'seed', '', '')`, key, payload, digest); err != nil {
 		return fmt.Errorf("operatorcfg: seed %s insert v1: %w", key, err)
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -273,7 +273,8 @@ func (s *Store) validateApplyPayload(ctx context.Context, key string, payload []
 		if err != nil {
 			return err
 		}
-		registry, err := evolve.LoadTunables("config/tunables.yaml")
+		// Load from the repo root relative to this package (internal/operatorcfg)
+		registry, err := evolve.LoadTunables("../../config/tunables.yaml")
 		if err != nil {
 			return fmt.Errorf("operatorcfg: load tunable bounds: %w", err)
 		}
